@@ -1,12 +1,13 @@
 import { newGame, newGamePlayer } from "./game";
 import { generateId } from "./util";
-export const LIMIT = 10;
-export const PLAYER_LIMIT = 5;
+export const TABLE_LIMIT = 10;
 
 export type NewTableParams = {
   name: string;
   password: string;
   player: Player;
+  playerLimit: number;
+  bo: number;
 };
 
 export type EnterTableParams = {
@@ -22,6 +23,8 @@ export const newTable = (params: NewTableParams): Table => {
     hostId: params.player.id,
     name: params.name,
     password: params.password,
+    bo: params.bo,
+    playerLimit: params.playerLimit,
     createdAt: now,
     updatedAt: now,
     lastGame: null,
@@ -46,7 +49,7 @@ export const enterTable = (
   if (
     table.game.players.findIndex((item) => item.id === params.player.id) === -1
   ) {
-    if (table.game.players.length >= PLAYER_LIMIT) {
+    if (table.game.players.length >= table.playerLimit) {
       return {
         error: new Error("Too many players"),
         table,
@@ -58,5 +61,17 @@ export const enterTable = (
   return {
     error: null,
     table,
+  };
+};
+
+export const resetSession = (table: Table): Table => {
+  return {
+    ...table,
+    game: newGame(
+      null,
+      table.game.players.map((gp) => ({ ...gp, chipCount: 0 })),
+    ),
+    lastGame: null,
+    updatedAt: Date.now(),
   };
 };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
-import { LIMIT } from "@logic/table";
+import { TABLE_LIMIT } from "@logic/table";
 import NewTable from "./NewTable";
 import LobbyTable from "./LobbyTable";
 import EnterTable from "./EnterTable";
@@ -64,7 +64,7 @@ const Tables = () => {
                 <LobbyTable data={item} />
               </div>
             ))}
-            {tables.length < LIMIT && (
+            {tables.length < TABLE_LIMIT && (
               <>
                 <button
                   className="!p-0 h-[8rem] w-[8rem] border border-green-600 hover:bg-green-600"
@@ -78,7 +78,7 @@ const Tables = () => {
         </div>
       )}
       {isCreatingTable && (
-        <NewTable close={() => setIsCreatingTable(false)} limit={LIMIT} />
+        <NewTable close={() => setIsCreatingTable(false)} limit={TABLE_LIMIT} />
       )}
       {!!enteringTable && (
         <EnterTable

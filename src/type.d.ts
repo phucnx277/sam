@@ -38,7 +38,8 @@ type PlayerAction =
   | "ask"
   | "tiger"
   | "play"
-  | "pass";
+  | "pass"
+  | "resetSession";
 
 type GameState = "waiting" | "handChecking" | "playing" | "ended";
 
@@ -71,4 +72,6 @@ type Table = {
   updatedAt: number;
   lastGame: Game | null;
   game: Game;
+  bo: number;
+  playerLimit: number;
 };
