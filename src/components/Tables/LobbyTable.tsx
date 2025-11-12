@@ -1,0 +1,20 @@
+import { memo } from "react";
+
+const LobbyTable = memo(({ data }: { data: Table }) => {
+  return (
+    <div
+      className={`h-full w-full flex flex-col justify-center items-center border rounded-sm ${data.game.state === "waiting" ? "bg-green-300 border-green-700" : data.game.state !== "ended" ? "bg-red-300 border-red-700" : "bg-gray-300 border-gray-700"}`}
+    >
+      <div className="font-semibold text-center">{data.name}</div>
+      <div className="mt-2 flex justify-between items-center">
+        {data.game.players.map((player) => (
+          <div
+            key={player.id}
+            className={`mx-1 size-[1rem] rounded-xs ${data.game.state === "waiting" ? "bg-green-700" : data.game.state !== "ended" ? "bg-red-700" : "bg-gray-700"}`}
+          ></div>
+        ))}
+      </div>
+    </div>
+  );
+});
+export default LobbyTable;

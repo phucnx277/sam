@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+#root {
+  margin: 0 auto;
+  height: 100%;
+  width: 100%;
+}
+
+button {
+  @apply py-2 px-8 rounded-sm;
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 50%;
+  }
+  &:not(:disabled) {
+    cursor: pointer;
+  }
+}
