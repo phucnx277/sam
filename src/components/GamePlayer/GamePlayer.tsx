@@ -182,9 +182,9 @@ const PlayerInfo = ({
 }) => {
   return (
     <div
-      className={`flex items-center justify-center gap-2 ${isMe ? "flex-col" : ""}`}
+      className={`flex justify-center gap-2 ${isMe ? "flex-col" : "items-center"}`}
     >
-      <div className="flex items-center gap-x-1">
+      <div className="flex items-center justify-center gap-x-1">
         {!isMe && (
           <input
             type="checkbox"
@@ -195,7 +195,7 @@ const PlayerInfo = ({
         )}
         <span className="lg:text-lg">{gamePlayer.name}</span>
       </div>
-      <div className="flex items-center justify-beetween gap-x-2">
+      <div className="flex items-center justify-center gap-x-2">
         <div
           className={`font-semibold sm:text-lg lg:text-xl ${gamePlayer.chipCount >= 0 ? `text-green-500` : "text-red-500"}`}
         >

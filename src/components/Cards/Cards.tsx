@@ -24,7 +24,7 @@ const Cards = ({
   const ref: unknown = useRef(null);
   const { width } = useDimensions(ref as RefObject<HTMLElement>);
   useEffect(() => {
-    if (!cards.length || !isMe) return;
+    if (!cards.length) return;
     setTimeout(() => {
       const lastChild = (ref as RefObject<HTMLDivElement>)?.current
         ?.lastElementChild;
@@ -35,7 +35,7 @@ const Cards = ({
       }
       setCardStyles(result);
     }, 10);
-  }, [cards, width, isMe]);
+  }, [cards, width]);
 
   return (
     <div

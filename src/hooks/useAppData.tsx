@@ -138,6 +138,10 @@ const useAppData = () => {
   // TODO: handle concurrent updates
   const updateTable = useCallback(
     async (data: Table): Promise<Error | null> => {
+      const oldPlayingTable = { ...playingTable };
+      if (data.id === playingTable?.id) {
+        setPlayingTable(data);
+      }
       let error: Error | null = null;
       try {
         await channel!.objects.batch((ctx) => {
@@ -166,11 +170,16 @@ const useAppData = () => {
           }
         });
       } catch (err) {
+        // rollback
+        if (data.id === playingTable?.id) {
+          setPlayingTable(oldPlayingTable as Table);
+        }
         error = err as Error;
       }
 
       return error;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [channel],
   );
 

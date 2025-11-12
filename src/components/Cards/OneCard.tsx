@@ -43,7 +43,7 @@ const OneCard = ({
   onClick: () => void;
 }) => {
   const selectedClassees = card.selected ? "selected" : "";
-  const userCardClasses = isMe ? "absolute h-full cursor-pointer" : "";
+  const userCardClasses = isMe ? "cursor-pointer" : "";
   const opponentTiger = !isMe && lastIndex === 0;
   const cardOptions: CardOptions = card.folded
     ? {
@@ -62,7 +62,7 @@ const OneCard = ({
       };
   return (
     <div
-      className={`flex overflow-hidden card-wrapper ${selectedClassees} ${userCardClasses}`.trimEnd()}
+      className={`flex absolute h-full overflow-hidden card-wrapper ${selectedClassees} ${userCardClasses}`.trimEnd()}
       onClick={() => onClick()}
       style={style}
     >

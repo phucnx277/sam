@@ -30,7 +30,7 @@ const PlayingTable = () => {
   }, [playingTable!.id]);
 
   return (
-    <div className="sm:px-4 sm:py-2 lg:p-8 fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-y-1 bg-cyan-50">
+    <div className="sm:px-4 sm:py-2 lg:p-20 fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-y-1 bg-cyan-50">
       <div className="w-full flex flex-1 justify-around sm:gap-x-8 lg:gap-x-20">
         {opponents.map((gp) => (
           <GamePlayer key={gp.id} gamePlayer={gp} />

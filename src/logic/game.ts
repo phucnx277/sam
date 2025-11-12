@@ -346,10 +346,10 @@ export const ActionDef: Record<
         table.game.currentPlayerId === table.game.startPlayerId
       ) {
         table.game = evaluateTigers(table.game);
+        table.game.state = "playing";
       }
 
       table.game.turnStartedAt = Date.now();
-      table.game.state = "playing";
 
       return table;
     },
