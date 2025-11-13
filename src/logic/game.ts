@@ -450,7 +450,11 @@ export const ActionDef: Record<
       };
     },
     handleAction(playingTable: Table): Table {
-      return resetSession(playingTable);
+      const shouldReset = window.confirm("Chắc chưa?");
+      if (shouldReset) {
+        return resetSession(playingTable);
+      }
+      return playingTable;
     },
   },
 };

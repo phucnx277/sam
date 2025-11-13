@@ -17,7 +17,7 @@ const Tables = () => {
     e.preventDefault();
     e.stopPropagation();
 
-    const shouldDelete = confirm("Delete this table?");
+    const shouldDelete = window.confirm("Xóa nhé?");
     if (shouldDelete) {
       const err = await removeTable(table.id);
       if (err) {
