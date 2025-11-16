@@ -29,7 +29,7 @@ const Tables = () => {
   useEffect(() => {
     if (!tables?.length) return;
     const queryObj = new URLSearchParams(window.location.search);
-    const tableId = queryObj.get("tableId");
+    const tableId = queryObj.get("tblId");
     if (!tableId) return;
 
     const table = tables.find((item) => item.id === tableId);
@@ -40,51 +40,59 @@ const Tables = () => {
 
   return (
     <>
-      {isInitialized && !!localPlayer && (
-        <div className="p-4">
-          <p className="text-xl mb-4">
-            Welcome, <span className="font-semibold">{localPlayer.name}</span>!
-          </p>
-          {tables.length > 0 && <p>Select a table</p>}
-          <div className="flex mt-4 items-center">
-            {tables.map((item) => (
-              <div
-                className="!p-0 h-[8rem] w-[8rem] mr-4 cursor-pointer relative"
-                key={item.id}
-                onClick={() => setEnteringTable(item)}
-              >
-                {localPlayer.isAdmin && (
-                  <span
-                    className="absolute right-2 top-1.5 font-normal"
-                    onClick={(e) => confirmRemoveTable(e, item)}
+      {!playingTable && (
+        <>
+          {isInitialized && !!localPlayer && (
+            <div className="p-4">
+              <p className="text-xl mb-4">
+                Welcome,{" "}
+                <span className="font-semibold">{localPlayer.name}</span>!
+              </p>
+              {tables.length > 0 && <p>Select a table</p>}
+              <div className="flex flex-wrap gap-2 mt-4 items-center">
+                {tables.map((item) => (
+                  <div
+                    className="!p-0 h-[8rem] w-[8rem] cursor-pointer relative"
+                    key={item.id}
+                    onClick={() => setEnteringTable(item)}
                   >
-                    {"🗙"}
-                  </span>
+                    {localPlayer.isAdmin && (
+                      <span
+                        className="absolute right-2 top-0.5 font-normal text-gray-500 hover:text-gray-800"
+                        onClick={(e) => confirmRemoveTable(e, item)}
+                      >
+                        {"🗙"}
+                      </span>
+                    )}
+                    <LobbyTable data={item} />
+                  </div>
+                ))}
+                {tables.length < TABLE_LIMIT && (
+                  <>
+                    <button
+                      className="!p-0 h-[8rem] w-[8rem] border border-green-600 hover:bg-green-600"
+                      onClick={() => setIsCreatingTable(true)}
+                    >
+                      Create table
+                    </button>
+                  </>
                 )}
-                <LobbyTable data={item} />
               </div>
-            ))}
-            {tables.length < TABLE_LIMIT && (
-              <>
-                <button
-                  className="!p-0 h-[8rem] w-[8rem] border border-green-600 hover:bg-green-600"
-                  onClick={() => setIsCreatingTable(true)}
-                >
-                  Create table
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-      {isCreatingTable && (
-        <NewTable close={() => setIsCreatingTable(false)} limit={TABLE_LIMIT} />
-      )}
-      {!!enteringTable && (
-        <EnterTable
-          table={enteringTable}
-          close={() => setEnteringTable(null)}
-        />
+            </div>
+          )}
+          {isCreatingTable && (
+            <NewTable
+              close={() => setIsCreatingTable(false)}
+              limit={TABLE_LIMIT}
+            />
+          )}
+          {!!enteringTable && (
+            <EnterTable
+              table={enteringTable}
+              close={() => setEnteringTable(null)}
+            />
+          )}
+        </>
       )}
       {!!playingTable && <PlayingTable />}
     </>

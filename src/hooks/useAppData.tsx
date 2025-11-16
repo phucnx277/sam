@@ -15,6 +15,7 @@ import {
   type NewTableParams,
 } from "@logic/table";
 
+const LS_API_KEY = "sam.apiKey";
 const CHANNEL_ID = "sam.lobby";
 const Keys = {
   Tables: "tables",
@@ -27,6 +28,7 @@ const useAbbyStore = create<{
   playingTable: Table | null;
   init: (key: string) => Promise<{ error: Error | null }>;
   setPlayingTable: (data: Table) => Error | null;
+  unsetPlayingTable: () => void;
 }>((set) => ({
   channel: null,
   tablesMap: null,
@@ -68,6 +70,7 @@ const useAbbyStore = create<{
         tablesMap,
         tables: parseTables(tablesMap.entries()),
       }));
+      localStorage.setItem(LS_API_KEY, apiKey);
     } catch (err) {
       error = err as Error;
     }
@@ -113,11 +116,29 @@ const useAbbyStore = create<{
 
     return error;
   },
+  unsetPlayingTable: () => {
+    set((state) => {
+      if (!state.playingTable) return {};
+      const playingTableMap = state.tablesMap!.get(
+        state.playingTable.id,
+      ) as Abby.LiveMap<Abby.LiveMapType>;
+      if (!playingTableMap) return { playingTable: null };
+      playingTableMap.unsubscribeAll();
+      return { playingTable: null };
+    });
+  },
 }));
 
 const useAppData = () => {
-  const { channel, tablesMap, tables, playingTable, init, setPlayingTable } =
-    useAbbyStore();
+  const {
+    channel,
+    tablesMap,
+    tables,
+    playingTable,
+    init,
+    setPlayingTable,
+    unsetPlayingTable,
+  } = useAbbyStore();
 
   const createTable = useCallback(
     async (params: NewTableParams): Promise<{ error: Error | null }> => {
@@ -218,6 +239,8 @@ const useAppData = () => {
     enterTable,
     updateTable,
     removeTable,
+    leaveTable: () => unsetPlayingTable(),
+    getApiKey: () => localStorage.getItem(LS_API_KEY),
   };
 };
 

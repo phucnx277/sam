@@ -2,14 +2,22 @@ import { useEffect, useState, type FormEvent } from "react";
 import useAppData from "@hooks/useAppData";
 
 const InitAppData = () => {
-  const { init } = useAppData();
+  const { init, getApiKey } = useAppData();
   const [key, setKey] = useState<string>("");
   const [isInitializing, setIsInitializing] = useState(false);
 
   useEffect(() => {
-    const queryObj = new URLSearchParams(window.location.search);
-    const apiKey = queryObj.get("apiKey");
-    setKey(apiKey || "");
+    const url = new URL(window.location.href);
+    const apiKey = url.searchParams.get("apiKey");
+    setKey(apiKey || getApiKey() || "");
+
+    setTimeout(() => {
+      if (url.searchParams.has("apiKey")) {
+        url.searchParams.delete("apiKey");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }, 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initAppData = async (e: FormEvent) => {
@@ -19,12 +27,7 @@ const InitAppData = () => {
     setIsInitializing(false);
     if (error) {
       alert(error.message);
-      setKey("");
-      return;
     }
-    const url = new URL(window.location.href);
-    url.searchParams.set("apiKey", key);
-    window.history.replaceState({}, "", url.toString());
   };
 
   return (
@@ -36,7 +39,7 @@ const InitAppData = () => {
         name="apiKey"
         className="p-2 border border-gray-500 rounded-sm w-[525px] max-w-full"
         autoFocus
-        type="password"
+        type="text"
         value={key}
         placeholder="Input Abby API key"
         onInput={(e) => setKey(e.currentTarget.value)}

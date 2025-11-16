@@ -232,11 +232,11 @@ export const ActionDef: Record<
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean } {
       const visible =
+        currentPlayer.isReady &&
         playingTable.game.state === "handChecking" &&
-        playingTable.game.round === -1 &&
-        playingTable.lastGame?.winnerId === currentPlayer.id;
-      const disabled =
-        !currentPlayer.isReady || !isPlayerTurn(playingTable, currentPlayer);
+        playingTable.game.round < 0 &&
+        currentPlayer.id === playingTable.lastGame?.winnerId;
+      const disabled = !isPlayerTurn(playingTable, currentPlayer);
       return { visible, disabled };
     },
     handleAction(playingTable: Table): Table {
@@ -260,7 +260,6 @@ export const ActionDef: Record<
       return table;
     },
   },
-
   tiger: {
     label: "Báo",
     type: "button",
@@ -300,59 +299,6 @@ export const ActionDef: Record<
         table.game = evaluateTigers(table.game);
         table.game.state = "playing";
       }
-      table.game.turnStartedAt = Date.now();
-
-      return table;
-    },
-  },
-  pass: {
-    label: "Bỏ",
-    type: "button",
-    checkState(
-      playingTable: Table,
-      currentPlayer: GamePlayer,
-    ): { disabled: boolean; visible: boolean } {
-      const isTurn = isPlayerTurn(playingTable, currentPlayer);
-      const visible = currentPlayer.isReady && isGameInProgress(playingTable);
-      const disabled =
-        !isTurn ||
-        (isTurn &&
-          (isEveryonePassed(playingTable.game) ||
-            currentPlayer.lastAction === "tiger")) ||
-        isFirstToAct(playingTable, currentPlayer);
-      return { visible, disabled };
-    },
-    handleAction(playingTable: Table): Table {
-      const table = { ...playingTable };
-      table.game = {
-        ...table.game,
-        players: table.game.players.map((gamePlayer) => {
-          if (gamePlayer.id !== table.game.currentPlayerId) {
-            return gamePlayer;
-          }
-          return {
-            ...gamePlayer,
-            lastPlayedRound: table.game.round,
-            lastAction: "pass",
-          };
-        }),
-      };
-      table.game.currentPlayerId = findNextPlayerId(table);
-
-      // "playing" state - everyone passed, new round
-      if (table.game.state === "playing" && isEveryonePassed(table.game)) {
-        table.game.players = calcRoundChipCount(table);
-      }
-
-      // "handChecking" round finishes
-      if (
-        table.game.state === "handChecking" &&
-        table.game.currentPlayerId === table.game.startPlayerId
-      ) {
-        table.game = evaluateTigers(table.game);
-        table.game.state = "playing";
-      }
-
       table.game.turnStartedAt = Date.now();
 
       return table;
@@ -431,6 +377,60 @@ export const ActionDef: Record<
         }),
       };
       table.game = checkAndUpdateIfGameEnded(table);
+      return table;
+    },
+  },
+
+  pass: {
+    label: "Bỏ",
+    type: "button",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const isTurn = isPlayerTurn(playingTable, currentPlayer);
+      const visible =
+        currentPlayer.isReady &&
+        isGameInProgress(playingTable) &&
+        !isFirstToAct(playingTable, currentPlayer) &&
+        currentPlayer.lastAction !== "tiger";
+      const disabled =
+        !isTurn || (isTurn && isEveryonePassed(playingTable.game));
+      return { visible, disabled };
+    },
+    handleAction(playingTable: Table): Table {
+      const table = { ...playingTable };
+      table.game = {
+        ...table.game,
+        players: table.game.players.map((gamePlayer) => {
+          if (gamePlayer.id !== table.game.currentPlayerId) {
+            return gamePlayer;
+          }
+          return {
+            ...gamePlayer,
+            lastPlayedRound: table.game.round,
+            lastAction: "pass",
+          };
+        }),
+      };
+      table.game.currentPlayerId = findNextPlayerId(table);
+
+      // "playing" state - everyone passed, new round
+      if (table.game.state === "playing" && isEveryonePassed(table.game)) {
+        table.game.players = calcRoundChipCount(table);
+      }
+
+      // "handChecking" round finishes
+      if (
+        table.game.state === "handChecking" &&
+        table.game.currentPlayerId === table.game.startPlayerId
+      ) {
+        table.game = evaluateTigers(table.game);
+        table.game.state = "playing";
+      }
+
+      table.game.turnStartedAt = Date.now();
+
       return table;
     },
   },
@@ -692,6 +692,7 @@ function isGameInProgress(playingTable: Table): boolean {
 function isFirstToAct(playingTable: Table, player: GamePlayer): boolean {
   return (
     playingTable.game.round <= 0 &&
+    (!player.lastAction || player.lastAction === "ask") &&
     player.id === playingTable.game.startPlayerId
   );
 }

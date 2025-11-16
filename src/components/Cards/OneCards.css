@@ -1,4 +1,4 @@
-.card-wrapper {
+.card-item {
   &:last-child {
     overflow: visible !important;
   }
@@ -12,6 +12,7 @@
 playing-card {
   display: flex !important;
   img {
-    max-width: unset !important;
+    user-select: none;
+    -webkit-user-drag: none;
   }
 }

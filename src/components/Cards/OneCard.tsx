@@ -62,9 +62,9 @@ const OneCard = ({
       };
   return (
     <div
-      className={`flex absolute h-full overflow-hidden card-wrapper ${selectedClassees} ${userCardClasses}`.trimEnd()}
+      className={`card-item absolute h-full overflow-hidden ${selectedClassees} ${userCardClasses}`}
       onClick={() => onClick()}
-      style={style}
+      style={{ ...style, aspectRatio: "18/25" }}
     >
       <playing-card {...cardOptions} />
     </div>

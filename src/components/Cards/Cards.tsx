@@ -22,25 +22,30 @@ const Cards = ({
     {},
   );
   const ref: unknown = useRef(null);
-  const { width } = useDimensions(ref as RefObject<HTMLElement>);
+  const { width, height } = useDimensions(ref as RefObject<HTMLElement>);
+
   useEffect(() => {
-    if (!cards.length) return;
+    if (!cards.length || !width || !height) return;
     setTimeout(() => {
       const lastChild = (ref as RefObject<HTMLDivElement>)?.current
         ?.lastElementChild;
-      const cardWidth = (lastChild as HTMLElement)?.offsetWidth;
+      let cardWidth = (lastChild as HTMLElement)?.offsetWidth;
+      if (cardWidth === 0) {
+        const cardHeight = (lastChild as HTMLElement)?.offsetHeight;
+        cardWidth = (cardHeight * 18) / 25;
+      }
       const result: Record<string, CSSProperties> = {};
       for (let index = 0; index < cards.length; index++) {
         result[index] = calStyle(cards.length, width, cardWidth, index);
       }
       setCardStyles(result);
     }, 10);
-  }, [cards, width]);
+  }, [cards, width, height]);
 
   return (
     <div
       ref={ref as RefObject<HTMLDivElement>}
-      className={`flex flex-1 flex-row justify-center max-w-full relative`}
+      className={`card-list flex-1 max-w-full relative`}
     >
       {cards.map((card, idx) => (
         <OneCard
@@ -59,16 +64,16 @@ const Cards = ({
 function calStyle(
   totalCards: number,
   containerWidth: number,
-  childWidth: number,
+  cardWidth: number,
   index: number,
 ): CSSProperties {
   const style: CSSProperties = {};
-  const realWidth = totalCards * childWidth;
+  const realWidth = totalCards * cardWidth;
   const px = (containerWidth - realWidth) / 2;
   if (px >= 0) {
-    style.left = index * childWidth + px + "px";
+    style.left = index * cardWidth + px + "px";
   } else {
-    const each = (containerWidth - childWidth) / (totalCards - 1);
+    const each = (containerWidth - cardWidth) / (totalCards - 1);
     style.left = index * each + "px";
   }
   return style;

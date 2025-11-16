@@ -10,7 +10,7 @@ const Credentials = () => {
   return (
     <>
       {(!isInitialized || !player) && (
-        <div className="h-full flex flex-col items-center justify-center">
+        <div className="h-full max-w-full flex flex-col items-center justify-center">
           {!player && <InputPlayerInfo />}
           {!!player && (
             <>

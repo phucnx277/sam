@@ -40,7 +40,10 @@ const NewTable = (props: { close: () => void; limit: number }) => {
   return (
     <div className="fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">
       <div className="w-full flex justify-center">
-        <form className="bg-white p-8 rounded-lg" onSubmit={submit}>
+        <form
+          className="bg-white p-8 rounded-lg shadow-2xl shadow-gray-400"
+          onSubmit={submit}
+        >
           <div>
             <input
               name="tblName"

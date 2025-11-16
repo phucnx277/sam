@@ -1,16 +1,17 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
+import { useSwipeable } from "react-swipeable";
 import { areCardsIdentical, sortCards } from "@logic/card";
+import { findTigerAndKiller } from "@logic/game";
 import useLocalGame from "@hooks/useLocalGame";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import Cards from "../Cards/Cards";
 import Actions from "./Actions";
-import { findTigerAndKiller } from "@logic/game";
 
 const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const { localPlayer } = useLocalPlayer();
   const { localGame, setLocalGame } = useLocalGame();
-  const { playingTable, updateTable } = useAppData();
+  const { playingTable, updateTable, leaveTable, getApiKey } = useAppData();
   const [localCards, setLocalCards] = useState<Card[]>([]);
   const [{ tiger, tigerKiller }, setTigers] = useState<{
     tiger?: GamePlayer | null;
@@ -76,156 +77,189 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
     setLocalCards((prev) => handleCardSelect(prev || [], card));
   };
 
-  const sortLocalCards = () => {
+  const sortLocalCards = (descending: boolean) => {
     if (!isMe || !localGame) return;
-    setLocalCards(sortCards(localCards));
+    setLocalCards(sortCards(localCards, descending));
   };
 
-  const unfoldLocalCards = () => {
-    setLocalCards(
-      localCards.map((item) => ({ ...item, folded: !item.folded })),
-    );
+  const unfoldLocalCards = (folded: boolean) => {
+    setLocalCards(localCards.map((item) => ({ ...item, folded })));
   };
 
   const updateLocalCards = (orderedCards: Card[]) => {
     setLocalCards(orderedCards);
   };
 
+  const handleTableAction = (action: "lobby" | "share") => {
+    switch (action) {
+      case "lobby": {
+        const confirmLeave = window.confirm("Rời bàn?");
+        if (confirmLeave) {
+          leaveTable();
+        }
+        break;
+      }
+      case "share": {
+        if (!navigator.clipboard) {
+          break;
+        }
+        const tableUrl = `${window.location.href}?apiKey=${getApiKey()}&tblId=${playingTable!.id}&tblPw=${playingTable!.password}`;
+        navigator.clipboard
+          .writeText(tableUrl)
+          .then(() => {
+            alert("Link copied!");
+          })
+          .catch((e) => {
+            alert(e);
+          });
+        break;
+      }
+    }
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwiped: (event) => {
+      switch (event.dir) {
+        case "Left":
+          unfoldLocalCards(true);
+          break;
+        case "Right":
+          unfoldLocalCards(false);
+          break;
+        case "Up":
+          sortLocalCards(false);
+          break;
+        case "Down":
+          sortLocalCards(true);
+          break;
+      }
+    },
+    trackMouse: true,
+    preventScrollOnSwipe: true,
+  });
+
   return (
     <div
-      className={`flex gap-x-4 p-2 w-full rounded-sm ${gamePlayer.isReady || isMe ? "opacity-100" : "opacity-50"} ${playingTable!.game?.currentPlayerId === gamePlayer.id ? "bg-green-300/30" : ""}`}
+      className={`flex gap-x-2 p-2 w-full rounded-sm ${gamePlayer.isReady || isMe ? "opacity-100" : "opacity-50"} ${playingTable!.game?.currentPlayerId === gamePlayer.id ? "bg-green-300/30" : ""}`}
     >
       {isMe && (
         <div className="flex flex-col w-[8rem]">
           <PlayerInfo
             gamePlayer={gamePlayer}
-            gameState={playingTable!.game.state}
             isMe={true}
             isWinner={playingTable!.lastGame?.winnerId === gamePlayer.id}
-            onCardsSort={sortLocalCards}
-            onUnfoldCards={unfoldLocalCards}
+            onAction={handleTableAction}
           />
         </div>
       )}
-      <div className={`flex flex-col flex-1 gap-y-1`}>
+      <div className={`flex flex-col flex-1 w-full gap-y-1 relative`}>
         {!isMe && (
           <PlayerInfo
             gamePlayer={gamePlayer}
-            gameState={playingTable!.game.state}
             isMe={false}
             isWinner={playingTable!.lastGame?.winnerId === gamePlayer.id}
           />
         )}
-        <div className="flex flex-1 relative">
-          {localCards.length > 0 &&
-            playingTable!.game?.winnerId !== gamePlayer.id && (
-              <div
-                className={`flex flex-1 w-full ${playingTable!.game.state === "ended" ? "opacity-20" : ""}`}
-              >
-                <Cards
-                  isMe={isMe}
-                  cards={localCards}
-                  onCardSelect={selectCard}
-                  onReorder={updateLocalCards}
-                />
-              </div>
-            )}
-          {playingTable!.game.state === "ended" && (
-            <div className="absolute top-0 right-0 bottom-0 left-0 flex flex-1 items-center justify-center gap-x-1 text-3xl lg:text-6xl">
-              {playingTable!.game?.winnerId === gamePlayer.id && (
-                <span>👑</span>
-              )}
-              {playingTable!.game?.winnerId === gamePlayer.id &&
-                gamePlayer.id === tiger?.id && <span>🐆</span>}
-              {(gamePlayer.id === tigerKiller?.id ||
-                (gamePlayer.id === tiger?.id &&
-                  gamePlayer.id !== playingTable!.game?.winnerId)) && (
-                <span className="relative">
-                  <span>🐆</span>
-                  <span className="absolute top-0 right-0 bottom-0 left-0">
-                    🔪
-                  </span>
-                </span>
-              )}
+        {localCards.length > 0 &&
+          playingTable!.game?.winnerId !== gamePlayer.id && (
+            <div
+              {...(isMe ? swipeHandlers : {})}
+              className={`flex flex-1 w-full swipeable ${playingTable!.game.state === "ended" ? "opacity-20" : ""}`}
+            >
+              <Cards
+                isMe={isMe}
+                cards={localCards}
+                onCardSelect={selectCard}
+                onReorder={updateLocalCards}
+              />
             </div>
           )}
-        </div>
+        {playingTable!.game.state === "ended" && (
+          <div className="absolute top-0 right-0 bottom-0 left-0 flex flex-1 items-center justify-center gap-x-1 text-3xl lg:text-6xl">
+            {playingTable!.game?.winnerId === gamePlayer.id && <span>👑</span>}
+            {playingTable!.game?.winnerId === gamePlayer.id &&
+              gamePlayer.id === tiger?.id && <span>🐆</span>}
+            {(gamePlayer.id === tigerKiller?.id ||
+              (gamePlayer.id === tiger?.id &&
+                gamePlayer.id !== playingTable!.game?.winnerId)) && (
+              <span className="relative">
+                <span>🐆</span>
+                <span className="absolute top-0 right-0 bottom-0 left-0">
+                  🔪
+                </span>
+              </span>
+            )}
+          </div>
+        )}
       </div>
       {isMe && (
-        <div className="flex">
-          <Actions
-            gamePlayer={gamePlayer}
-            selectedCards={localCards.filter((item) => item.selected) || []}
-            playingTable={playingTable!}
-            onAction={handleAction}
-          />
-        </div>
+        <Actions
+          gamePlayer={gamePlayer}
+          selectedCards={localCards.filter((item) => item.selected) || []}
+          playingTable={playingTable!}
+          onAction={handleAction}
+        />
       )}
     </div>
   );
 };
 
-const PlayerInfo = ({
-  isMe,
-  gamePlayer,
-  gameState,
-  isWinner,
-  onCardsSort,
-  onUnfoldCards,
-}: {
-  isMe: boolean;
-  gamePlayer: GamePlayer;
-  gameState: GameState;
-  isWinner?: boolean;
-  onCardsSort?: () => void;
-  onUnfoldCards?: () => void;
-}) => {
-  return (
-    <div
-      className={`flex justify-center gap-2 ${isMe ? "flex-col" : "items-center"}`}
-    >
-      <div className="flex items-center justify-center gap-x-1">
-        {!isMe && (
-          <input
-            type="checkbox"
-            checked={!!gamePlayer.isReady}
-            name="gpIsReady"
-            readOnly={true}
-          />
-        )}
-        <span className="lg:text-lg">{gamePlayer.name}</span>
-      </div>
-      <div className="flex items-center justify-center gap-x-2">
-        <div
-          className={`font-semibold sm:text-lg lg:text-xl ${gamePlayer.chipCount >= 0 ? `text-green-500` : "text-red-500"}`}
-        >
-          ⛁ {gamePlayer.chipCount}
+const PlayerInfo = memo(
+  ({
+    isMe,
+    gamePlayer,
+    isWinner,
+    onAction,
+  }: {
+    isMe: boolean;
+    gamePlayer: GamePlayer;
+    isWinner?: boolean;
+    onAction?: (action: "lobby" | "share") => void;
+  }) => {
+    return (
+      <div
+        className={`flex justify-center gap-2 ${isMe ? "flex-col" : "items-center"}`}
+      >
+        <div className="flex items-center justify-center gap-x-1">
+          {!isMe && (
+            <input
+              type="checkbox"
+              checked={!!gamePlayer.isReady}
+              name="gpIsReady"
+              readOnly={true}
+            />
+          )}
+          <span className="lg:text-lg">{gamePlayer.name}</span>
         </div>
-        {gamePlayer.starOfHope && <span>⭐</span>}
-        {isWinner && <span>👑</span>}
-      </div>
-      {isMe &&
-        ["playing", "handChecking"].includes(gameState) &&
-        gamePlayer.isReady && (
-          <div className="flex flex-col gap-y-2 mt-4">
+        <div className="flex items-center justify-center gap-x-2">
+          <div
+            className={`font-semibold sm:text-lg lg:text-xl ${gamePlayer.chipCount >= 0 ? `text-green-500` : "text-red-500"}`}
+          >
+            ⛁ {gamePlayer.chipCount}
+          </div>
+          {gamePlayer.starOfHope && <span>⭐</span>}
+          {isWinner && <span>👑</span>}
+        </div>
+        {isMe && (
+          <div className="flex gap-x-2 text-sm">
             <button
-              className="p-0 flex justify-center bg-green-600"
-              onClick={onCardsSort}
-              disabled={gamePlayer.cards.length < 2}
+              className="flex-1 text-center !p-1 border rounded-sm border-green-500 bg-cyan-50"
+              onClick={() => onAction?.("lobby")}
             >
-              {"Sắp xếp"}
+              Lobby
             </button>
             <button
-              className="p-0 flex justify-center bg-green-600"
-              onClick={onUnfoldCards}
+              className="flex-1 text-center !p-1 rounded-sm bg-green-600"
+              onClick={() => onAction?.("share")}
             >
-              {"Lật/Úp"}
+              Share
             </button>
           </div>
         )}
-    </div>
-  );
-};
+      </div>
+    );
+  },
+);
 
 const handleCardSelect = (prev: Card[], card: Card) => {
   return prev.map((item) => {

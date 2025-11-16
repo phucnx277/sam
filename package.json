@@ -1,18 +1,20 @@
 {
   "name": "sam",
-  "private": true,
-  "version": "1.0.2",
+  "private": false,
+  "version": "1.0.3",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-pwa-assets": "pwa-assets-generator"
   },
   "dependencies": {
     "ably": "2.12.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
+    "react-swipeable": "7.0.2",
     "zustand": "5.0.8"
   },
   "devDependencies": {
@@ -20,6 +22,7 @@
     "@tailwindcss/vite": "4.1.13",
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
+    "@vite-pwa/assets-generator": "1.0.2",
     "@vitejs/plugin-react": "5.0.0",
     "eslint": "9.33.0",
     "eslint-plugin-react-hooks": "5.2.0",
@@ -28,6 +31,7 @@
     "tailwindcss": "4.1.13",
     "typescript": "5.8.3",
     "typescript-eslint": "8.39.1",
-    "vite": "7.1.2"
+    "vite": "7.1.2",
+    "vite-plugin-pwa": "1.1.0"
   }
 }

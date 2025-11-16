@@ -9,20 +9,34 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
 
   useEffect(() => {
     if (!localPlayer) return;
-    if (localPlayer.id === props.table.hostId) {
+    const url = new URL(window.location.href);
+    let password = url.searchParams.get("tblPw") || "";
+    const alreadyJoined = props.table.game?.players?.some(
+      (gp) => gp.id === localPlayer.id,
+    );
+    if (alreadyJoined) {
+      password = props.table.password;
+    }
+    if (alreadyJoined || password) {
       (async () => {
         const error = await enterTable({
           table: props.table,
           player: localPlayer,
-          password: "",
+          password,
         });
         if (error) {
-          alert(error.message);
-          return;
+          console.error(error.message);
         }
+        if (url.searchParams.has("tblId") || url.searchParams.has("tbdPw")) {
+          url.searchParams.delete("tblId");
+          url.searchParams.delete("tblPw");
+          window.history.replaceState({}, "", url.toString());
+        }
+        props.close();
       })();
     }
-  }, [localPlayer, props.table, enterTable]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.table]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,8 +48,6 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
     });
     if (error) {
       alert(error.message);
-      setPassword("");
-      return;
     }
     props.close();
   };
@@ -43,16 +55,19 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
   return (
     <div className="fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">
       <div className="w-full flex justify-center">
-        <form className="bg-white p-8 rounded-lg" onSubmit={submit}>
-          <div className="text-xl">
-            <span>Entering table: </span>
+        <form
+          className="bg-white p-8 rounded-lg shadow-2xl shadow-gray-400"
+          onSubmit={submit}
+        >
+          <div className="text-xl text-center">
+            <span>Table: </span>
             <span className="font-semibold">{props.table.name}</span>
           </div>
           <input
             name="tblPassword"
             className="mt-4 py-1 px-2 border border-gray-500 rounded-sm text-lg w-[250px] max-w-full"
             autoFocus
-            placeholder="Enter table password"
+            placeholder="Enter password"
             type="password"
             value={password}
             onInput={(e) => setPassword(e.currentTarget.value)}

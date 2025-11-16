@@ -110,20 +110,10 @@ export const areCardsIdentical = (card: Card, anotherCard: Card): boolean => {
   return card.rank === anotherCard.rank && card.suit === anotherCard.suit;
 };
 
-const isDescending = (cards: Card[]): boolean => {
-  return cards.every(
-    (card, index) =>
-      index === 0 ||
-      (AbsoluteCardRanks[card.rank] ?? card.rank) <=
-        (AbsoluteCardRanks[cards[index - 1].rank] ?? cards[index - 1].rank),
-  );
-};
-
-export const sortCards = (cards: Card[]): Card[] => {
-  const descending = isDescending(cards);
+export const sortCards = (cards: Card[], descending: boolean): Card[] => {
   return [...cards].sort(
     (a, b) =>
-      (descending ? 1 : -1) *
+      (descending ? -1 : 1) *
       ((AbsoluteCardRanks[a.rank] ?? a.rank) -
         (AbsoluteCardRanks[b.rank] ?? b.rank)),
   );

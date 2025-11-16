@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { divideGamePlayers } from "@logic/player";
@@ -22,22 +21,15 @@ const PlayingTable = () => {
     (item) => item.id === playingTable!.game.currentPlayerId,
   );
 
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("tableId", playingTable!.id);
-    window.history.replaceState({}, "", url.toString());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playingTable!.id]);
-
   return (
-    <div className="sm:p-4 lg:p-12 fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-y-1 bg-cyan-50">
+    <div className="playing-table sm:p-2 lg:p-12 fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-y-1 bg-cyan-50">
       <div className="w-full flex flex-1 justify-around sm:gap-x-8 lg:gap-x-20">
         {opponents.map((gp) => (
           <GamePlayer key={gp.id} gamePlayer={gp} />
         ))}
       </div>
       <div className="w-full flex flex-1 justify-between">
-        <div className="w-full flex justify-between py-2 lg:py-4">
+        <div className="w-full flex justify-between">
           <div className="w-full gap-x-1 flex justify-between px-1 py-1 lg:py-2 rounded-sm border-1 border-gray-400">
             <div className="flex flex-col w-[8rem] border-r border-r-gray-400">
               {playingTable!.bo > 0 && (
@@ -78,7 +70,7 @@ const PlayingTable = () => {
           </div>
         </div>
       </div>
-      <div className="w-full flex flex-1 justify-center pt-2 lg:pt-4">
+      <div className="w-full flex flex-1 justify-center">
         <GamePlayer key={targetGamePlayer.id} gamePlayer={targetGamePlayer} />
       </div>
     </div>
