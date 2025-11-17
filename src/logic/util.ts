@@ -109,3 +109,7 @@ export const encodeApiKey = (apiKey: string): string => {
   }
   return btoa(apiKey);
 };
+
+export const calDurationSec = (ts: number) => {
+  return Math.ceil((ts - Date.now()) / 1000);
+};

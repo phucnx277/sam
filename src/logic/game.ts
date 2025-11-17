@@ -1,10 +1,16 @@
-import { areCardsIdentical, canBeat, isFourOfAKind } from "./card";
+import {
+  areCardsIdentical,
+  canBeat,
+  isFourOfAKind,
+  getSortedCards,
+} from "./card";
 import { CardsPerPlayer, createDeck, dealCards, shuffleDeck } from "./deck";
 import { checkWhiteTiger } from "./hand";
 import { divideGamePlayers, rotateGamePlayers } from "./player";
 import { resetSession } from "./table";
 import { generateId, randomInt } from "./util";
 
+const PlayTimeoutMs = 20_000;
 const ChipDeductionLevel: Record<
   "Normal" | "StarOfHope",
   { OneCard: number; Fired: number; Tiger: number }
@@ -42,7 +48,8 @@ export const newGame = (lastGame: Game | null, players: GamePlayer[]): Game => {
     winnerId: null,
     round: -1,
     startedAt: -1,
-    turnStartedAt: -1,
+    turnStartTs: -1,
+    turnEndTs: -1,
   };
 };
 
@@ -81,24 +88,22 @@ export const startGame = (game: Game): Game => {
     currentPlayerId = players[handIdx].id;
   }
 
-  return {
-    id: game.id,
+  const startingGame: Game = {
+    ...game,
     currentPlayerId,
     startPlayerId: currentPlayerId,
-    lastPlayedCards: [],
     players: game.players.map((player) => ({
       ...player,
       cards: player.isReady ? hands.shift()! : [],
       lastAction: null,
       lastPlayedRound: initialRound,
     })),
-    playHistory: [],
-    winnerId: null,
     round: initialRound,
-    startedAt: Date.now(),
     state,
-    turnStartedAt: Date.now(),
+    startedAt: Date.now(),
   };
+  updateTurnTimes(startingGame);
+  return startingGame;
 };
 
 export const ActionDef: Record<
@@ -171,7 +176,7 @@ export const ActionDef: Record<
       };
     },
   },
-  prepareGame: {
+  newGame: {
     label: "Ván mới",
     type: "button",
     checkState(
@@ -236,7 +241,9 @@ export const ActionDef: Record<
         playingTable.game.state === "handChecking" &&
         playingTable.game.round < 0 &&
         currentPlayer.id === playingTable.lastGame?.winnerId;
-      const disabled = !isPlayerTurn(playingTable, currentPlayer);
+      const disabled =
+        !isPlayerTurn(playingTable.game, currentPlayer) ||
+        isActionTimeouted(playingTable.game);
       return { visible, disabled };
     },
     handleAction(playingTable: Table): Table {
@@ -255,8 +262,8 @@ export const ActionDef: Record<
         }),
         round: 0,
       };
-      table.game.currentPlayerId = findNextPlayerId(table);
-      table.game.turnStartedAt = Date.now();
+      table.game.currentPlayerId = findNextPlayerId(table.game);
+      updateTurnTimes(table.game);
       return table;
     },
   },
@@ -269,7 +276,9 @@ export const ActionDef: Record<
     ): { disabled: boolean; visible: boolean } {
       const visible =
         currentPlayer.isReady && playingTable.game.state === "handChecking";
-      const disabled = !isPlayerTurn(playingTable, currentPlayer);
+      const disabled =
+        !isPlayerTurn(playingTable.game, currentPlayer) ||
+        isActionTimeouted(playingTable.game);
 
       return {
         visible,
@@ -292,15 +301,14 @@ export const ActionDef: Record<
         }),
         round: 0,
       };
-      table.game.currentPlayerId = findNextPlayerId(table);
+      table.game.currentPlayerId = findNextPlayerId(table.game);
 
       // "handChecking" round finishes
       if (table.game.currentPlayerId === table.game.startPlayerId) {
         table.game = evaluateTigers(table.game);
         table.game.state = "playing";
       }
-      table.game.turnStartedAt = Date.now();
-
+      updateTurnTimes(table.game);
       return table;
     },
   },
@@ -314,10 +322,11 @@ export const ActionDef: Record<
       const visible =
         currentPlayer.isReady && playingTable.game.state === "playing";
       const disabled =
-        !isPlayerTurn(playingTable, currentPlayer) ||
-        isPlayerPassedTurn(playingTable, currentPlayer) ||
+        isActionTimeouted(playingTable.game) ||
+        !isPlayerTurn(playingTable.game, currentPlayer) ||
+        isPlayerPassedTurn(playingTable.game, currentPlayer) ||
         (isFirstGame(playingTable) &&
-          isFirstToAct(playingTable, currentPlayer) &&
+          isFirstToAct(playingTable.game, currentPlayer) &&
           currentPlayer.selectedCards.length > 1) ||
         !currentPlayer.selectedCards.length ||
         !canBeat(
@@ -388,14 +397,16 @@ export const ActionDef: Record<
       playingTable: Table,
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean } {
-      const isTurn = isPlayerTurn(playingTable, currentPlayer);
+      const isTurn = isPlayerTurn(playingTable.game, currentPlayer);
       const visible =
         currentPlayer.isReady &&
-        isGameInProgress(playingTable) &&
-        !isFirstToAct(playingTable, currentPlayer) &&
+        isGameInProgress(playingTable.game) &&
+        !isFirstToAct(playingTable.game, currentPlayer) &&
         currentPlayer.lastAction !== "tiger";
       const disabled =
-        !isTurn || (isTurn && isEveryonePassed(playingTable.game));
+        isActionTimeouted(playingTable.game) ||
+        !isTurn ||
+        (isTurn && isEveryonePassed(playingTable.game));
       return { visible, disabled };
     },
     handleAction(playingTable: Table): Table {
@@ -413,7 +424,7 @@ export const ActionDef: Record<
           };
         }),
       };
-      table.game.currentPlayerId = findNextPlayerId(table);
+      table.game.currentPlayerId = findNextPlayerId(table.game);
 
       // "playing" state - everyone passed, new round
       if (table.game.state === "playing" && isEveryonePassed(table.game)) {
@@ -429,7 +440,7 @@ export const ActionDef: Record<
         table.game.state = "playing";
       }
 
-      table.game.turnStartedAt = Date.now();
+      updateTurnTimes(table.game);
 
       return table;
     },
@@ -457,6 +468,11 @@ export const ActionDef: Record<
       return playingTable;
     },
   },
+};
+
+const updateTurnTimes = (game: Game) => {
+  game.turnStartTs = Date.now();
+  game.turnEndTs = game.turnStartTs + PlayTimeoutMs;
 };
 
 const evaluateTigers = (game: Game): Game => {
@@ -527,8 +543,8 @@ const checkAndUpdateIfGameEnded = (table: Table): Game => {
     }));
   } else {
     game.state = "playing";
-    game.currentPlayerId = findNextPlayerId({ ...table, game });
-    game.turnStartedAt = Date.now();
+    game.currentPlayerId = findNextPlayerId(game);
+    updateTurnTimes(game);
   }
   return game;
 };
@@ -647,53 +663,60 @@ const calcRoundChipCount = (table: Table): GamePlayer[] => {
   return gamePlayers;
 };
 
-function findNextPlayerId(table: Table): string {
-  const game = table.game;
+function findNextPlayerId(game: Game): string {
   const gamePlayers = rotateGamePlayers(
     game.players.filter((item) => item.isReady),
-    table.game.currentPlayerId!,
+    game.currentPlayerId!,
   );
   let index = 1;
-  while (true) {
+  while (index < gamePlayers.length) {
     const nextPlayer = gamePlayers[index];
-    const lostTurn = isPlayerPassedTurn(table, nextPlayer);
+    const lostTurn = isPlayerPassedTurn(game, nextPlayer);
     if (!lostTurn) {
       return nextPlayer.id;
     }
     index++;
   }
+  return gamePlayers[0].id;
 }
 
-function isPlayerTurn(playingTable: Table, player: GamePlayer): boolean {
+export function findNextAutoPlayer(
+  game: Game,
+  checkAfterIndex = 0,
+): GamePlayer {
+  const gamePlayers = rotateGamePlayers(
+    game.players.filter((item) => item.isReady),
+    game.currentPlayerId!,
+  );
+  checkAfterIndex = Math.max(checkAfterIndex, 0);
+  checkAfterIndex = Math.min(checkAfterIndex, gamePlayers.length - 2);
+  const index = checkAfterIndex + 1;
+  return gamePlayers[index];
+}
+
+function isPlayerTurn(game: Game, player: GamePlayer): boolean {
   return (
-    playingTable.game.currentPlayerId === player.id &&
-    !isPlayerPassedTurn(playingTable, player)
+    game.currentPlayerId === player.id && !isPlayerPassedTurn(game, player)
   );
 }
 
-function isPlayerPassedTurn(playingTable: Table, player: GamePlayer): boolean {
-  return (
-    player.lastAction === "pass" &&
-    player.lastPlayedRound === playingTable.game.round
-  );
+function isPlayerPassedTurn(game: Game, player: GamePlayer): boolean {
+  return player.lastAction === "pass" && player.lastPlayedRound === game.round;
 }
 
 function isEveryonePassed(game: Game): boolean {
   return game.currentPlayerId === game.playHistory.slice(-1)[0]?.playerId;
 }
 
-function isGameInProgress(playingTable: Table): boolean {
-  return (
-    playingTable.game.state === "playing" ||
-    playingTable.game.state === "handChecking"
-  );
+export function isGameInProgress(game: Game): boolean {
+  return game.state === "playing" || game.state === "handChecking";
 }
 
-function isFirstToAct(playingTable: Table, player: GamePlayer): boolean {
+function isFirstToAct(game: Game, player: GamePlayer): boolean {
   return (
-    playingTable.game.round <= 0 &&
+    game.round <= 0 &&
     (!player.lastAction || player.lastAction === "ask") &&
-    player.id === playingTable.game.startPlayerId
+    player.id === game.startPlayerId
   );
 }
 
@@ -720,4 +743,41 @@ export function findTigerAndKiller(game: Game): {
     : null;
 
   return { tiger, tigerKiller };
+}
+
+export function getCurrentPossibleActions(
+  table: Table,
+  player: GamePlayer,
+): PlayerAction[] {
+  const game = table.game;
+  if (!isPlayerTurn(game, player)) return [];
+  switch (game.state) {
+    case "handChecking": {
+      if (isFirstToAct(game, player)) {
+        return ["ask", "tiger"];
+      }
+      return ["pass", "tiger"];
+    }
+    case "playing": {
+      if (
+        isEveryonePassed(game) ||
+        (isFirstGame(table) && isFirstToAct(game, player))
+      ) {
+        return ["play"];
+      }
+      return ["pass", "play"];
+    }
+    case "waiting":
+    case "ended": {
+      return [];
+    }
+  }
+}
+
+function isActionTimeouted(game: Game): boolean {
+  return Date.now() - game.turnEndTs >= 0;
+}
+
+export function getAutoPlayCards(cards: Card[]): Card[] {
+  return getSortedCards(cards, false).slice(-1);
 }

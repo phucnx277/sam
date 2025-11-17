@@ -30,21 +30,21 @@ import {
 import "./OneCards.css";
 
 const OneCard = ({
+  style,
   card,
   isMe,
-  style,
-  lastIndex,
+  isTiger,
   onClick,
 }: {
+  style: CSSProperties;
   card: Card;
   isMe: boolean;
-  style: CSSProperties;
-  lastIndex: number;
+  isTiger: boolean;
   onClick: () => void;
 }) => {
   const selectedClassees = card.selected ? "selected" : "";
   const userCardClasses = isMe ? "cursor-pointer" : "";
-  const opponentTiger = !isMe && lastIndex === 0;
+  const opponentTiger = !isMe && isTiger;
   const cardOptions: CardOptions = card.folded
     ? {
         rank: "0",
@@ -66,6 +66,11 @@ const OneCard = ({
       onClick={() => onClick()}
       style={{ ...style, aspectRatio: "18/25" }}
     >
+      {opponentTiger && (
+        <div className="absolute top-0 left-0 bottom-0 right-0 flex items-center justify-center text-4xl lg:text-7xl">
+          🐆
+        </div>
+      )}
       <playing-card {...cardOptions} />
     </div>
   );

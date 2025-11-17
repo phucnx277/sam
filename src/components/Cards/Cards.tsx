@@ -12,11 +12,13 @@ const Cards = ({
   cards,
   isMe,
   onCardSelect,
+  isTableCard,
 }: {
   cards: Card[];
   isMe: boolean;
   onCardSelect: (card: Card) => void;
   onReorder?: (cards: Card[]) => void;
+  isTableCard?: boolean;
 }) => {
   const [cardStyles, setCardStyles] = useState<Record<string, CSSProperties>>(
     {},
@@ -54,7 +56,7 @@ const Cards = ({
           onClick={() => onCardSelect(card)}
           isMe={isMe}
           style={cardStyles[idx]}
-          lastIndex={idx === cards.length - 1 ? idx : -1}
+          isTiger={cards.length === 1 && !isTableCard ? true : false}
         />
       ))}
     </div>

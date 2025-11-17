@@ -44,7 +44,7 @@ const Tables = () => {
         <>
           {isInitialized && !!localPlayer && (
             <div className="p-4">
-              <p className="text-xl mb-4">
+              <p className="text-xl mb-4 text-center">
                 Welcome,{" "}
                 <span className="font-semibold">{localPlayer.name}</span>!
               </p>

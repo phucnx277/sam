@@ -5,6 +5,7 @@ import useLocalPlayer from "@hooks/useLocalPlayer";
 const NewTable = (props: { close: () => void; limit: number }) => {
   const { localPlayer } = useLocalPlayer();
   const { createTable, tables } = useAppData();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<Partial<Table>>({
     name: "",
     password: "",
@@ -18,11 +19,19 @@ const NewTable = (props: { close: () => void; limit: number }) => {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.password || !form.bo || !form.playerLimit) return;
+    if (
+      isSubmitting ||
+      !form.name ||
+      !form.password ||
+      !form.bo ||
+      !form.playerLimit
+    )
+      return;
     if (tables.length >= props.limit) {
       alert(`Max number of tables is ${props.limit}`);
       return;
     }
+    setIsSubmitting(true);
     const { error } = await createTable({
       name: form.name,
       password: form.password,
@@ -30,6 +39,7 @@ const NewTable = (props: { close: () => void; limit: number }) => {
       bo: form.bo || -1,
       playerLimit: form.playerLimit || 5,
     });
+    setIsSubmitting(false);
     if (error) {
       alert(error.message);
       return;
@@ -97,6 +107,7 @@ const NewTable = (props: { close: () => void; limit: number }) => {
               type="button"
               className="flex-1 border border-gray-300 hover:bg-gray-300"
               onClick={props.close}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
@@ -104,7 +115,11 @@ const NewTable = (props: { close: () => void; limit: number }) => {
               type="submit"
               className="flex-1 ml-4  border border-green-600 bg-green-600"
               disabled={
-                !form.name || !form.password || !form.bo || !form.playerLimit
+                isSubmitting ||
+                !form.name ||
+                !form.password ||
+                !form.bo ||
+                !form.playerLimit
               }
             >
               Submit

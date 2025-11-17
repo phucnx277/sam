@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from "react";
 import { useSwipeable } from "react-swipeable";
-import { areCardsIdentical, sortCards } from "@logic/card";
+import { areCardsIdentical, getSortedCards } from "@logic/card";
 import { findTigerAndKiller } from "@logic/game";
 import useLocalGame from "@hooks/useLocalGame";
 import useAppData from "@hooks/useAppData";
@@ -79,7 +79,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
 
   const sortLocalCards = (descending: boolean) => {
     if (!isMe || !localGame) return;
-    setLocalCards(sortCards(localCards, descending));
+    setLocalCards(getSortedCards(localCards, descending));
   };
 
   const unfoldLocalCards = (folded: boolean) => {
@@ -164,7 +164,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           playingTable!.game?.winnerId !== gamePlayer.id && (
             <div
               {...(isMe ? swipeHandlers : {})}
-              className={`flex flex-1 w-full swipeable ${playingTable!.game.state === "ended" ? "opacity-20" : ""}`}
+              className={`flex flex-1 w-full swipeable ${playingTable!.game.state === "ended" ? "opacity-30" : ""}`}
             >
               <Cards
                 isMe={isMe}
@@ -192,11 +192,10 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           </div>
         )}
       </div>
-      {isMe && (
+      {isMe && playingTable && (
         <Actions
-          gamePlayer={gamePlayer}
           selectedCards={localCards.filter((item) => item.selected) || []}
-          playingTable={playingTable!}
+          gamePlayer={gamePlayer}
           onAction={handleAction}
         />
       )}

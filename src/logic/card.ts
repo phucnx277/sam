@@ -110,7 +110,7 @@ export const areCardsIdentical = (card: Card, anotherCard: Card): boolean => {
   return card.rank === anotherCard.rank && card.suit === anotherCard.suit;
 };
 
-export const sortCards = (cards: Card[], descending: boolean): Card[] => {
+export const getSortedCards = (cards: Card[], descending: boolean): Card[] => {
   return [...cards].sort(
     (a, b) =>
       (descending ? -1 : 1) *

@@ -32,7 +32,7 @@ type GamePlayer = Player & {
 
 type PlayerAction =
   | "startGame"
-  | "prepareGame"
+  | "newGame"
   | "ready"
   | "star"
   | "ask"
@@ -55,7 +55,8 @@ type Game = {
   startedAt: number;
   players: GamePlayer[];
   round: number;
-  turnStartedAt: number;
+  turnStartTs: number;
+  turnEndTs: number;
   currentPlayerId: string | null;
   startPlayerId: string | null;
   lastPlayedCards: Card[];

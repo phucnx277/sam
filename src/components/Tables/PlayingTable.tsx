@@ -1,6 +1,7 @@
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { divideGamePlayers } from "@logic/player";
+import useCountDown from "@hooks/useCountDown";
 import GamePlayer from "../GamePlayer/GamePlayer";
 import Cards from "../Cards/Cards";
 
@@ -32,17 +33,15 @@ const PlayingTable = () => {
         <div className="w-full flex justify-between">
           <div className="w-full gap-x-1 flex justify-between px-1 py-1 lg:py-2 rounded-sm border-1 border-gray-400">
             <div className="flex flex-col w-[8rem] border-r border-r-gray-400">
-              {playingTable!.bo > 0 && (
-                <div className="text-center">
-                  BO: <strong>{playingTable!.bo}</strong>
-                </div>
-              )}
-              <div className="flex flex-1 flex-col items-center justify-center ">
+              <div className="flex flex-1 flex-col items-center pt-1 gap-1">
                 <div className="text-sm">Lượt trước</div>
                 <div className="font-semibold">{prevPlayer?.name || "--"}</div>
               </div>
               {playingTable!.bo > 0 && (
-                <div style={{ height: "1.5rem", width: "1rem" }}></div>
+                <div className="flex items-center justify-center gap-x-1">
+                  <span>BO:</span>
+                  <strong className="text-green-600">{playingTable!.bo}</strong>
+                </div>
               )}
             </div>
             <div className="flex-1 relative">
@@ -59,13 +58,22 @@ const PlayingTable = () => {
                     }))}
                     onCardSelect={() => {}}
                     isMe={false}
+                    isTableCard={true}
                   />
                 </div>
               ))}
             </div>
-            <div className="flex flex-col w-[8rem] items-center justify-center border-l border-l-gray-400">
-              <div className="text-sm">Lượt hiện tại</div>
-              <div className="font-semibold">{curPlayer?.name}</div>
+            <div className="flex flex-col w-[8rem] border-l border-l-gray-400">
+              <div className="flex flex-col items-center pt-1 gap-1">
+                <div className="text-sm">Lượt hiện tại</div>
+                <div className="font-semibold">{curPlayer?.name || "--"}</div>
+              </div>
+              <div className="flex flex-1 items-center justify-center text-4xl lg:text-7xl text-red-600">
+                {(playingTable!.game.state === "handChecking" ||
+                  playingTable!.game.state === "playing") && (
+                  <TurnTimeRemaining ts={playingTable!.game?.turnEndTs} />
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -76,5 +84,10 @@ const PlayingTable = () => {
     </div>
   );
 };
+
+function TurnTimeRemaining({ ts }: { ts: number }) {
+  const ds = useCountDown(ts);
+  return <span>{ds}</span>;
+}
 
 export default PlayingTable;
