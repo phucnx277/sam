@@ -11,6 +11,7 @@ export default defineConfig({
     VitePWA({
       manifest: {
         name: "Sam",
+        short_name: "Sam",
         description: "Sam",
         theme_color: "#ffffff",
         orientation: "landscape",

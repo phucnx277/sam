@@ -8,8 +8,11 @@ const InitAppData = () => {
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    const apiKey = url.searchParams.get("apiKey");
-    setKey(apiKey || getApiKey() || "");
+    let apiKey = url.searchParams.get("apiKey");
+    if (!apiKey) {
+      apiKey = getApiKey();
+    }
+    setKey(apiKey);
 
     setTimeout(() => {
       if (url.searchParams.has("apiKey")) {

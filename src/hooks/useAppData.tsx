@@ -4,6 +4,8 @@ import * as Abby from "ably";
 import { create } from "zustand";
 import {
   deepEqual,
+  encodeApiKey,
+  normalizeApiKey,
   parseTable,
   parseTables,
   stringifyValues,
@@ -36,9 +38,13 @@ const useAbbyStore = create<{
   tables: [],
   playingTable: null,
   init: async (apiKey: string): Promise<{ error: Error | null }> => {
+    const normalizedApiKey = normalizeApiKey(apiKey);
     let error: Error | null = null;
     try {
-      const client = new Abby.Realtime({ key: apiKey, plugins: { Objects } });
+      const client = new Abby.Realtime({
+        key: normalizedApiKey,
+        plugins: { Objects },
+      });
       const channel = client.channels.get(CHANNEL_ID, {
         modes: ["OBJECT_SUBSCRIBE", "OBJECT_PUBLISH"],
       });
@@ -70,7 +76,7 @@ const useAbbyStore = create<{
         tablesMap,
         tables: parseTables(tablesMap.entries()),
       }));
-      localStorage.setItem(LS_API_KEY, apiKey);
+      localStorage.setItem(LS_API_KEY, encodeApiKey(apiKey));
     } catch (err) {
       error = err as Error;
     }
@@ -240,7 +246,7 @@ const useAppData = () => {
     updateTable,
     removeTable,
     leaveTable: () => unsetPlayingTable(),
-    getApiKey: () => localStorage.getItem(LS_API_KEY),
+    getApiKey: () => encodeApiKey(localStorage.getItem(LS_API_KEY) || ""),
   };
 };
 

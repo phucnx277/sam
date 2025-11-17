@@ -92,3 +92,20 @@ export const deepEqual = (a: any, b: any): boolean => {
 
   return true;
 };
+
+// make sure apiKey is a valid Abby API Key
+export const normalizeApiKey = (apiKey: string): string => {
+  if (apiKey.includes(":")) {
+    return apiKey;
+  }
+  return atob(apiKey);
+};
+
+// Abby API Key has special characters which may not be well supported in some browsers
+// So it should be stored and shared in base64-encoded form
+export const encodeApiKey = (apiKey: string): string => {
+  if (!apiKey.includes(":")) {
+    return apiKey;
+  }
+  return btoa(apiKey);
+};
