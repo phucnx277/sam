@@ -56,7 +56,8 @@ const Tables = () => {
                     key={item.id}
                     onClick={() => setEnteringTable(item)}
                   >
-                    {localPlayer.isAdmin && (
+                    {(localPlayer.isAdmin ||
+                      item.hostId === localPlayer.id) && (
                       <span
                         className="absolute right-2 top-0.5 font-normal text-gray-500 hover:text-gray-800"
                         onClick={(e) => confirmRemoveTable(e, item)}
