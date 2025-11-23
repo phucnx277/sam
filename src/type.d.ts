@@ -62,6 +62,7 @@ type Game = {
   lastPlayedCards: Card[];
   playHistory: PlayHistory[];
   winnerId: string | null;
+  turnTimeout: number;
 };
 
 type Table = {
@@ -75,4 +76,5 @@ type Table = {
   game: Game;
   bo: number;
   playerLimit: number;
+  turnTimeout: number;
 };

@@ -86,10 +86,6 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
     setLocalCards(localCards.map((item) => ({ ...item, folded })));
   };
 
-  const updateLocalCards = (orderedCards: Card[]) => {
-    setLocalCards(orderedCards);
-  };
-
   const handleTableAction = (action: "lobby" | "share") => {
     switch (action) {
       case "lobby": {
@@ -117,6 +113,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
     }
   };
 
+  // TODO: check iOS landscape workaround
   const swipeHandlers = useSwipeable({
     onSwiped: (event) => {
       switch (event.dir) {
@@ -140,7 +137,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
 
   return (
     <div
-      className={`flex gap-x-2 p-2 w-full rounded-sm ${gamePlayer.isReady || isMe ? "opacity-100" : "opacity-50"} ${playingTable!.game?.currentPlayerId === gamePlayer.id ? "bg-green-300/30" : ""}`}
+      className={`flex gap-x-2 p-2 w-full rounded-sm ${gamePlayer.isReady || isMe ? "opacity-100" : "opacity-50"} ${playingTable!.game?.currentPlayerId === gamePlayer.id ? "bg-yellow-300/30" : ""}`}
     >
       {isMe && (
         <div className="flex flex-col w-[8rem]">
@@ -170,7 +167,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
                 isMe={isMe}
                 cards={localCards}
                 onCardSelect={selectCard}
-                onReorder={updateLocalCards}
+                gamePlayer={gamePlayer}
               />
             </div>
           )}
@@ -217,9 +214,10 @@ const PlayerInfo = memo(
   }) => {
     return (
       <div
-        className={`flex justify-center gap-2 ${isMe ? "flex-col" : "items-center"}`}
+        className={`flex justify-center gap-x-2 gap-y-1 ${isMe ? "flex-col" : "items-center"}`}
       >
         <div className="flex items-center justify-center gap-x-1">
+          {isWinner && <span>👑</span>}
           {!isMe && (
             <input
               type="checkbox"
@@ -231,16 +229,19 @@ const PlayerInfo = memo(
           <span className="lg:text-lg">{gamePlayer.name}</span>
         </div>
         <div className="flex items-center justify-center gap-x-2">
-          <div
-            className={`font-semibold sm:text-lg lg:text-xl ${gamePlayer.chipCount >= 0 ? `text-green-500` : "text-red-500"}`}
-          >
-            ⛁ {gamePlayer.chipCount}
-          </div>
           {gamePlayer.starOfHope && <span>⭐</span>}
-          {isWinner && <span>👑</span>}
+          <div
+            className={`flex items-center gap-x-1 font-semibold text-lg lg:text-xl ${gamePlayer.chipCount >= 0 ? `text-green-500` : "text-red-500"}`}
+          >
+            <span>⛁</span>
+            <span>{gamePlayer.chipCount}</span>
+          </div>
+          {gamePlayer.lastAction === "tiger" && (
+            <span className="text-lg lg:text-xl">🐆</span>
+          )}
         </div>
         {isMe && (
-          <div className="flex gap-x-2 text-sm">
+          <div className="flex mt-1 gap-x-2 text-sm">
             <button
               className="flex-1 text-center !p-1 border rounded-sm border-green-500 bg-cyan-50"
               onClick={() => onAction?.("lobby")}

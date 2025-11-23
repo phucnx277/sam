@@ -11,14 +11,13 @@ import OneCard from "./OneCard";
 const Cards = ({
   cards,
   isMe,
+  gamePlayer,
   onCardSelect,
-  isTableCard,
 }: {
   cards: Card[];
   isMe: boolean;
+  gamePlayer?: GamePlayer;
   onCardSelect: (card: Card) => void;
-  onReorder?: (cards: Card[]) => void;
-  isTableCard?: boolean;
 }) => {
   const [cardStyles, setCardStyles] = useState<Record<string, CSSProperties>>(
     {},
@@ -56,7 +55,12 @@ const Cards = ({
           onClick={() => onCardSelect(card)}
           isMe={isMe}
           style={cardStyles[idx]}
-          isTiger={cards.length === 1 && !isTableCard ? true : false}
+          isTiger={
+            !!gamePlayer &&
+            (cards.length === 1 || gamePlayer?.lastAction === "tiger")
+              ? true
+              : false
+          }
         />
       ))}
     </div>

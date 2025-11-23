@@ -50,8 +50,7 @@ export const isValidPlay = (
 };
 
 const isOneRank = (cards: Card[]): boolean => {
-  const firstRank = cards[0].rank;
-  return cards.every((card) => card.rank === firstRank);
+  return new Set(cards.map((item) => item.rank)).size === 1;
 };
 
 export const isFourOfAKind = (cards: Card[]): boolean => {
@@ -62,11 +61,11 @@ const isHigherRank = (playerCards: Card[], opponentCards: Card[]): boolean => {
   if (opponentCards.length === 1 && opponentCards[0].rank === 2) {
     return isFourOfAKind(playerCards);
   }
-  const playerAbsoluteRank =
-    AbsoluteCardRanks[playerCards[0].rank] || playerCards[0].rank;
-
-  const opponentAbsoluteRank =
-    AbsoluteCardRanks[opponentCards[0].rank] || opponentCards[0].rank;
+  if (playerCards.length !== opponentCards.length) {
+    return false;
+  }
+  const playerAbsoluteRank = getAbsoluteCardRank(playerCards[0]);
+  const opponentAbsoluteRank = getAbsoluteCardRank(opponentCards[0]);
 
   return playerAbsoluteRank > opponentAbsoluteRank;
 };
@@ -113,8 +112,10 @@ export const areCardsIdentical = (card: Card, anotherCard: Card): boolean => {
 export const getSortedCards = (cards: Card[], descending: boolean): Card[] => {
   return [...cards].sort(
     (a, b) =>
-      (descending ? -1 : 1) *
-      ((AbsoluteCardRanks[a.rank] ?? a.rank) -
-        (AbsoluteCardRanks[b.rank] ?? b.rank)),
+      (descending ? -1 : 1) * (getAbsoluteCardRank(a) - getAbsoluteCardRank(b)),
   );
+};
+
+export const getAbsoluteCardRank = (card: Card): number => {
+  return AbsoluteCardRanks[card.rank] ?? card.rank;
 };

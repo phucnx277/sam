@@ -1,9 +1,12 @@
+import "./PlayingTable.css";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { divideGamePlayers } from "@logic/player";
 import useCountDown from "@hooks/useCountDown";
 import GamePlayer from "../GamePlayer/GamePlayer";
 import Cards from "../Cards/Cards";
+import AutoFadeout from "../common/AutoFadeout";
+import { isGameInProgress } from "@logic/game";
 
 const PlayingTable = () => {
   const { playingTable } = useAppData();
@@ -23,7 +26,7 @@ const PlayingTable = () => {
   );
 
   return (
-    <div className="playing-table sm:p-2 lg:p-12 fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-y-1 bg-cyan-50">
+    <div className="playing-table p-2 lg:p-12 fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-y-1 bg-cyan-50">
       <div className="w-full flex flex-1 justify-around sm:gap-x-8 lg:gap-x-20">
         {opponents.map((gp) => (
           <GamePlayer key={gp.id} gamePlayer={gp} />
@@ -58,10 +61,17 @@ const PlayingTable = () => {
                     }))}
                     onCardSelect={() => {}}
                     isMe={false}
-                    isTableCard={true}
                   />
                 </div>
               ))}
+              {playingTable!.game.currentPlayerId === localPlayer?.id &&
+                isGameInProgress(playingTable!.game) && (
+                  <AutoFadeout ts={playingTable!.game.turnStartTs}>
+                    <span className="text-5xl lg:text-9xl text-red-600 font-semibold">
+                      Your turn!
+                    </span>
+                  </AutoFadeout>
+                )}
             </div>
             <div className="flex flex-col w-[8rem] border-l border-l-gray-400">
               <div className="flex flex-col items-center pt-1 gap-1">
@@ -70,9 +80,10 @@ const PlayingTable = () => {
               </div>
               <div className="flex flex-1 items-center justify-center text-4xl lg:text-7xl text-red-600">
                 {(playingTable!.game.state === "handChecking" ||
-                  playingTable!.game.state === "playing") && (
-                  <TurnTimeRemaining ts={playingTable!.game?.turnEndTs} />
-                )}
+                  playingTable!.game.state === "playing") &&
+                  playingTable!.turnTimeout > 0 && (
+                    <TurnTimeRemaining ts={playingTable!.game?.turnEndTs} />
+                  )}
               </div>
             </div>
           </div>

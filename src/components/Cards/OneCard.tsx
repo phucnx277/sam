@@ -67,7 +67,7 @@ const OneCard = ({
       style={{ ...style, aspectRatio: "18/25" }}
     >
       {opponentTiger && (
-        <div className="absolute top-0 left-0 bottom-0 right-0 flex items-center justify-center text-4xl lg:text-7xl">
+        <div className="absolute top-0 left-0 bottom-0 right-0 flex items-center justify-center text-3xl lg:text-6xl">
           🐆
         </div>
       )}

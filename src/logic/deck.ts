@@ -1,4 +1,4 @@
-const Suits: Suit[] = ["H", "D", "C", "S"];
+const Suits: Suit[] = ["S", "C", "H", "D"];
 const Ranks: Rank[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 export const SuitColorMap: Record<Suit, SuitColor> = {
   H: "red",
@@ -38,7 +38,7 @@ export const dealCards = (deck: Card[], numPlayers: number): Card[][] => {
   const hands: Card[][] = Array.from({ length: numPlayers }, () => []);
   for (let i = 0; i < CardsPerPlayer; i++) {
     for (let j = 0; j < numPlayers; j++) {
-      const card = deck.pop();
+      const card = deck.shift();
       if (card) {
         hands[j].push(card);
       }

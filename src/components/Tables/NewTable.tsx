@@ -1,6 +1,27 @@
-import { useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
+import { DEFAULT_TURN_TIMEOUT_SEC } from "@logic/table";
+
+function isNameValid(value?: string): boolean {
+  return String(value || "").length <= 20;
+}
+
+function isPasswordValid(value?: string): boolean {
+  return String(value || "").length >= 1;
+}
+
+function isBoValid(value: number): boolean {
+  return value >= -1 && Math.abs(value % 2) === 1;
+}
+
+function isPlayerLimitValid(value: number): boolean {
+  return value >= 2 && value <= 5;
+}
+
+function isTimeoutLimit(value: number): boolean {
+  return value >= 0 && value <= 90;
+}
 
 const NewTable = (props: { close: () => void; limit: number }) => {
   const { localPlayer } = useLocalPlayer();
@@ -11,33 +32,38 @@ const NewTable = (props: { close: () => void; limit: number }) => {
     password: "",
     bo: -1,
     playerLimit: 5,
+    turnTimeout: DEFAULT_TURN_TIMEOUT_SEC,
   });
 
   const updateFormValue = (key: keyof Table, value: string | number) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const isFormValid = useCallback(() => {
+    return (
+      isNameValid(form.name) &&
+      isPasswordValid(form.password) &&
+      isBoValid(form.bo!) &&
+      isPlayerLimitValid(form.playerLimit!) &&
+      isTimeoutLimit(form.turnTimeout!)
+    );
+  }, [form]);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (
-      isSubmitting ||
-      !form.name ||
-      !form.password ||
-      !form.bo ||
-      !form.playerLimit
-    )
-      return;
+    if (isSubmitting || !isFormValid()) return;
     if (tables.length >= props.limit) {
       alert(`Max number of tables is ${props.limit}`);
       return;
     }
     setIsSubmitting(true);
     const { error } = await createTable({
-      name: form.name,
-      password: form.password,
+      name: form.name!,
+      password: form.password!,
       player: localPlayer!,
-      bo: form.bo || -1,
-      playerLimit: form.playerLimit || 5,
+      bo: form.bo!,
+      playerLimit: form.playerLimit!,
+      turnTimeout: form.turnTimeout!,
     });
     setIsSubmitting(false);
     if (error) {
@@ -51,58 +77,61 @@ const NewTable = (props: { close: () => void; limit: number }) => {
     <div className="fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">
       <div className="w-full flex justify-center">
         <form
-          className="bg-white p-8 rounded-lg shadow-2xl shadow-gray-400"
+          className="bg-white flex flex-col p-4 lg:p-8 rounded-lg shadow-2xl shadow-gray-400 w-[20rem] max-w-[92%] gap-y-2"
           onSubmit={submit}
         >
-          <div>
-            <input
-              name="tblName"
-              className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-[16rem] max-w-full"
-              autoFocus
-              placeholder="Table name"
-              type="text"
-              value={form.name}
-              onInput={(e) => updateFormValue("name", e.currentTarget.value)}
-            />
-          </div>
-          <div>
-            <input
-              name="tblPassword"
-              className="mt-4 py-1 px-2 border border-gray-500 rounded-sm text-lg w-[16rem] max-w-full"
-              placeholder="Password"
-              type="password"
-              value={form.password}
-              onInput={(e) =>
-                updateFormValue("password", e.currentTarget.value)
-              }
-            />
-          </div>
-          <div>
-            <input
-              name="tblBo"
-              className="mt-4 py-1 px-2 border border-gray-500 rounded-sm text-lg w-[16rem] max-w-full"
-              placeholder="Best Of X. -1 if no limit"
-              type="number"
-              min={-1}
-              value={form.bo}
-              onInput={(e) => updateFormValue("bo", e.currentTarget.value)}
-            />
-          </div>
-          <div>
-            <input
-              name="tblLimitPlayer"
-              className="mt-4 py-1 px-2 border border-gray-500 rounded-sm text-lg w-[16rem] max-w-full"
-              placeholder="Max number of players (2-5)"
-              type="number"
-              min={2}
-              max={5}
-              value={form.playerLimit}
-              onInput={(e) =>
-                updateFormValue("playerLimit", e.currentTarget.value)
-              }
-            />
-          </div>
-          <div className="mt-4 flex justify-between">
+          <p className="text-center text-lg">New Table</p>
+          <input
+            name="tblName"
+            className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
+            autoFocus
+            placeholder="Name"
+            type="text"
+            value={form.name}
+            onInput={(e) => updateFormValue("name", e.currentTarget.value)}
+          />
+          <input
+            name="tblPassword"
+            className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
+            placeholder="Password"
+            type="password"
+            value={form.password}
+            onInput={(e) => updateFormValue("password", e.currentTarget.value)}
+          />
+          <input
+            name="tblBo"
+            className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
+            placeholder="Best Of X. -1 == No Limit"
+            type="number"
+            min={-1}
+            value={form.bo}
+            onInput={(e) => updateFormValue("bo", e.currentTarget.value)}
+          />
+          <input
+            name="tblLimitPlayer"
+            className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
+            placeholder="Max number of players (2-5)"
+            type="number"
+            min={2}
+            max={5}
+            value={form.playerLimit}
+            onInput={(e) =>
+              updateFormValue("playerLimit", e.currentTarget.value)
+            }
+          />
+          <input
+            name="tblPlayerTurnTimeout"
+            className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
+            placeholder="Turn timeout (sec). 0 == Disabled"
+            type="number"
+            min={0}
+            max={90}
+            value={form.turnTimeout}
+            onInput={(e) =>
+              updateFormValue("turnTimeout", e.currentTarget.value)
+            }
+          />
+          <div className="mt-2 flex justify-between">
             <button
               type="button"
               className="flex-1 border border-gray-300 hover:bg-gray-300"
@@ -114,13 +143,7 @@ const NewTable = (props: { close: () => void; limit: number }) => {
             <button
               type="submit"
               className="flex-1 ml-4  border border-green-600 bg-green-600"
-              disabled={
-                isSubmitting ||
-                !form.name ||
-                !form.password ||
-                !form.bo ||
-                !form.playerLimit
-              }
+              disabled={!isFormValid()}
             >
               Submit
             </button>

@@ -1,6 +1,8 @@
 import { newGame, newGamePlayer } from "./game";
 import { generateId } from "./util";
+
 export const TABLE_LIMIT = 10;
+export const DEFAULT_TURN_TIMEOUT_SEC = 20;
 
 export type NewTableParams = {
   name: string;
@@ -8,6 +10,7 @@ export type NewTableParams = {
   player: Player;
   playerLimit: number;
   bo: number;
+  turnTimeout: number;
 };
 
 export type EnterTableParams = {
@@ -28,7 +31,10 @@ export const newTable = (params: NewTableParams): Table => {
     createdAt: now,
     updatedAt: now,
     lastGame: null,
-    game: newGame(null, [newGamePlayer(params.player)]),
+    game: newGame(null, [newGamePlayer(params.player)], {
+      turnTimeout: params.turnTimeout,
+    }),
+    turnTimeout: params.turnTimeout,
   };
 
   return table;
@@ -70,6 +76,7 @@ export const resetSession = (table: Table): Table => {
     game: newGame(
       null,
       table.game.players.map((gp) => ({ ...gp, chipCount: 0 })),
+      { turnTimeout: table.turnTimeout },
     ),
     lastGame: null,
     updatedAt: Date.now(),

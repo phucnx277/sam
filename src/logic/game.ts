@@ -10,7 +10,6 @@ import { divideGamePlayers, rotateGamePlayers } from "./player";
 import { resetSession } from "./table";
 import { generateId, randomInt } from "./util";
 
-const PlayTimeoutMs = 20_000;
 const ChipDeductionLevel: Record<
   "Normal" | "StarOfHope",
   { OneCard: number; Fired: number; Tiger: number }
@@ -27,7 +26,11 @@ const ChipDeductionLevel: Record<
   },
 };
 
-export const newGame = (lastGame: Game | null, players: GamePlayer[]): Game => {
+export const newGame = (
+  lastGame: Game | null,
+  players: GamePlayer[],
+  config: { turnTimeout: number },
+): Game => {
   const currentPlayerId = lastGame?.winnerId || null;
 
   return {
@@ -50,6 +53,7 @@ export const newGame = (lastGame: Game | null, players: GamePlayer[]): Game => {
     startedAt: -1,
     turnStartTs: -1,
     turnEndTs: -1,
+    turnTimeout: config.turnTimeout,
   };
 };
 
@@ -196,7 +200,9 @@ export const ActionDef: Record<
       return {
         ...playingTable,
         lastGame: playingTable.game,
-        game: newGame(playingTable.game, playingTable.game.players),
+        game: newGame(playingTable.game, playingTable.game.players, {
+          turnTimeout: playingTable.turnTimeout,
+        }),
       };
     },
   },
@@ -247,6 +253,11 @@ export const ActionDef: Record<
       return { visible, disabled };
     },
     handleAction(playingTable: Table): Table {
+      const cf = window.confirm("Hỏi làng?");
+      if (!cf) {
+        return playingTable;
+      }
+
       const table = { ...playingTable };
       table.game = {
         ...table.game,
@@ -286,6 +297,11 @@ export const ActionDef: Record<
       };
     },
     handleAction(playingTable: Table): Table {
+      const cf = window.confirm("Báo cơ à? Nghĩ kĩ chưa?");
+      if (!cf) {
+        return playingTable;
+      }
+
       const table = { ...playingTable };
       table.game = {
         ...table.game,
@@ -307,6 +323,7 @@ export const ActionDef: Record<
       if (table.game.currentPlayerId === table.game.startPlayerId) {
         table.game = evaluateTigers(table.game);
         table.game.state = "playing";
+        table.game = checkAndUpdateIfGameEnded(table, true);
       }
       updateTurnTimes(table.game);
       return table;
@@ -345,12 +362,7 @@ export const ActionDef: Record<
         isEveryonePassed(table.game)
           ? table.game.round + 1
           : table.game.round;
-      const cardsAfterPlay = currentPlayer.cards.filter(
-        (card) =>
-          !currentPlayer.selectedCards.find((sc) =>
-            areCardsIdentical(card, sc),
-          ),
-      );
+
       table.game = {
         ...table.game,
         round: nextRound,
@@ -381,11 +393,16 @@ export const ActionDef: Record<
             ...gamePlayer,
             lastPlayedRound: nextRound,
             lastAction: gamePlayer.lastAction === "tiger" ? "tiger" : "play",
-            cards: cardsAfterPlay,
+            cards: currentPlayer.cards.filter(
+              (card) =>
+                !currentPlayer.selectedCards.find((sc) =>
+                  areCardsIdentical(card, sc),
+                ),
+            ),
           };
         }),
       };
-      table.game = checkAndUpdateIfGameEnded(table);
+      table.game = checkAndUpdateIfGameEnded(table, false);
       return table;
     },
   },
@@ -410,6 +427,13 @@ export const ActionDef: Record<
       return { visible, disabled };
     },
     handleAction(playingTable: Table): Table {
+      if (playingTable.game.state === "handChecking") {
+        const cf = window.confirm("Bỏ thật chưa?");
+        if (!cf) {
+          return playingTable;
+        }
+      }
+
       const table = { ...playingTable };
       table.game = {
         ...table.game,
@@ -438,6 +462,7 @@ export const ActionDef: Record<
       ) {
         table.game = evaluateTigers(table.game);
         table.game.state = "playing";
+        table.game = checkAndUpdateIfGameEnded(table, true);
       }
 
       updateTurnTimes(table.game);
@@ -461,18 +486,18 @@ export const ActionDef: Record<
       };
     },
     handleAction(playingTable: Table): Table {
-      const shouldReset = window.confirm("Chắc chưa?");
-      if (shouldReset) {
-        return resetSession(playingTable);
+      const cf = window.confirm("Chắc chưa?");
+      if (!cf) {
+        return playingTable;
       }
-      return playingTable;
+      return resetSession(playingTable);
     },
   },
 };
 
 const updateTurnTimes = (game: Game) => {
   game.turnStartTs = Date.now();
-  game.turnEndTs = game.turnStartTs + PlayTimeoutMs;
+  game.turnEndTs = game.turnStartTs + game.turnTimeout * 1000;
 };
 
 const evaluateTigers = (game: Game): Game => {
@@ -482,42 +507,48 @@ const evaluateTigers = (game: Game): Game => {
   if (!positive) {
     return game;
   }
+
+  let whiteTigers: [number, GamePlayer][] = [];
+  let tigerId: string | null = "";
+
   // has one tiger: make tiger the current player
   if (!multiple) {
-    return {
-      ...game,
-      currentPlayerId: tigers[0].id,
-    };
-  }
-
-  // check if there are white winners
-  let whiteTigers: [number, GamePlayer][] = [];
-  for (const gp of tigers) {
-    const rank = checkWhiteTiger(gp.cards);
-    const hr = whiteTigers[0]?.[0] || 0;
-    if (rank > hr) {
-      whiteTigers = [[rank, gp]];
+    const wr = checkWhiteTiger(tigers[0].cards);
+    if (wr === -1) {
+      return {
+        ...game,
+        currentPlayerId: tigers[0].id,
+      };
     }
-    if (rank === hr) {
-      whiteTigers.push([rank, gp]);
+    whiteTigers = [[wr, tigers[0]]];
+  } else {
+    // check if there are white winners
+    for (const gp of tigers) {
+      const rank = checkWhiteTiger(gp.cards);
+      const hr = whiteTigers[0]?.[0] || 0;
+      if (rank > hr) {
+        whiteTigers = [[rank, gp]];
+      }
+      if (rank === hr) {
+        whiteTigers.push([rank, gp]);
+      }
     }
   }
 
   const sortedGps = rotateGamePlayers(game.players, game.startPlayerId!);
-  let tigerId = "";
-
   if (whiteTigers.length === 1) {
     // there is only one white tiger => make it the current player
     tigerId = whiteTigers[0][1].id;
   } else if (whiteTigers.length > 1) {
     // there are multile white tigers => choose the first one after the winner of the last game
     const whiteTigerIds = whiteTigers.map((item) => item[1].id);
-    tigerId = sortedGps.filter((gp) => whiteTigerIds.includes(gp.id))[0].id;
+    tigerId = sortedGps.find((gp) => whiteTigerIds.includes(gp.id))!.id;
   } else if (whiteTigers.length === 0) {
     // there are multile tigers but no white tiger => choose the first one after the winner of the last game
     const tigerIds = tigers.map((item) => item.id);
-    tigerId = sortedGps.filter((gp) => tigerIds.includes(gp.id))[0].id;
+    tigerId = sortedGps.find((gp) => tigerIds.includes(gp.id))!.id;
   }
+
   return {
     ...game,
     currentPlayerId: tigerId,
@@ -531,17 +562,18 @@ const evaluateTigers = (game: Game): Game => {
   };
 };
 
-const checkAndUpdateIfGameEnded = (table: Table): Game => {
-  const game = { ...table.game };
-  const ended = isGameEnded(table);
-  if (ended) {
-    game.state = "ended";
+const checkAndUpdateIfGameEnded = (
+  table: Table,
+  handChecking: boolean,
+): Game => {
+  const game = isGameEnded(table, handChecking);
+  if (game.state === "ended") {
     game.winnerId = game.currentPlayerId;
     game.players = calcGameChipCount({ ...table, game }).map((item) => ({
       ...item,
       cards: item.cards.map((card) => ({ ...card, folded: false })),
     }));
-  } else {
+  } else if (!handChecking) {
     game.state = "playing";
     game.currentPlayerId = findNextPlayerId(game);
     updateTurnTimes(game);
@@ -549,33 +581,75 @@ const checkAndUpdateIfGameEnded = (table: Table): Game => {
   return game;
 };
 
-const isGameEnded = (table: Table): boolean => {
-  const game = table.game;
-  const isBO = table.bo > 0;
+const isGameEnded = (table: Table, handChecking: boolean): Game => {
+  const game = { ...table.game };
   const gamePlayers = game.players.filter((gp) => gp.isReady);
+
   const { positive } = gameHasTigers(game);
-  return gamePlayers.some(
-    (gp) =>
-      gp.cards.length === 0 ||
-      (positive && gp.lastAction === "play") ||
-      (isBO && isFourOfAKind(game.lastPlayedCards)),
+  if (handChecking) {
+    if (positive) {
+      const tiger = gamePlayers.find((gp) => gp.id === game.currentPlayerId)!;
+      if (checkWhiteTiger(tiger.cards) > -1) {
+        game.state = "ended";
+        game.playHistory = [
+          ...table.game.playHistory,
+          {
+            playerId: tiger.id,
+            cards: tiger.cards.map((item) => {
+              const c = { ...item };
+              delete c.folded;
+              delete c.selected;
+              return c;
+            }),
+            round: game.round,
+          },
+        ];
+        return game;
+      }
+    }
+    return game;
+  }
+
+  if (table.bo > 0 && isFourOfAKind(game.lastPlayedCards)) {
+    game.state = "ended";
+    return game;
+  }
+
+  const ended = gamePlayers.some(
+    (gp) => gp.cards.length === 0 || (positive && gp.lastAction === "play"),
   );
+  if (ended) {
+    game.state = "ended";
+  }
+
+  return game;
 };
 
 const calcGameChipCount = (table: Table): GamePlayer[] => {
   const game = table.game;
   const isBO = table.bo > 0;
+  const players = game.players.filter((item) => item.isReady);
   const { targetGamePlayer: winner, opponents } = divideGamePlayers(
-    game.players,
+    players,
     game.winnerId!,
   );
-  const chipChanges: Record<string, number> = game.players.reduce(
+
+  const chipChanges: Record<string, number> = players.reduce(
     (prev, cur) => ({ ...prev, [cur.id]: 0 }),
     {},
   );
-  if (!isBO) {
+
+  (() => {
+    // BO mode, no need to count the cards
+    if (isBO) {
+      chipChanges[game.winnerId!] = 1;
+      return;
+    }
+
+    // tiger checking
     const { tiger, tigerKiller } = findTigerAndKiller(game);
     if (tiger) {
+      // has killer, tiger pays killer
       if (tigerKiller) {
         const chipDeductionLevel =
           tiger.starOfHope && tigerKiller.starOfHope
@@ -587,41 +661,53 @@ const calcGameChipCount = (table: Table): GamePlayer[] => {
           chipChanges[tigerKiller.id] += chipDeductionLevel.Tiger;
         }
         chipChanges[tiger.id] = -chipChanges[tigerKiller.id];
-      } else {
-        for (const op of opponents) {
-          const chipDeductionLevel =
-            tiger.starOfHope && op.starOfHope
-              ? ChipDeductionLevel.StarOfHope
-              : ChipDeductionLevel.Normal;
-          chipChanges[tiger.id] += chipDeductionLevel.Tiger;
-          chipChanges[op.id] -= chipDeductionLevel.Tiger;
-        }
+        return;
       }
-    } else {
+
+      // no killer, everyone pays the tiger
       for (const op of opponents) {
         const chipDeductionLevel =
-          winner.starOfHope && op.starOfHope
+          tiger.starOfHope && op.starOfHope
             ? ChipDeductionLevel.StarOfHope
             : ChipDeductionLevel.Normal;
-        const value =
-          op.cards.length === CardsPerPlayer
-            ? chipDeductionLevel.Fired
-            : chipDeductionLevel.OneCard * op.cards.length;
-        chipChanges[winner.id] += value;
-        chipChanges[op.id] = -value;
+        chipChanges[tiger.id] += chipDeductionLevel.Tiger;
+        chipChanges[op.id] -= chipDeductionLevel.Tiger;
       }
+      return;
     }
-  } else {
-    for (const gp of game.players) {
-      if (gp.id === game.winnerId) {
-        chipChanges[gp.id] = 1;
-      }
+
+    // thang den lang
+    const faultPlayer = findFaultPlayer(game);
+
+    for (const op of opponents) {
+      const chipDeductionLevel =
+        winner.starOfHope && op.starOfHope
+          ? ChipDeductionLevel.StarOfHope
+          : ChipDeductionLevel.Normal;
+      const value =
+        op.cards.length === CardsPerPlayer
+          ? chipDeductionLevel.Fired
+          : chipDeductionLevel.OneCard * op.cards.length;
+      chipChanges[winner.id] += value;
+      const opId = faultPlayer ? faultPlayer.id : op.id;
+      chipChanges[opId] -= value;
     }
-  }
+  })();
+
   return game.players.map((gp) => ({
     ...gp,
-    chipCount: gp.chipCount + chipChanges[gp.id],
+    chipCount: gp.chipCount + (chipChanges[gp.id] ?? 0),
   }));
+};
+
+// tim thang phai den cmn lang
+const findFaultPlayer = (game: Game): GamePlayer | null => {
+  const lastPlay = game.playHistory.slice(-1)[0];
+  if (lastPlay.cards.length > 1) {
+    return null;
+  }
+  // TODO: add logic here
+  return null;
 };
 
 const calcRoundChipCount = (table: Table): GamePlayer[] => {
@@ -775,7 +861,7 @@ export function getCurrentPossibleActions(
 }
 
 function isActionTimeouted(game: Game): boolean {
-  return Date.now() - game.turnEndTs >= 0;
+  return game.turnTimeout > 0 && Date.now() - game.turnEndTs >= 0;
 }
 
 export function getAutoPlayCards(cards: Card[]): Card[] {

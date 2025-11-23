@@ -24,6 +24,7 @@ const Actions = memo(
     const { playingTable } = useAppData();
     const { localPlayer } = useLocalPlayer();
     const ds = useCountDown(playingTable!.game.turnEndTs);
+
     const handleAutoAction = () => {
       const curPlayer = playingTable!.game.players.find(
         (item) => item.id === playingTable!.game.currentPlayerId,
@@ -64,7 +65,11 @@ const Actions = memo(
     };
 
     useEffect(() => {
-      if (ds === 0 && isGameInProgress(playingTable!.game)) {
+      if (
+        playingTable!.turnTimeout > 0 &&
+        ds === 0 &&
+        isGameInProgress(playingTable!.game)
+      ) {
         const tid = handleAutoActionWrapper();
         return () => {
           clearInterval(tid);

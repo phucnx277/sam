@@ -1,5 +1,5 @@
 import { isStraight } from "./card";
-import { SuitColorMap } from "./deck";
+import { CardsPerPlayer, SuitColorMap } from "./deck";
 
 const WhiteWinnerRanks = {
   Poor: 1,
@@ -19,12 +19,13 @@ export const sortHand = (hand: Card[]): Card[] => {
 };
 
 export const checkWhiteTiger = (cards: Card[]): number => {
-  if (isPoor(cards)) return WhiteWinnerRanks.Poor;
-  if (isSameColor(cards)) return WhiteWinnerRanks.SameColor;
-  if (isFivePairs(cards)) return WhiteWinnerRanks.FivePairs;
-  if (isThreeSets(cards)) return WhiteWinnerRanks.ThreeSets;
-  if (isFourPigs(cards)) return WhiteWinnerRanks.FourPigs;
+  if (cards.length !== CardsPerPlayer) return -1;
   if (isStraight(cards)) return WhiteWinnerRanks.Straight;
+  if (isFourPigs(cards)) return WhiteWinnerRanks.FourPigs;
+  if (isThreeSets(cards)) return WhiteWinnerRanks.ThreeSets;
+  if (isFivePairs(cards)) return WhiteWinnerRanks.FivePairs;
+  if (isSameColor(cards)) return WhiteWinnerRanks.SameColor;
+  if (isPoor(cards)) return WhiteWinnerRanks.Poor;
   return -1;
 };
 
