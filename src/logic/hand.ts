@@ -10,14 +10,6 @@ const WhiteWinnerRanks = {
   Straight: 6,
 };
 
-export const sortHand = (hand: Card[]): Card[] => {
-  return hand.sort((a, b) => {
-    if (a.rank === 1) return 1;
-    if (b.rank === 1) return -1;
-    return a.rank - b.rank;
-  });
-};
-
 export const checkWhiteTiger = (cards: Card[]): number => {
   if (cards.length !== CardsPerPlayer) return -1;
   if (isStraight(cards)) return WhiteWinnerRanks.Straight;

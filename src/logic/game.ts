@@ -3,6 +3,7 @@ import {
   canBeat,
   isFourOfAKind,
   getSortedCards,
+  shouldPayVillage,
 } from "./card";
 import { CardsPerPlayer, createDeck, dealCards, shuffleDeck } from "./deck";
 import { checkWhiteTiger } from "./hand";
@@ -706,7 +707,27 @@ const findFaultPlayer = (game: Game): GamePlayer | null => {
   if (lastPlay.cards.length > 1) {
     return null;
   }
-  // TODO: add logic here
+  const gamePlayers = rotateGamePlayers(
+    game.players.filter((item) => item.isReady),
+    game.currentPlayerId!,
+  );
+  const highestRound = Math.max(
+    ...gamePlayers.slice(1).map((item) => item.lastPlayedRound),
+  );
+  for (let i = gamePlayers.length - 1; i > 0; i--) {
+    const player = gamePlayers[i];
+    if (player.lastPlayedRound === highestRound) {
+      let oppCards: Card[] = [];
+      if (player.lastAction === "pass") {
+        oppCards = game.playHistory.slice(-2)[0]?.cards ?? [];
+      } else if (player.lastAction === "play") {
+        oppCards = game.playHistory.slice(-3)[0]?.cards ?? [];
+      }
+      if (shouldPayVillage(player.selectedCards, player.cards, oppCards)) {
+        return player;
+      }
+    }
+  }
   return null;
 };
 

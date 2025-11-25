@@ -119,3 +119,33 @@ export const getSortedCards = (cards: Card[], descending: boolean): Card[] => {
 export const getAbsoluteCardRank = (card: Card): number => {
   return AbsoluteCardRanks[card.rank] ?? card.rank;
 };
+
+export const shouldPayVillage = (
+  playedCards: Card[],
+  remainingCards: Card[],
+  opponentCards: Card[],
+): boolean => {
+  if (opponentCards.length > 1) {
+    return false;
+  }
+
+  const oppCardRank = getAbsoluteCardRank(opponentCards[0]);
+  const highestRemainingCardRank = Math.max(
+    ...remainingCards
+      .filter((c) => c.rank !== 2)
+      .map((c) => getAbsoluteCardRank(c)),
+  );
+
+  const playedCardRank = playedCards.length
+    ? getAbsoluteCardRank(playedCards[0])
+    : 0;
+
+  if (
+    highestRemainingCardRank > oppCardRank &&
+    highestRemainingCardRank > playedCardRank
+  ) {
+    return true;
+  }
+
+  return false;
+};
