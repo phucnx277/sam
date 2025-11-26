@@ -7,11 +7,16 @@ import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import Cards from "../Cards/Cards";
 import Actions from "./Actions";
+import useIsIphone from "@hooks/useIsIphone";
+import useOrientation from "@hooks/useOrientation";
 
 const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const { localPlayer } = useLocalPlayer();
   const { localGame, setLocalGame } = useLocalGame();
   const { playingTable, updateTable, leaveTable, getApiKey } = useAppData();
+  const isIPhone = useIsIphone();
+  const orientation = useOrientation();
+
   const [localCards, setLocalCards] = useState<Card[]>([]);
   const [{ tiger, tigerKiller }, setTigers] = useState<{
     tiger?: GamePlayer | null;
@@ -116,17 +121,27 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   // TODO: check iOS landscape workaround
   const swipeHandlers = useSwipeable({
     onSwiped: (event) => {
+      let left = "Left";
+      let right = "Right";
+      let up = "Up";
+      let down = "Down";
+      if (isIPhone && orientation === "portrait") {
+        left = "Up";
+        right = "Down";
+        up = "Right";
+        down = "Left";
+      }
       switch (event.dir) {
-        case "Left":
+        case left:
           unfoldLocalCards(true);
           break;
-        case "Right":
+        case right:
           unfoldLocalCards(false);
           break;
-        case "Up":
+        case up:
           sortLocalCards(false);
           break;
-        case "Down":
+        case down:
           sortLocalCards(true);
           break;
       }
