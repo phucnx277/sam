@@ -17,7 +17,7 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
     if (alreadyJoined) {
       password = props.table.password;
     }
-    if (alreadyJoined || password) {
+    if (alreadyJoined || password || !props.table.password) {
       (async () => {
         const error = await enterTable({
           table: props.table,
@@ -58,6 +58,7 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
         <form
           className="bg-white flex flex-col p-4 lg:p-8 rounded-lg shadow-2xl shadow-gray-400 w-[18rem] max-w-[92%] gap-y-2"
           onSubmit={submit}
+          autoComplete="off"
         >
           <div className="text-lg text-center">
             <span>Table: </span>

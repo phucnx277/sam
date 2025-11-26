@@ -52,10 +52,11 @@ const Actions = memo(
       const iid = setInterval(() => {
         if (!isGameInProgress(playingTable!.game)) {
           clearInterval(iid);
+          return;
         }
         const secPassed =
           Math.abs(calDurationSec(playingTable!.game.turnEndTs)) %
-          (playingTable!.game.players.filter((gp) => gp.isReady).length - 1);
+          playingTable!.game.players.filter((gp) => gp.isReady).length;
         const nextPlayer = findNextAutoPlayer(playingTable!.game, secPassed);
         if (nextPlayer.id === localPlayer!.id) {
           handleAutoAction();

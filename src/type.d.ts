@@ -28,6 +28,7 @@ type GamePlayer = Player & {
   lastPlayedRound: number;
   lastAction: PlayerAction | null;
   starOfHope: boolean;
+  paidVillage: boolean;
 };
 
 type PlayerAction =

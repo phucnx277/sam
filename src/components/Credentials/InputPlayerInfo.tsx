@@ -16,6 +16,7 @@ const InputPlayerInfo = () => {
     <form
       className="w-full flex flex-col items-center justify-center"
       onSubmit={savePlayer}
+      autoComplete="off"
     >
       <div className="text-xl">Enter your name</div>
       <input

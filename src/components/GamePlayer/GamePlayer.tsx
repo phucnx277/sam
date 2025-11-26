@@ -1,14 +1,14 @@
 import { memo, useEffect, useState } from "react";
 import { useSwipeable } from "react-swipeable";
-import { areCardsIdentical, getSortedCards } from "@logic/card";
+import { areCardsEqual, getSortedCards } from "@logic/card";
 import { findTigerAndKiller } from "@logic/game";
 import useLocalGame from "@hooks/useLocalGame";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
-import Cards from "../Cards/Cards";
-import Actions from "./Actions";
 import useIsIphone from "@hooks/useIsIphone";
 import useOrientation from "@hooks/useOrientation";
+import Cards from "../Cards/Cards";
+import Actions from "./Actions";
 
 const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const { localPlayer } = useLocalPlayer();
@@ -54,7 +54,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
 
     setLocalCards(
       localGame.cards.filter((item) =>
-        gamePlayer.cards.some((gpc) => areCardsIdentical(item, gpc)),
+        gamePlayer.cards.some((gpc) => areCardsEqual(item, gpc)),
       ),
     );
 
@@ -164,7 +164,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           />
         </div>
       )}
-      <div className={`flex flex-col flex-1 w-full gap-y-1 relative`}>
+      <div className={`flex flex-col flex-1 w-full gap-y-1`}>
         {!isMe && (
           <PlayerInfo
             gamePlayer={gamePlayer}
@@ -172,11 +172,11 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
             isWinner={playingTable!.lastGame?.winnerId === gamePlayer.id}
           />
         )}
-        {localCards.length > 0 &&
-          playingTable!.game?.winnerId !== gamePlayer.id && (
+        {
+          <div className={`relative flex flex-1 w-full`}>
             <div
-              {...(isMe ? swipeHandlers : {})}
-              className={`flex flex-1 w-full swipeable ${playingTable!.game.state === "ended" ? "opacity-30" : ""}`}
+              {...(isMe && localCards.length > 0 ? swipeHandlers : {})}
+              className={`flex flex-1 w-full swipeable ${playingTable!.game.state === "ended" ? "opacity-40" : ""}`}
             >
               <Cards
                 isMe={isMe}
@@ -185,24 +185,28 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
                 gamePlayer={gamePlayer}
               />
             </div>
-          )}
-        {playingTable!.game.state === "ended" && (
-          <div className="absolute top-0 right-0 bottom-0 left-0 flex flex-1 items-center justify-center gap-x-1 text-3xl lg:text-6xl">
-            {playingTable!.game?.winnerId === gamePlayer.id && <span>👑</span>}
-            {playingTable!.game?.winnerId === gamePlayer.id &&
-              gamePlayer.id === tiger?.id && <span>🐆</span>}
-            {(gamePlayer.id === tigerKiller?.id ||
-              (gamePlayer.id === tiger?.id &&
-                gamePlayer.id !== playingTable!.game?.winnerId)) && (
-              <span className="relative">
-                <span>🐆</span>
-                <span className="absolute top-0 right-0 bottom-0 left-0">
-                  🔪
-                </span>
-              </span>
+            {playingTable!.game.state === "ended" && (
+              <div className="absolute top-0 right-0 bottom-0 left-0 flex flex-1 items-center justify-center gap-x-1 text-3xl lg:text-6xl">
+                {playingTable!.game?.winnerId === gamePlayer.id && (
+                  <span>👑</span>
+                )}
+                {playingTable!.game?.winnerId === gamePlayer.id &&
+                  gamePlayer.id === tiger?.id && <span>🐆</span>}
+                {(gamePlayer.id === tigerKiller?.id ||
+                  (gamePlayer.id === tiger?.id &&
+                    gamePlayer.id !== playingTable!.game?.winnerId)) && (
+                  <span className="relative">
+                    <span>🐆</span>
+                    <span className="absolute top-0 right-0 bottom-0 left-0">
+                      🔪
+                    </span>
+                  </span>
+                )}
+                {gamePlayer.paidVillage && <span>🐷</span>}
+              </div>
             )}
           </div>
-        )}
+        }
       </div>
       {isMe && playingTable && (
         <Actions
@@ -279,7 +283,7 @@ const PlayerInfo = memo(
 const handleCardSelect = (prev: Card[], card: Card) => {
   return prev.map((item) => {
     let value: Card;
-    if (!areCardsIdentical(item, card)) {
+    if (!areCardsEqual(item, card)) {
       value = { ...item };
     } else {
       value = {

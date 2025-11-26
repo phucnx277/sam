@@ -33,7 +33,7 @@ export const isValidPlay = (
 
   // cannot leave "2" as final card
   const cardsAfterPlay = remainingCards.filter(
-    (card) => !selectedCards.some((item) => areCardsIdentical(card, item)),
+    (card) => !selectedCards.some((item) => areCardsEqual(card, item)),
   );
   if (
     cardsAfterPlay.length &&
@@ -105,7 +105,7 @@ const isHigherStraight = (
   );
 };
 
-export const areCardsIdentical = (card: Card, anotherCard: Card): boolean => {
+export const areCardsEqual = (card: Card, anotherCard: Card): boolean => {
   return card.rank === anotherCard.rank && card.suit === anotherCard.suit;
 };
 
@@ -116,36 +116,29 @@ export const getSortedCards = (cards: Card[], descending: boolean): Card[] => {
   );
 };
 
-export const getAbsoluteCardRank = (card: Card): number => {
-  return AbsoluteCardRanks[card.rank] ?? card.rank;
-};
-
 export const shouldPayVillage = (
-  playedCards: Card[],
   remainingCards: Card[],
   opponentCards: Card[],
 ): boolean => {
-  if (opponentCards.length > 1) {
+  if (opponentCards.length !== 1) {
     return false;
   }
 
   const oppCardRank = getAbsoluteCardRank(opponentCards[0]);
+
   const highestRemainingCardRank = Math.max(
     ...remainingCards
       .filter((c) => c.rank !== 2)
       .map((c) => getAbsoluteCardRank(c)),
   );
 
-  const playedCardRank = playedCards.length
-    ? getAbsoluteCardRank(playedCards[0])
-    : 0;
-
-  if (
-    highestRemainingCardRank > oppCardRank &&
-    highestRemainingCardRank > playedCardRank
-  ) {
+  if (highestRemainingCardRank >= oppCardRank) {
     return true;
   }
 
   return false;
+};
+
+const getAbsoluteCardRank = (card: Card): number => {
+  return AbsoluteCardRanks[card.rank] ?? card.rank;
 };

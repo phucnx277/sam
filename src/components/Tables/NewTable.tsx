@@ -1,26 +1,21 @@
 import { useCallback, useState, type FormEvent } from "react";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
-import { DEFAULT_TURN_TIMEOUT_SEC } from "@logic/table";
 
 function isNameValid(value?: string): boolean {
-  return String(value || "").length <= 20;
-}
-
-function isPasswordValid(value?: string): boolean {
-  return String(value || "").length >= 1;
+  return !!value && value.length <= 20;
 }
 
 function isBoValid(value: number): boolean {
-  return value >= -1 && Math.abs(value % 2) === 1;
+  return !isNaN(value) && value >= -1 && Math.abs(value % 2) === 1;
 }
 
 function isPlayerLimitValid(value: number): boolean {
-  return value >= 2 && value <= 5;
+  return !isNaN(value) && value >= 2 && value <= 5;
 }
 
-function isTimeoutLimit(value: number): boolean {
-  return value >= 0 && value <= 90;
+function isTurnTimeoutValid(value: number): boolean {
+  return !isNaN(value) && value >= 0 && value <= 90;
 }
 
 const NewTable = (props: { close: () => void; limit: number }) => {
@@ -30,9 +25,9 @@ const NewTable = (props: { close: () => void; limit: number }) => {
   const [form, setForm] = useState<Partial<Table>>({
     name: "",
     password: "",
-    bo: -1,
+    bo: -1, // normal mode
     playerLimit: 5,
-    turnTimeout: DEFAULT_TURN_TIMEOUT_SEC,
+    turnTimeout: 20, // 20 seconds
   });
 
   const updateFormValue = (key: keyof Table, value: string | number) => {
@@ -42,10 +37,9 @@ const NewTable = (props: { close: () => void; limit: number }) => {
   const isFormValid = useCallback(() => {
     return (
       isNameValid(form.name) &&
-      isPasswordValid(form.password) &&
-      isBoValid(form.bo!) &&
-      isPlayerLimitValid(form.playerLimit!) &&
-      isTimeoutLimit(form.turnTimeout!)
+      isBoValid(Number(form.bo)) &&
+      isPlayerLimitValid(Number(form.playerLimit)) &&
+      isTurnTimeoutValid(Number(form.turnTimeout))
     );
   }, [form]);
 
@@ -59,7 +53,7 @@ const NewTable = (props: { close: () => void; limit: number }) => {
     setIsSubmitting(true);
     const { error } = await createTable({
       name: form.name!,
-      password: form.password!,
+      password: form.password || "",
       player: localPlayer!,
       bo: form.bo!,
       playerLimit: form.playerLimit!,
@@ -79,6 +73,7 @@ const NewTable = (props: { close: () => void; limit: number }) => {
         <form
           className="bg-white flex flex-col p-4 lg:p-8 rounded-lg shadow-2xl shadow-gray-400 w-[20rem] max-w-[92%] gap-y-2"
           onSubmit={submit}
+          autoComplete="off"
         >
           <p className="text-center text-lg">New Table</p>
           <input

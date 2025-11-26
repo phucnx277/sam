@@ -1,5 +1,5 @@
 import {
-  areCardsIdentical,
+  areCardsEqual,
   canBeat,
   isFourOfAKind,
   getSortedCards,
@@ -68,6 +68,7 @@ export const newGamePlayer = (player: Player): GamePlayer => {
     lastPlayedRound: -1,
     lastAction: null,
     starOfHope: false,
+    paidVillage: false,
   };
 };
 
@@ -125,7 +126,7 @@ export const ActionDef: Record<
   }
 > = {
   ready: {
-    label: "I'm ready",
+    label: "Múc",
     type: "checkbox",
     checkState(
       playingTable: Table,
@@ -364,25 +365,21 @@ export const ActionDef: Record<
           ? table.game.round + 1
           : table.game.round;
 
+      const lastPlayedCards = currentPlayer.selectedCards.map((item) => {
+        const c = { ...item };
+        delete c.folded;
+        delete c.selected;
+        return c;
+      });
       table.game = {
         ...table.game,
         round: nextRound,
-        lastPlayedCards: currentPlayer.selectedCards.map((item) => {
-          const c = { ...item };
-          delete c.folded;
-          delete c.selected;
-          return c;
-        }),
+        lastPlayedCards,
         playHistory: [
           ...table.game.playHistory,
           {
             playerId: currentPlayer.id,
-            cards: currentPlayer.selectedCards.map((item) => {
-              const c = { ...item };
-              delete c.folded;
-              delete c.selected;
-              return c;
-            }),
+            cards: lastPlayedCards,
             round: nextRound,
           },
         ],
@@ -394,12 +391,10 @@ export const ActionDef: Record<
             ...gamePlayer,
             lastPlayedRound: nextRound,
             lastAction: gamePlayer.lastAction === "tiger" ? "tiger" : "play",
-            cards: currentPlayer.cards.filter(
-              (card) =>
-                !currentPlayer.selectedCards.find((sc) =>
-                  areCardsIdentical(card, sc),
-                ),
+            cards: gamePlayer.cards.filter(
+              (card) => !lastPlayedCards.some((sc) => areCardsEqual(card, sc)),
             ),
+            selectedCards: lastPlayedCards,
           };
         }),
       };
@@ -639,6 +634,7 @@ const calcGameChipCount = (table: Table): GamePlayer[] => {
     (prev, cur) => ({ ...prev, [cur.id]: 0 }),
     {},
   );
+  let faultPlayerId: string | undefined;
 
   (() => {
     // BO mode, no need to count the cards
@@ -677,8 +673,8 @@ const calcGameChipCount = (table: Table): GamePlayer[] => {
       return;
     }
 
-    // thang den lang
     const faultPlayer = findFaultPlayer(game);
+    faultPlayerId = faultPlayer?.id;
 
     for (const op of opponents) {
       const chipDeductionLevel =
@@ -690,7 +686,7 @@ const calcGameChipCount = (table: Table): GamePlayer[] => {
           ? chipDeductionLevel.Fired
           : chipDeductionLevel.OneCard * op.cards.length;
       chipChanges[winner.id] += value;
-      const opId = faultPlayer ? faultPlayer.id : op.id;
+      const opId = faultPlayerId ?? op.id;
       chipChanges[opId] -= value;
     }
   })();
@@ -698,36 +694,33 @@ const calcGameChipCount = (table: Table): GamePlayer[] => {
   return game.players.map((gp) => ({
     ...gp,
     chipCount: gp.chipCount + (chipChanges[gp.id] ?? 0),
+    paidVillage: gp.id === faultPlayerId,
   }));
 };
 
-// tim thang phai den cmn lang
+// den cmn lang
 const findFaultPlayer = (game: Game): GamePlayer | null => {
   const lastPlay = game.playHistory.slice(-1)[0];
   if (lastPlay.cards.length > 1) {
     return null;
   }
+
   const gamePlayers = rotateGamePlayers(
     game.players.filter((item) => item.isReady),
     game.currentPlayerId!,
   );
+
   const highestRound = Math.max(
     ...gamePlayers.slice(1).map((item) => item.lastPlayedRound),
   );
-  for (let i = gamePlayers.length - 1; i > 0; i--) {
-    const player = gamePlayers[i];
-    if (player.lastPlayedRound === highestRound) {
-      let oppCards: Card[] = [];
-      if (player.lastAction === "pass") {
-        oppCards = game.playHistory.slice(-2)[0]?.cards ?? [];
-      } else if (player.lastAction === "play") {
-        oppCards = game.playHistory.slice(-3)[0]?.cards ?? [];
-      }
-      if (shouldPayVillage(player.selectedCards, player.cards, oppCards)) {
-        return player;
-      }
-    }
+  const checkingPlayer = gamePlayers[gamePlayers.length - 1];
+  if (checkingPlayer.lastPlayedRound !== highestRound) {
+    return null;
   }
+  if (shouldPayVillage(checkingPlayer.cards, lastPlay.cards)) {
+    return checkingPlayer;
+  }
+
   return null;
 };
 
@@ -787,18 +780,14 @@ function findNextPlayerId(game: Game): string {
   return gamePlayers[0].id;
 }
 
-export function findNextAutoPlayer(
-  game: Game,
-  checkAfterIndex = 0,
-): GamePlayer {
+export function findNextAutoPlayer(game: Game, pos = 0): GamePlayer {
   const gamePlayers = rotateGamePlayers(
     game.players.filter((item) => item.isReady),
     game.currentPlayerId!,
   );
-  checkAfterIndex = Math.max(checkAfterIndex, 0);
-  checkAfterIndex = Math.min(checkAfterIndex, gamePlayers.length - 2);
-  const index = checkAfterIndex + 1;
-  return gamePlayers[index];
+  pos = Math.max(pos, 0);
+  pos = Math.min(pos, gamePlayers.length - 1);
+  return gamePlayers[pos];
 }
 
 function isPlayerTurn(game: Game, player: GamePlayer): boolean {

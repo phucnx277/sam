@@ -2,7 +2,6 @@ import { newGame, newGamePlayer } from "./game";
 import { generateId } from "./util";
 
 export const TABLE_LIMIT = 10;
-export const DEFAULT_TURN_TIMEOUT_SEC = 20;
 
 export type NewTableParams = {
   name: string;
@@ -45,7 +44,11 @@ export const enterTable = (
 ): { error: Error | null; table: Table | null } => {
   const table = { ...params.table };
 
-  if (params.player.id !== table.hostId && params.password !== table.password) {
+  if (
+    table.password &&
+    params.player.id !== table.hostId &&
+    params.password !== table.password
+  ) {
     return {
       error: new Error("Password is incorrect"),
       table,

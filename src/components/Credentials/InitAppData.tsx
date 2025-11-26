@@ -37,6 +37,7 @@ const InitAppData = () => {
     <form
       className="mt-4 w-full flex flex-col items-center justify-center"
       onSubmit={initAppData}
+      autoComplete="off"
     >
       <input
         name="apiKey"
