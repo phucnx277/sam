@@ -55,9 +55,9 @@ const NewTable = (props: { close: () => void; limit: number }) => {
       name: form.name!,
       password: form.password || "",
       player: localPlayer!,
-      bo: form.bo!,
-      playerLimit: form.playerLimit!,
-      turnTimeout: form.turnTimeout!,
+      bo: Number(form.bo),
+      playerLimit: Number(form.playerLimit),
+      turnTimeout: Number(form.turnTimeout),
     });
     setIsSubmitting(false);
     if (error) {

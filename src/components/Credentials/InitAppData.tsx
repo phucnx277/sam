@@ -47,7 +47,7 @@ const InitAppData = () => {
         placeholder="Ably API key"
         onInput={(e) => setKey(e.currentTarget.value)}
       />
-      <p className="text-sm w-full mt-1">
+      <p className="text-sm w-full mt-2">
         <span>Get a new key here: </span>
         <a
           href="https://ably.com"
@@ -60,7 +60,7 @@ const InitAppData = () => {
       </p>
       <button
         type="submit"
-        className={`bg-green-600 mt-4`}
+        className={`bg-green-600 mt-6`}
         disabled={!key || isInitializing}
       >
         {isInitializing ? "Checking" : "Next"}

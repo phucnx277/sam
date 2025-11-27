@@ -1,17 +1,21 @@
 import "./PlayingTable.css";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
-import { divideGamePlayers } from "@logic/player";
 import useCountDown from "@hooks/useCountDown";
+import useLocalGame from "@hooks/useLocalGame";
 import { isGameInProgress } from "@logic/game";
+import { divideGamePlayers } from "@logic/player";
 import GamePlayer from "../GamePlayer/GamePlayer";
 import Cards from "../Cards/Cards";
 import AutoFadeout from "../common/AutoFadeout";
+import Actions from "../GamePlayer/Actions";
+import { useEffect } from "react";
 
 const PlayingTable = () => {
-  const { playingTable } = useAppData();
+  const { playingTable, updateTable } = useAppData();
+  const { localCards } = useLocalGame();
   const { localPlayer } = useLocalPlayer();
-  const { targetGamePlayer, opponents } = divideGamePlayers(
+  const { targetGamePlayer: localGamePlayer, opponents } = divideGamePlayers(
     playingTable!.game.players,
     localPlayer!.id,
   );
@@ -25,20 +29,38 @@ const PlayingTable = () => {
     (item) => item.id === playingTable!.game.currentPlayerId,
   );
 
+  const handleAction = async (table: Table) => {
+    const error = await updateTable(table);
+    if (error) {
+      alert(error.message);
+    }
+  };
+
+  useEffect(() => {
+    console.log(playingTable);
+  }, [playingTable]);
+
   return (
     <div className="playing-table p-2 lg:p-12 fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-y-1 bg-cyan-50">
-      <div className="w-full flex flex-1 justify-around sm:gap-x-8 lg:gap-x-20">
-        {opponents.map((gp) => (
-          <GamePlayer key={gp.id} gamePlayer={gp} />
-        ))}
+      <div className="w-full flex flex-3 lg:flex-4 justify-around sm:gap-x-8 lg:gap-x-20">
+        {opponents
+          .filter(
+            (opp) => playingTable!.game.state === "waiting" || opp.isReady,
+          )
+          .map((gp) => (
+            <GamePlayer key={gp.id} gamePlayer={gp} />
+          ))}
       </div>
-      <div className="w-full flex flex-1 justify-between">
+
+      <div className="w-full flex flex-3 lg:flex-4 justify-between">
         <div className="w-full flex justify-between">
           <div className="w-full gap-x-1 flex justify-between px-1 py-1 lg:py-2 rounded-sm border-1 border-gray-400">
-            <div className="flex flex-col w-[8rem] border-r border-r-gray-400">
+            <div className="flex flex-col w-[6rem] lg:w-[8rem] border-r border-r-gray-400">
               <div className="flex flex-1 flex-col items-center pt-1 gap-1">
                 <div className="text-sm">Lượt trước</div>
-                <div className="font-semibold">{prevPlayer?.name || "--"}</div>
+                <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
+                  {prevPlayer?.name || "--"}
+                </div>
               </div>
               {playingTable!.bo > 0 && (
                 <div className="flex items-center justify-center gap-x-1">
@@ -47,10 +69,11 @@ const PlayingTable = () => {
                 </div>
               )}
             </div>
+
             <div className="flex-1 relative">
               {playingTable!.game.playHistory.slice(-2).map((play, idx) => (
                 <div
-                  className="absolute flex top-0 left-0 bottom-0 right-0 bg-cyan-50/90"
+                  className="absolute z-1 flex top-0 left-0 bottom-0 right-0 bg-cyan-50/90"
                   key={idx}
                 >
                   <Cards
@@ -72,11 +95,24 @@ const PlayingTable = () => {
                     </span>
                   </AutoFadeout>
                 )}
+
+              <div className="absolute z-3 flex top-0 left-0 bottom-0 right-0">
+                <Actions
+                  selectedCards={
+                    localCards.filter((item) => item.selected) || []
+                  }
+                  gamePlayer={localGamePlayer}
+                  onAction={handleAction}
+                />
+              </div>
             </div>
-            <div className="flex flex-col w-[8rem] border-l border-l-gray-400">
+
+            <div className="flex flex-col w-[6rem] lg:w-[8rem] border-l border-l-gray-400">
               <div className="flex flex-col items-center pt-1 gap-1">
                 <div className="text-sm">Lượt hiện tại</div>
-                <div className="font-semibold">{curPlayer?.name || "--"}</div>
+                <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
+                  {curPlayer?.name || "--"}
+                </div>
               </div>
               <div className="flex flex-1 items-center justify-center text-4xl lg:text-7xl text-red-600">
                 {(playingTable!.game.state === "handChecking" ||
@@ -89,8 +125,9 @@ const PlayingTable = () => {
           </div>
         </div>
       </div>
-      <div className="w-full flex flex-1 justify-center">
-        <GamePlayer key={targetGamePlayer.id} gamePlayer={targetGamePlayer} />
+
+      <div className="w-full flex flex-4 lg:flex-5 justify-center">
+        <GamePlayer key={localGamePlayer.id} gamePlayer={localGamePlayer} />
       </div>
     </div>
   );

@@ -60,7 +60,7 @@ export const enterTable = (
   ) {
     if (table.game.players.length >= table.playerLimit) {
       return {
-        error: new Error("Too many players"),
+        error: new Error(`Table can only have ${table.playerLimit} players.`),
         table,
       };
     }

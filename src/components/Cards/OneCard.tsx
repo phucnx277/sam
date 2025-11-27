@@ -62,7 +62,7 @@ const OneCard = ({
       };
   return (
     <div
-      className={`card-item absolute h-full overflow-hidden ${selectedClassees} ${userCardClasses}`}
+      className={`card-item absolute z-4 h-full overflow-hidden ${selectedClassees} ${userCardClasses}`}
       onClick={() => onClick()}
       style={{ ...style, aspectRatio: "18/25" }}
     >

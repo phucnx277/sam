@@ -10,6 +10,7 @@ import useCountDown from "@hooks/useCountDown";
 import { calDurationSec } from "@logic/util";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
+import TwoStepButton from "../common/TwoStepButton";
 
 const Actions = memo(
   ({
@@ -65,6 +66,72 @@ const Actions = memo(
       return iid;
     };
 
+    const renderTwoStepButtonActions = (actions: PlayerAction[]) => {
+      return actions
+        .map((action) => {
+          const def = ActionDef[action as PlayerAction];
+          const { visible, disabled } = def.checkState(playingTable!, {
+            ...gamePlayer,
+            selectedCards,
+          });
+
+          if (!visible || disabled) {
+            return null;
+          }
+
+          return (
+            <TwoStepButton
+              key={action}
+              className="flex w-1/2 lg:w-1/4 lg:min-w-[8rem] py-1 border-2 rounded-sm font-semibold"
+              activeClassName={def.activeClassName}
+              inactiveClassName={def.inactiveClassName}
+              onConfirm={() =>
+                onAction(
+                  def.handleAction(playingTable!, {
+                    ...gamePlayer,
+                    selectedCards,
+                  }),
+                )
+              }
+            >
+              <Action
+                className="w-full !px-0"
+                action={action as PlayerAction}
+                disabled={false}
+              />
+            </TwoStepButton>
+          );
+        })
+        .filter(Boolean);
+    };
+
+    const renderActions = (actions: PlayerAction[]) => {
+      return actions
+        .map((action) => {
+          const def = ActionDef[action as PlayerAction];
+          const { visible, disabled, value } = def.checkState(playingTable!, {
+            ...gamePlayer,
+            selectedCards,
+          });
+
+          if (!visible) return null;
+
+          return (
+            <Action
+              className="!px-0 w-full bg-green-600 font-semibold"
+              key={action}
+              action={action as PlayerAction}
+              disabled={disabled}
+              value={value}
+              onAction={() =>
+                onAction(def.handleAction(playingTable!, gamePlayer))
+              }
+            />
+          );
+        })
+        .filter(Boolean);
+    };
+
     useEffect(() => {
       if (
         playingTable!.turnTimeout > 0 &&
@@ -79,18 +146,36 @@ const Actions = memo(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ds]);
     return (
-      <div className="flex flex-col w-[8rem] gap-y-1">
-        {Object.keys(ActionDef).map((action) => (
-          <Action
-            key={action}
-            action={action as PlayerAction}
-            playingTable={playingTable!}
-            gamePlayer={gamePlayer!}
-            selectedCards={selectedCards}
-            onAction={onAction}
-          />
-        ))}
-      </div>
+      <>
+        {isGameInProgress(playingTable!.game) && (
+          <div className="w-full flex items-center">
+            <div className="flex-1 flex justify-start">
+              {renderTwoStepButtonActions(["pass", "ask"])}
+            </div>
+            <div className="flex-1 flex justify-end">
+              {renderTwoStepButtonActions(["play", "tiger"])}
+            </div>
+          </div>
+        )}
+
+        {!isGameInProgress(playingTable!.game) && (
+          <div className="w-full flex items-center justify-center gap-8 bg-cyan-50/60">
+            {playingTable!.game.state === "waiting" && (
+              <div className="flex flex-col gap-4 min-w-[8rem]">
+                <div className="flex justify-between items-center">
+                  {renderActions(["ready", "star"])}
+                </div>
+                {renderActions(["startGame"])}
+              </div>
+            )}
+            {playingTable!.game.state === "ended" && (
+              <div className="flex flex-col gap-2 min-w-[8rem]">
+                {renderActions(["startGame", "newGame", "resetSession"])}
+              </div>
+            )}
+          </div>
+        )}
+      </>
     );
   },
 );
@@ -98,56 +183,50 @@ const Actions = memo(
 const Action = memo(
   ({
     action,
-    selectedCards,
-    playingTable,
-    gamePlayer,
+    value,
+    disabled,
+    className = "",
     onAction,
   }: {
     action: PlayerAction;
-    selectedCards: Card[];
-    gamePlayer: GamePlayer;
-    playingTable: Table;
-    onAction: (table: Table) => Promise<void>;
+    value?: unknown;
+    disabled: boolean;
+    className?: string;
+    onAction?: () => Promise<void>;
   }) => {
-    const gpWithCards = { ...gamePlayer, selectedCards };
     const def = ActionDef[action];
-    const { visible, disabled, value } = def.checkState(
-      playingTable!,
-      gpWithCards,
-    );
+
     const handleAction = () => {
-      return onAction(def.handleAction(playingTable!, gpWithCards));
+      if (!onAction) return;
+      return onAction();
     };
 
     return (
       <>
-        {visible && (
-          <>
-            {def.type === "button" && (
-              <button
-                className={`!px-0 bg-green-600 ${def.className || ""}`}
-                disabled={disabled}
-                onClick={handleAction}
-              >
-                {def.label}
-              </button>
-            )}
-            {def.type === "checkbox" && (
-              <button
-                className={`!p-0 flex items-center ${def.className || ""}`}
-                disabled={disabled}
-                onClick={handleAction}
-              >
-                <input
-                  name="meIsReady"
-                  type="checkbox"
-                  checked={!!value}
-                  readOnly={true}
-                />
-                <span className="ml-1">{def.label}</span>
-              </button>
-            )}
-          </>
+        {def.type === "button" && (
+          <button
+            className={`${className}`}
+            disabled={disabled}
+            onClick={handleAction}
+          >
+            {def.label}
+          </button>
+        )}
+        {def.type === "checkbox" && (
+          <button
+            className={`!p-0 flex items-center`}
+            disabled={disabled}
+            onClick={handleAction}
+          >
+            <input
+              className="h-[1.25rem] w-[1.25rem]"
+              name="meIsReady"
+              type="checkbox"
+              checked={!!value}
+              readOnly={true}
+            />
+            <span className="ml-1">{def.label}</span>
+          </button>
         )}
       </>
     );

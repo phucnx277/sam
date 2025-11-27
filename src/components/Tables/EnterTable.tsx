@@ -25,7 +25,7 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
           password,
         });
         if (error) {
-          console.error(error.message);
+          alert(error.message);
         }
         if (url.searchParams.has("tblId") || url.searchParams.has("tbdPw")) {
           url.searchParams.delete("tblId");

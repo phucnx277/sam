@@ -117,7 +117,8 @@ export const ActionDef: Record<
   {
     label: string;
     type: "button" | "checkbox";
-    className?: string;
+    inactiveClassName?: string;
+    activeClassName?: string;
     checkState: (
       playingTable: Table,
       currentPlayer: GamePlayer,
@@ -154,7 +155,7 @@ export const ActionDef: Record<
     },
   },
   star: {
-    label: "⭐ hy vọng",
+    label: "⭐",
     type: "checkbox",
     checkState(
       playingTable: Table,
@@ -240,6 +241,8 @@ export const ActionDef: Record<
   ask: {
     label: "Hỏi",
     type: "button",
+    inactiveClassName: "border-cyan-600/90 bg-cyan-300/30",
+    activeClassName: "border-cyan-600/90 bg-cyan-600/90",
     checkState(
       playingTable: Table,
       currentPlayer: GamePlayer,
@@ -283,6 +286,8 @@ export const ActionDef: Record<
   tiger: {
     label: "Báo",
     type: "button",
+    inactiveClassName: "border-amber-600/90 bg-amber-300/30",
+    activeClassName: "border-amber-600/90 bg-amber-600/90",
     checkState(
       playingTable: Table,
       currentPlayer: GamePlayer,
@@ -334,6 +339,8 @@ export const ActionDef: Record<
   play: {
     label: "Đánh",
     type: "button",
+    inactiveClassName: "border-green-600/90 bg-green-500/50",
+    activeClassName: "border-green-600/95 bg-green-600/95",
     checkState(
       playingTable: Table,
       currentPlayer: GamePlayer,
@@ -406,6 +413,8 @@ export const ActionDef: Record<
   pass: {
     label: "Bỏ",
     type: "button",
+    inactiveClassName: "border-gray-600/90 bg-gray-500/50",
+    activeClassName: "border-gray-600/95 bg-gray-600/95 text-white",
     checkState(
       playingTable: Table,
       currentPlayer: GamePlayer,
@@ -701,7 +710,10 @@ const calcGameChipCount = (table: Table): GamePlayer[] => {
 // den cmn lang
 const findFaultPlayer = (game: Game): GamePlayer | null => {
   const lastPlay = game.playHistory.slice(-1)[0];
-  if (lastPlay.cards.length > 1) {
+  if (
+    game.players.filter((item) => item.isReady).length > 2 ||
+    lastPlay.cards.length > 1
+  ) {
     return null;
   }
 
