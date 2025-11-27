@@ -9,9 +9,7 @@ const InitAppData = () => {
   useEffect(() => {
     const url = new URL(window.location.href);
     let apiKey = url.searchParams.get("apiKey");
-    if (!apiKey) {
-      apiKey = getApiKey();
-    }
+    apiKey = getApiKey("original", apiKey);
     setKey(apiKey);
 
     setTimeout(() => {
@@ -39,18 +37,30 @@ const InitAppData = () => {
       onSubmit={initAppData}
       autoComplete="off"
     >
+      <p className="text-sm w-full">Your Ably API Key</p>
       <input
         name="apiKey"
         className="p-2 border border-gray-500 rounded-sm w-[525px] max-w-full"
         autoFocus
         type="text"
         value={key}
-        placeholder="Input Abby API key"
+        placeholder="Ably API key"
         onInput={(e) => setKey(e.currentTarget.value)}
       />
+      <p className="text-sm w-full mt-1">
+        <span>Get a new key here: </span>
+        <a
+          href="https://ably.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-cyan-600"
+        >
+          {"https://ably.com"}
+        </a>
+      </p>
       <button
         type="submit"
-        className={`mt-4 bg-green-600`}
+        className={`bg-green-600 mt-4`}
         disabled={!key || isInitializing}
       >
         {isInitializing ? "Checking" : "Next"}

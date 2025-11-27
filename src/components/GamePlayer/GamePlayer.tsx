@@ -5,7 +5,7 @@ import { findTigerAndKiller } from "@logic/game";
 import useLocalGame from "@hooks/useLocalGame";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
-import useIsIphone from "@hooks/useIsIphone";
+import useIsMobile from "@hooks/useIsMobile";
 import useOrientation from "@hooks/useOrientation";
 import Cards from "../Cards/Cards";
 import Actions from "./Actions";
@@ -14,7 +14,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const { localPlayer } = useLocalPlayer();
   const { localGame, setLocalGame } = useLocalGame();
   const { playingTable, updateTable, leaveTable, getApiKey } = useAppData();
-  const isIPhone = useIsIphone();
+  const isMobile = useIsMobile();
   const orientation = useOrientation();
 
   const [localCards, setLocalCards] = useState<Card[]>([]);
@@ -104,7 +104,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
         if (!navigator.clipboard) {
           break;
         }
-        const tableUrl = `${window.location.href}?apiKey=${getApiKey()}&tblId=${playingTable!.id}&tblPw=${playingTable!.password}`;
+        const tableUrl = `${window.location.href}?apiKey=${getApiKey("encoded")}&tblId=${playingTable!.id}&tblPw=${playingTable!.password}`;
         navigator.clipboard
           .writeText(tableUrl)
           .then(() => {
@@ -118,14 +118,13 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
     }
   };
 
-  // TODO: check iOS landscape workaround
   const swipeHandlers = useSwipeable({
     onSwiped: (event) => {
       let left = "Left";
       let right = "Right";
       let up = "Up";
       let down = "Down";
-      if (isIPhone && orientation === "portrait") {
+      if (isMobile && orientation === "portrait") {
         left = "Up";
         right = "Down";
         up = "Right";

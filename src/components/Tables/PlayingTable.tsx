@@ -3,11 +3,10 @@ import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { divideGamePlayers } from "@logic/player";
 import useCountDown from "@hooks/useCountDown";
+import { isGameInProgress } from "@logic/game";
 import GamePlayer from "../GamePlayer/GamePlayer";
 import Cards from "../Cards/Cards";
 import AutoFadeout from "../common/AutoFadeout";
-import { isGameInProgress } from "@logic/game";
-import { useEffect } from "react";
 
 const PlayingTable = () => {
   const { playingTable } = useAppData();
@@ -25,10 +24,6 @@ const PlayingTable = () => {
   const curPlayer = playingTable!.game.players.find(
     (item) => item.id === playingTable!.game.currentPlayerId,
   );
-
-  useEffect(() => {
-    console.log(playingTable);
-  }, [playingTable]);
 
   return (
     <div className="playing-table p-2 lg:p-12 fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-y-1 bg-cyan-50">

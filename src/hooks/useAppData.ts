@@ -1,11 +1,11 @@
 import { useCallback } from "react";
 import Objects from "ably/objects";
-import * as Abby from "ably";
+import * as Ably from "ably";
 import { create } from "zustand";
 import {
   deepEqual,
   encodeApiKey,
-  normalizeApiKey,
+  decodeApiKey,
   parseTable,
   parseTables,
   stringifyValues,
@@ -23,9 +23,9 @@ const Keys = {
   Tables: "tables",
 };
 
-const useAbbyStore = create<{
-  channel: Abby.RealtimeChannel | null;
-  tablesMap: Abby.LiveMap<Abby.LiveMapType> | null;
+const useAblyStore = create<{
+  channel: Ably.RealtimeChannel | null;
+  tablesMap: Ably.LiveMap<Ably.LiveMapType> | null;
   tables: Table[];
   playingTable: Table | null;
   init: (key: string) => Promise<{ error: Error | null }>;
@@ -38,20 +38,21 @@ const useAbbyStore = create<{
   tables: [],
   playingTable: null,
   init: async (apiKey: string): Promise<{ error: Error | null }> => {
-    const normalizedApiKey = normalizeApiKey(apiKey);
+    const normalizedApiKey = decodeApiKey(apiKey);
     let error: Error | null = null;
     try {
-      const client = new Abby.Realtime({
+      const client = new Ably.Realtime({
         key: normalizedApiKey,
         plugins: { Objects },
       });
+      storeApiKey(apiKey);
       const channel = client.channels.get(CHANNEL_ID, {
         modes: ["OBJECT_SUBSCRIBE", "OBJECT_PUBLISH"],
       });
       await channel.attach();
       const root = await channel.objects.getRoot();
 
-      let tablesMap = root.get(Keys.Tables) as Abby.LiveMap<Abby.LiveMapType>;
+      let tablesMap = root.get(Keys.Tables) as Ably.LiveMap<Ably.LiveMapType>;
       if (!tablesMap) {
         tablesMap = await channel.objects.createMap();
         await root.set(Keys.Tables, tablesMap);
@@ -76,19 +77,19 @@ const useAbbyStore = create<{
         tablesMap,
         tables: parseTables(tablesMap.entries()),
       }));
-      localStorage.setItem(LS_API_KEY, encodeApiKey(apiKey));
     } catch (err) {
       error = err as Error;
     }
+
     return { error };
   },
   setPlayingTable: (data: Table) => {
     let error: Error | null = null;
-    let playingTableMap: Abby.LiveMap<Abby.LiveMapType> | null = null;
+    let playingTableMap: Ably.LiveMap<Ably.LiveMapType> | null = null;
     set((state) => {
       playingTableMap = state.tablesMap!.get(
         data.id,
-      ) as Abby.LiveMap<Abby.LiveMapType>;
+      ) as Ably.LiveMap<Ably.LiveMapType>;
 
       if (!playingTableMap) {
         error = new Error(`Table with id ${data.id} not found`);
@@ -100,7 +101,7 @@ const useAbbyStore = create<{
     });
 
     if (playingTableMap) {
-      (playingTableMap as Abby.LiveMap<Abby.LiveMapType>).subscribe(() => {
+      (playingTableMap as Ably.LiveMap<Ably.LiveMapType>).subscribe(() => {
         set((state) => {
           if (state.playingTable?.id === data.id) {
             const newPlayerTable = parseTable(playingTableMap!.entries());
@@ -127,7 +128,7 @@ const useAbbyStore = create<{
       if (!state.playingTable) return {};
       const playingTableMap = state.tablesMap!.get(
         state.playingTable.id,
-      ) as Abby.LiveMap<Abby.LiveMapType>;
+      ) as Ably.LiveMap<Ably.LiveMapType>;
       if (!playingTableMap) return { playingTable: null };
       playingTableMap.unsubscribeAll();
       return { playingTable: null };
@@ -144,7 +145,7 @@ const useAppData = () => {
     init,
     setPlayingTable,
     unsetPlayingTable,
-  } = useAbbyStore();
+  } = useAblyStore();
 
   const createTable = useCallback(
     async (params: NewTableParams): Promise<{ error: Error | null }> => {
@@ -175,10 +176,10 @@ const useAppData = () => {
           const root = ctx.getRoot();
           const tablesMap = root.get(
             Keys.Tables,
-          ) as Abby.LiveMap<Abby.LiveMapType>;
+          ) as Ably.LiveMap<Ably.LiveMapType>;
           const tableMap = tablesMap.get(
             data.id,
-          ) as Abby.LiveMap<Abby.LiveMapType>;
+          ) as Ably.LiveMap<Ably.LiveMapType>;
           const tableMapData = parseTable(tableMap.entries());
           if (!tableMapData) {
             error = new Error(`Cannot parse table with id ${data.id}`);
@@ -246,8 +247,32 @@ const useAppData = () => {
     updateTable,
     removeTable,
     leaveTable: () => unsetPlayingTable(),
-    getApiKey: () => encodeApiKey(localStorage.getItem(LS_API_KEY) || ""),
+    getApiKey,
   };
+};
+
+// apiKey should always be encoded (maybe encrypted) before saving
+const storeApiKey = (apiKey: string) => {
+  apiKey = encodeApiKey(apiKey);
+  localStorage.setItem(LS_API_KEY, apiKey);
+};
+
+const getApiKey = (
+  type: "encoded" | "original",
+  apiKey?: string | null,
+): string => {
+  apiKey = apiKey || localStorage.getItem(LS_API_KEY) || "";
+  switch (type) {
+    case "encoded":
+      apiKey = encodeApiKey(apiKey);
+      break;
+    case "original":
+      apiKey = decodeApiKey(apiKey);
+      break;
+    default:
+      break;
+  }
+  return apiKey;
 };
 
 export default useAppData;
