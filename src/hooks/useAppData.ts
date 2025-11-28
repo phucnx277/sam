@@ -45,7 +45,7 @@ const useAblyStore = create<{
         key: normalizedApiKey,
         plugins: { Objects },
       });
-      storeApiKey(apiKey);
+      storeApiKey(normalizedApiKey);
       const channel = client.channels.get(CHANNEL_ID, {
         modes: ["OBJECT_SUBSCRIBE", "OBJECT_PUBLISH"],
       });
@@ -251,9 +251,7 @@ const useAppData = () => {
   };
 };
 
-// apiKey should always be encoded (maybe encrypted) before saving
 const storeApiKey = (apiKey: string) => {
-  apiKey = encodeApiKey(apiKey);
   localStorage.setItem(LS_API_KEY, apiKey);
 };
 
@@ -268,8 +266,6 @@ const getApiKey = (
       break;
     case "original":
       apiKey = decodeApiKey(apiKey);
-      break;
-    default:
       break;
   }
   return apiKey;
