@@ -35,6 +35,7 @@ const Actions = memo(
         curPlayer!,
       );
       if (!possibleActions.length) return;
+
       const autoAction = possibleActions[0];
       let autoCards: Card[] = [];
       if (autoAction === "play") {
@@ -162,7 +163,7 @@ const Actions = memo(
           <div className="w-full flex items-center justify-center gap-8 bg-cyan-50/60">
             {playingTable!.game.state === "waiting" && (
               <div className="flex flex-col gap-4 min-w-[8rem]">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center gap-4">
                   {renderActions(["ready", "star"])}
                 </div>
                 {renderActions(["startGame"])}

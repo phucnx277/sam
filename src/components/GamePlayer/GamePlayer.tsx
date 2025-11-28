@@ -158,10 +158,10 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           {isMe && (
             <div>
               <button
-                className="!p-1 text-sm border border-green-600 rounded-sm"
+                className="!p-0"
                 onClick={() => handleTableAction("lobby")}
               >
-                Lobby
+                ⬅️
               </button>
             </div>
           )}
@@ -190,16 +190,16 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           {isMe && (
             <div>
               <button
-                className="!p-1 text-sm border border-green-600 rounded-sm"
+                className="!p-0"
                 onClick={() => handleTableAction("share")}
               >
-                Share
+                ℹ️
               </button>
             </div>
           )}
 
           {playingTable!.game.state === "ended" && (
-            <div className="absolute top-0 right-0 bottom-0 left-0 flex flex-1 items-center justify-center gap-x-1 text-3xl lg:text-6xl">
+            <div className="absolute top-0 right-10 bottom-0 left-10 flex flex-1 items-center justify-center gap-x-1 text-3xl lg:text-6xl">
               {playingTable!.game?.winnerId === gamePlayer.id && (
                 <span>👑</span>
               )}
@@ -236,10 +236,10 @@ const PlayerInfo = memo(
   }) => {
     return (
       <div
-        className={`flex justify-center items-center gap-x-2 sm:leading-4 text-lg lg:text-xl`}
+        className={`flex justify-center items-center gap-x-2 sm:leading-4 md:text-lg lg:text-xl`}
       >
-        <div className="flex items-center justify-center gap-x-1">
-          {isWinner && <span>👑</span>}
+        <div className="flex items-center justify-center gap-x-2">
+          {isWinner && <span className="text-sm lg:text-lg">👑</span>}
           {!isMe && (
             <input
               type="checkbox"
@@ -251,13 +251,18 @@ const PlayerInfo = memo(
           <span>{gamePlayer.name}</span>
         </div>
         <div className="flex items-center justify-center gap-x-2">
-          {gamePlayer.starOfHope && <span>⭐</span>}
+          {gamePlayer.starOfHope && (
+            <span className="text-sm lg:text-lg">⭐</span>
+          )}
           <div
             className={`flex items-center gap-x-1 font-semibold ${gamePlayer.chipCount >= 0 ? `text-green-500` : "text-red-500"}`}
           >
             <span className="text-2xl leading-5">⛁</span>
             <span>{gamePlayer.chipCount}</span>
           </div>
+          {gamePlayer.lastAction === "tiger" && (
+            <span className="text-sm lg:text-lg">🐆</span>
+          )}
         </div>
       </div>
     );

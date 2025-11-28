@@ -155,7 +155,7 @@ export const ActionDef: Record<
     },
   },
   star: {
-    label: "⭐",
+    label: "⭐ hy vọng",
     type: "checkbox",
     checkState(
       playingTable: Table,
@@ -258,11 +258,6 @@ export const ActionDef: Record<
       return { visible, disabled };
     },
     handleAction(playingTable: Table): Table {
-      const cf = window.confirm("Hỏi làng?");
-      if (!cf) {
-        return playingTable;
-      }
-
       const table = { ...playingTable };
       table.game = {
         ...table.game,
@@ -284,7 +279,7 @@ export const ActionDef: Record<
     },
   },
   tiger: {
-    label: "Báo",
+    label: "Báo 🐆",
     type: "button",
     inactiveClassName: "border-amber-600/90 bg-amber-300/30",
     activeClassName: "border-amber-600/90 bg-amber-600/90",
@@ -304,7 +299,7 @@ export const ActionDef: Record<
       };
     },
     handleAction(playingTable: Table): Table {
-      const cf = window.confirm("Báo cơ à? Nghĩ kĩ chưa?");
+      const cf = window.confirm("Báo nhé 🐆?");
       if (!cf) {
         return playingTable;
       }
@@ -432,13 +427,6 @@ export const ActionDef: Record<
       return { visible, disabled };
     },
     handleAction(playingTable: Table): Table {
-      if (playingTable.game.state === "handChecking") {
-        const cf = window.confirm("Bỏ thật chưa?");
-        if (!cf) {
-          return playingTable;
-        }
-      }
-
       const table = { ...playingTable };
       table.game = {
         ...table.game,
@@ -711,8 +699,8 @@ const calcGameChipCount = (table: Table): GamePlayer[] => {
 const findFaultPlayer = (game: Game): GamePlayer | null => {
   const lastPlay = game.playHistory.slice(-1)[0];
   if (
-    game.players.filter((item) => item.isReady).length > 2 ||
-    lastPlay.cards.length > 1
+    lastPlay.cards.length > 1 ||
+    game.players.filter((item) => item.isReady).length === 2
   ) {
     return null;
   }
@@ -868,6 +856,7 @@ export function getCurrentPossibleActions(
     }
     case "playing": {
       if (
+        player.lastAction === "tiger" ||
         isEveryonePassed(game) ||
         (isFirstGame(table) && isFirstToAct(game, player))
       ) {
