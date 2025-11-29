@@ -27,11 +27,6 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
         if (error) {
           alert(error.message);
         }
-        if (url.searchParams.has("tblId") || url.searchParams.has("tbdPw")) {
-          url.searchParams.delete("tblId");
-          url.searchParams.delete("tblPw");
-          window.history.replaceState({}, "", url.toString());
-        }
         props.close();
       })();
     }
@@ -75,7 +70,7 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
         <div className="mt-2 flex justify-between">
           <button
             type="button"
-            className="flex-1 border border-gray-300 hover:bg-gray-300"
+            className="flex-1 border border-gray-300 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300"
             onClick={props.close}
           >
             Cancel

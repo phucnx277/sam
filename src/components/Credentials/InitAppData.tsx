@@ -1,16 +1,39 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState, type FormEvent } from "react";
 import useAppData from "@hooks/useAppData";
 
 const InitAppData = () => {
   const { init, getApiKey } = useAppData();
-  const [key, setKey] = useState<string>("");
+  const [apiKey, setApiKey] = useState<string>("");
   const [isInitializing, setIsInitializing] = useState(false);
+
+  const initAppData = async (e?: FormEvent, key?: string) => {
+    e?.preventDefault?.();
+    setIsInitializing(true);
+    const { error } = await init(key || apiKey);
+    setIsInitializing(false);
+    if (error) {
+      alert(error.message);
+    }
+  };
+
+  const pasteKey = async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      if (!clipboardText) {
+        return;
+      }
+      setApiKey(clipboardText);
+    } catch {
+      /* empty */
+    }
+  };
 
   useEffect(() => {
     const url = new URL(window.location.href);
     let apiKey = url.searchParams.get("apiKey");
     apiKey = getApiKey("original", apiKey);
-    setKey(apiKey);
+    setApiKey(apiKey);
 
     setTimeout(() => {
       if (url.searchParams.has("apiKey")) {
@@ -18,18 +41,36 @@ const InitAppData = () => {
         window.history.replaceState({}, "", url.toString());
       }
     }, 100);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const initAppData = async (e: FormEvent) => {
-    e.preventDefault();
-    setIsInitializing(true);
-    const { error } = await init(key);
-    setIsInitializing(false);
-    if (error) {
-      alert(error.message);
+  useEffect(() => {
+    if (isAblyApiKeyValid(apiKey)) {
+      initAppData();
+      return;
     }
-  };
+
+    if (!apiKey?.startsWith("http")) {
+      return;
+    }
+
+    const url = new URL(apiKey);
+    let _apiKey = url.searchParams.get("apiKey");
+    _apiKey = getApiKey("original", _apiKey);
+    if (_apiKey) {
+      setApiKey(_apiKey);
+    }
+
+    const tblId = url.searchParams.get("tblId");
+    const tblPw = url.searchParams.get("tblPw");
+    if (tblId) {
+      const newUrl = new URL(window.location.origin);
+      newUrl.searchParams.set("tblId", tblId);
+      if (tblPw) {
+        newUrl.searchParams.set("tblPw", tblPw);
+      }
+      window.history.replaceState({}, "", newUrl.toString());
+    }
+  }, [apiKey]);
 
   return (
     <form
@@ -37,15 +78,24 @@ const InitAppData = () => {
       onSubmit={initAppData}
       autoComplete="off"
     >
-      <p className="text-sm w-full">Your Ably API Key</p>
+      <div className="text-sm w-full flex justify-between items-end">
+        <span>Your Ably API Key</span>
+        <button
+          type="button"
+          className="!py-1 !px-4 border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
+          onClick={pasteKey}
+        >
+          Paste
+        </button>
+      </div>
       <input
         name="apiKey"
-        className="p-2 border border-gray-500 rounded-sm w-[525px] max-w-full"
+        className="p-2 mt-1 border border-gray-500 rounded-sm w-[525px] max-w-full"
         autoFocus
         type="text"
-        value={key}
+        value={apiKey}
         placeholder="Ably API key"
-        onInput={(e) => setKey(e.currentTarget.value)}
+        onInput={(e) => setApiKey(e.currentTarget.value)}
       />
       <p className="text-sm w-full mt-2">
         <span>Get a new key here: </span>
@@ -61,12 +111,16 @@ const InitAppData = () => {
       <button
         type="submit"
         className={`bg-green-600 mt-6`}
-        disabled={!key || isInitializing}
+        disabled={!apiKey || isInitializing}
       >
         {isInitializing ? "Checking" : "Next"}
       </button>
     </form>
   );
 };
+
+function isAblyApiKeyValid(apiKey: string): boolean {
+  return String(apiKey).length === 57 && apiKey.includes(":");
+}
 
 export default InitAppData;

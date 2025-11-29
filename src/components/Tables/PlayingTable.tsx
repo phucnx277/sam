@@ -9,6 +9,7 @@ import GamePlayer from "../GamePlayer/GamePlayer";
 import Cards from "../Cards/Cards";
 import AutoFadeout from "../common/AutoFadeout";
 import Actions from "../GamePlayer/Actions";
+import { useEffect } from "react";
 
 const PlayingTable = () => {
   const { playingTable, updateTable } = useAppData();
@@ -35,6 +36,16 @@ const PlayingTable = () => {
     }
   };
 
+  useEffect(() => {
+    if (!playingTable) {
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set("tblId", playingTable.id);
+    url.searchParams.delete("tblPw");
+    window.history.replaceState({}, "", url.toString());
+  }, [playingTable]);
+
   return (
     <div className="playing-table p-2 lg:p-12 fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-y-1 bg-cyan-50">
       <div className="w-full flex flex-3 lg:flex-4 justify-around sm:gap-x-8 lg:gap-x-20">
@@ -51,7 +62,9 @@ const PlayingTable = () => {
         <div className="w-full flex justify-between">
           <div className="w-full gap-x-1 flex justify-between px-1 py-1 lg:py-2 rounded-sm border-1 border-gray-400">
             <div className="flex flex-col w-[6rem] lg:w-[8rem] border-r border-r-gray-400">
-              <div className="flex flex-1 flex-col items-center pt-1 gap-1">
+              <div
+                className={`flex flex-1 flex-col ${playingTable!.bo <= 0 ? "justify-center" : ""} items-center pt-1 gap-1`}
+              >
                 <div className="text-sm">Lượt trước</div>
                 <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
                   {prevPlayer?.name || "--"}
@@ -77,7 +90,6 @@ const PlayingTable = () => {
                       folded: false,
                       selected: false,
                     }))}
-                    onCardSelect={() => {}}
                     isMe={false}
                   />
                 </div>
@@ -102,20 +114,22 @@ const PlayingTable = () => {
               </div>
             </div>
 
-            <div className="flex flex-col w-[6rem] lg:w-[8rem] border-l border-l-gray-400">
-              <div className="flex flex-col items-center pt-1 gap-1">
+            <div
+              className={`flex flex-col ${playingTable!.turnTimeout <= 0 ? "justify-center" : ""} w-[6rem] lg:w-[8rem] border-l border-l-gray-400`}
+            >
+              <div className="flex flex-col items-center justify-center pt-1 gap-1">
                 <div className="text-sm">Lượt hiện tại</div>
                 <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
                   {curPlayer?.name || "--"}
                 </div>
               </div>
-              <div className="flex flex-1 items-center justify-center text-4xl lg:text-7xl text-red-600">
-                {(playingTable!.game.state === "handChecking" ||
-                  playingTable!.game.state === "playing") &&
-                  playingTable!.turnTimeout > 0 && (
+              {playingTable!.turnTimeout > 0 && (
+                <div className="flex flex-1 items-center justify-center text-4xl lg:text-7xl text-red-600">
+                  {isGameInProgress(playingTable!.game) && (
                     <TurnTimeRemaining ts={playingTable!.game?.turnEndTs} />
                   )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

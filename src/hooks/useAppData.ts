@@ -259,7 +259,8 @@ const getApiKey = (
   type: "encoded" | "original",
   apiKey?: string | null,
 ): string => {
-  apiKey = apiKey || localStorage.getItem(LS_API_KEY) || "";
+  apiKey = apiKey ?? localStorage.getItem(LS_API_KEY);
+  if (!apiKey) return "";
   switch (type) {
     case "encoded":
       apiKey = encodeApiKey(apiKey);

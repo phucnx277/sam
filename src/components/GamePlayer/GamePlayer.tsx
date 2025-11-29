@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSwipeable } from "react-swipeable";
 import { areCardsEqual, getSortedCards } from "@logic/card";
-import { findTigerAndKiller } from "@logic/game";
+import { findTigerAndKiller, isPlayerPassedTurn } from "@logic/game";
 import useLocalGame from "@hooks/useLocalGame";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
@@ -15,7 +15,7 @@ import TableInfo from "../Tables/TableInfo";
 const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const { localPlayer } = useLocalPlayer();
   const { localGame, setLocalGame, localCards, setLocalCards } = useLocalGame();
-  const { playingTable, leaveTable, getApiKey } = useAppData();
+  const { playingTable, leaveTable } = useAppData();
   const isMobile = useIsMobile();
   const orientation = useOrientation();
 
@@ -24,6 +24,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
     tiger?: GamePlayer | null;
     tigerKiller?: GamePlayer | null;
   }>({ tiger: null, tigerKiller: null });
+  const [reoderDisabled, setReorderDisabled] = useState(false);
 
   const isMe = localPlayer!.id === gamePlayer.id;
 
@@ -39,6 +40,17 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
 
   const unfoldLocalCards = (folded: boolean) => {
     setLocalCards(localCards.map((item) => ({ ...item, folded })));
+  };
+
+  const reorderCards = (currentIndex: number, newIndex: number) => {
+    if (newIndex < currentIndex) {
+      newIndex++;
+    }
+    const newCards = [...localCards];
+    const movedCard = newCards.splice(currentIndex, 1)[0];
+    newCards.splice(newIndex, 0, { ...movedCard, selected: false });
+
+    setLocalCards(newCards);
   };
 
   useEffect(() => {
@@ -79,6 +91,11 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   useEffect(() => {
     if (playingTable!.game.state !== "ended") {
       setTigers({ tiger: null, tigerKiller: null });
+      if (playingTable!.game.state === "handChecking") {
+        setReorderDisabled(false);
+      } else if (playingTable!.game.state === "playing") {
+        setReorderDisabled(true);
+      }
       return;
     }
     setTigers(findTigerAndKiller(playingTable!.game));
@@ -87,6 +104,9 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const backToLobby = () => {
     const confirmLeave = window.confirm("Rời bàn?");
     if (confirmLeave) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("tblId");
+      window.history.replaceState({}, "", url.toString());
       leaveTable();
     }
   };
@@ -124,8 +144,16 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
 
   return (
     <div
-      className={`flex gap-x-2 p-2 w-full rounded-sm ${gamePlayer.isReady || isMe ? "opacity-100" : "opacity-50"} ${playingTable!.game?.currentPlayerId === gamePlayer.id ? "bg-yellow-300/30" : ""}`}
+      className={`relative flex gap-x-2 p-2 w-full rounded-sm ${gamePlayer.isReady || isMe ? "opacity-100" : "opacity-50"} ${playingTable!.game?.currentPlayerId === gamePlayer.id ? "bg-yellow-300/30" : ""}`}
     >
+      {!isMe &&
+        playingTable!.game.state == "playing" &&
+        isPlayerPassedTurn(playingTable!.game, gamePlayer) && (
+          <div className="flex items-center justify-center rounded-sm absolute z-10 top-0 left-0 bottom-0 right-0 text-4xl lg:text-7xl bg-gray-300/30">
+            🚫
+          </div>
+        )}
+
       <div
         className={`w-full flex flex-1 gap-y-1 lg:gap-y-2 ${isMe ? "flex-col-reverse" : "flex-col"}`}
       >
@@ -133,6 +161,8 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           gamePlayer={gamePlayer}
           isMe={isMe}
           isWinner={playingTable!.lastGame?.winnerId === gamePlayer.id}
+          reorderDisabled={reoderDisabled}
+          onCardReorderingChange={() => setReorderDisabled((prev) => !prev)}
         />
         <div className={`relative flex flex-1 w-full gap-x-2`}>
           {isMe && (
@@ -161,6 +191,8 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
                     }))
               }
               onCardSelect={selectCard}
+              onReorder={reorderCards}
+              reorderDisabled={!isMe || reoderDisabled}
               gamePlayer={gamePlayer}
             />
           </div>

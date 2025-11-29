@@ -12,18 +12,24 @@ const Cards = ({
   cards,
   isMe,
   gamePlayer,
+  reorderDisabled = true,
+  onReorder,
   onCardSelect,
 }: {
   cards: Card[];
   isMe: boolean;
   gamePlayer?: GamePlayer;
-  onCardSelect: (card: Card) => void;
+  reorderDisabled?: boolean;
+  onReorder?: (currentIndex: number, newIndex: number) => void;
+  onCardSelect?: (card: Card) => void;
 }) => {
   const [cardStyles, setCardStyles] = useState<Record<string, CSSProperties>>(
     {},
   );
   const ref: unknown = useRef(null);
   const { width, height } = useDimensions(ref as RefObject<HTMLElement>);
+  const numsSelected = cards.filter((c) => c.selected).length;
+  const selectedIndex = cards.findIndex((c) => c.selected);
 
   useEffect(() => {
     if (!cards.length || !width || !height) return;
@@ -51,10 +57,17 @@ const Cards = ({
       {cards.map((card, idx) => (
         <OneCard
           key={card.rank + card.suit}
-          card={card}
-          onClick={() => onCardSelect(card)}
-          isMe={isMe}
+          index={idx}
           style={cardStyles[idx]}
+          card={card}
+          onClick={() => onCardSelect?.(card)}
+          isMe={isMe}
+          numsSelected={numsSelected}
+          selectedIndex={selectedIndex}
+          reorderDisabled={reorderDisabled}
+          onReorder={(newIndex?: number) =>
+            onReorder?.(selectedIndex, newIndex ?? idx)
+          }
           isTiger={
             !!gamePlayer &&
             (cards.length === 1 || gamePlayer?.lastAction === "tiger")

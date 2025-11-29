@@ -8,7 +8,7 @@ import EnterTable from "./EnterTable";
 import PlayingTable from "./PlayingTable";
 
 const Tables = () => {
-  const { isInitialized, tables, playingTable, removeTable } = useAppData();
+  const { tables, playingTable, removeTable } = useAppData();
   const { localPlayer } = useLocalPlayer();
   const [isCreatingTable, setIsCreatingTable] = useState(false);
   const [enteringTable, setEnteringTable] = useState<Table | null>(null);
@@ -26,9 +26,31 @@ const Tables = () => {
     }
   };
 
-  useEffect(() => {
-    if (!tables?.length) return;
-    const queryObj = new URLSearchParams(window.location.search);
+  const handlePasteLink = async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      if (!clipboardText?.startsWith(window.location.origin)) {
+        alert("Link is invalid");
+        return;
+      }
+      enterTableWithLink(clipboardText, tables);
+    } catch {
+      /* empty */
+    }
+  };
+
+  const handleLogOut = () => {
+    const cf = window.confirm("Are you sure?");
+    if (cf) {
+      localStorage.clear();
+      window.location.href = window.location.origin;
+    }
+  };
+
+  const enterTableWithLink = (link: string, tables: Table[]) => {
+    if (!tables?.length || !link) return;
+
+    const queryObj = new URL(link).searchParams;
     const tableId = queryObj.get("tblId");
     if (!tableId) return;
 
@@ -36,51 +58,67 @@ const Tables = () => {
     if (!table) return;
 
     setEnteringTable(table);
+  };
+
+  useEffect(() => {
+    enterTableWithLink(window.location.href, tables);
   }, [tables]);
 
   return (
     <>
       {!playingTable && (
         <>
-          {isInitialized && !!localPlayer && (
-            <div className="p-4">
-              <p className="text-xl mb-4 text-center">
-                Welcome,{" "}
-                <span className="font-semibold">{localPlayer.name}</span>!
-              </p>
-              {tables.length > 0 && <p>Select a table</p>}
-              <div className="flex flex-wrap gap-2 mt-4 items-center">
-                {tables.map((item) => (
-                  <div
-                    className="!p-0 h-[8rem] w-[8rem] cursor-pointer relative"
-                    key={item.id}
-                    onClick={() => setEnteringTable(item)}
-                  >
-                    {(localPlayer.isAdmin ||
-                      item.hostId === localPlayer.id) && (
-                      <span
-                        className="absolute text-2xl right-2 top-0 font-normal text-gray-500 hover:text-gray-800"
-                        onClick={(e) => confirmRemoveTable(e, item)}
-                      >
-                        {"×"}
-                      </span>
-                    )}
-                    <LobbyTable data={item} />
-                  </div>
-                ))}
-                {tables.length < TABLE_LIMIT && (
-                  <>
-                    <button
-                      className="!p-0 h-[8rem] w-[8rem] border border-green-600 hover:bg-green-600"
-                      onClick={() => setIsCreatingTable(true)}
-                    >
-                      Create table
-                    </button>
-                  </>
-                )}
-              </div>
+          <div className="p-4 max-w-full">
+            <div className="flex items-center justify-start text-xl mb-4 gap-1">
+              <span>Welcome</span>
+              <span>
+                <span className="font-semibold">{localPlayer!.name}</span>!
+              </span>
+              <button
+                className="ml-4 text-sm rounded-sm !px-2 !py-0 border border-gray-500 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300"
+                onClick={handleLogOut}
+              >
+                Log out
+              </button>
             </div>
-          )}
+            {tables.length > 0 && <p>Select a table</p>}
+            <div className="flex flex-wrap gap-2 mt-4 items-center">
+              {tables.map((item) => (
+                <div
+                  className="!p-0 h-[6rem] w-[6rem] lg:h-[8rem] lg:w-[8rem] cursor-pointer relative"
+                  key={item.id}
+                  onClick={() => setEnteringTable(item)}
+                >
+                  {(localPlayer!.isAdmin ||
+                    item.hostId === localPlayer!.id) && (
+                    <span
+                      className="absolute text-2xl right-2 top-0 font-normal text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
+                      onClick={(e) => confirmRemoveTable(e, item)}
+                    >
+                      {"×"}
+                    </span>
+                  )}
+                  <LobbyTable data={item} />
+                </div>
+              ))}
+              {tables.length < TABLE_LIMIT && (
+                <>
+                  <button
+                    className="!p-0 h-[6rem] w-[6rem] lg:h-[8rem] lg:w-[8rem] border border-green-600 hover:bg-green-600 active:bg-green-600 focus:bg-green-600"
+                    onClick={() => setIsCreatingTable(true)}
+                  >
+                    Create table
+                  </button>
+                </>
+              )}
+            </div>
+            <p className="mt-4">Or paste your link here</p>
+            <button
+              type="button"
+              className="!p-2 mt-1 w-full max-w-[25rem] text-ellipsis overflow-hidden whitespace-nowrap border border-gray-500 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300 text-gray-500 hover:text-gray-800 text-sm text-left"
+              onClick={handlePasteLink}
+            >{`${window.location.origin}?apiKey=xxx&tblId=xxx`}</button>
+          </div>
           {isCreatingTable && (
             <NewTable
               close={() => setIsCreatingTable(false)}

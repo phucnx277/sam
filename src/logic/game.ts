@@ -72,8 +72,11 @@ export const newGamePlayer = (player: Player): GamePlayer => {
   };
 };
 
-export const startGame = (game: Game): Game => {
+export const startGame = (game: Game, playerLimit: number): Game => {
   const players = game.players.filter((player) => player.isReady);
+  if (players.length > playerLimit) {
+    throw new Error("Number of players exceeds limit");
+  }
   const deck = createDeck();
   const cards = shuffleDeck(deck, randomInt(3, 10));
   const hands = dealCards(cards, players.length);
@@ -87,7 +90,7 @@ export const startGame = (game: Game): Game => {
     const handIdx = hands.findIndex((hand: Card[]) =>
       hand.some((card) => card.suit === "S" && card.rank === 3),
     );
-    if (handIdx === -1) return startGame(game);
+    if (handIdx === -1) return startGame(game, playerLimit);
     // first game of the session, no tiger allowed
     state = "playing";
     initialRound = 0;
@@ -234,7 +237,11 @@ export const ActionDef: Record<
       const table = {
         ...playingTable,
       };
-      table.game = startGame(table.game);
+      try {
+        table.game = startGame(table.game, table.playerLimit);
+      } catch (err) {
+        alert((err as Error).message);
+      }
       return table;
     },
   },
@@ -620,6 +627,8 @@ const isGameEnded = (table: Table, handChecking: boolean): Game => {
 
 const calcGameChipCount = (table: Table): GamePlayer[] => {
   const game = table.game;
+  game.players = calcRoundChipCount(table);
+
   const isBO = table.bo > 0;
   const players = game.players.filter((item) => item.isReady);
   const { targetGamePlayer: winner, opponents } = divideGamePlayers(
@@ -796,7 +805,7 @@ function isPlayerTurn(game: Game, player: GamePlayer): boolean {
   );
 }
 
-function isPlayerPassedTurn(game: Game, player: GamePlayer): boolean {
+export function isPlayerPassedTurn(game: Game, player: GamePlayer): boolean {
   return player.lastAction === "pass" && player.lastPlayedRound === game.round;
 }
 

@@ -18,7 +18,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
         return;
       }
       if (type === "url") {
-        content = `${window.location.href}?apiKey=${encodedApiKey}&tblId=${playingTable!.id}&tblPw=${playingTable!.password}`;
+        content = `${window.location.origin}?apiKey=${encodedApiKey}&tblId=${playingTable!.id}&tblPw=${playingTable!.password}`;
         textCopy = "Link copied!";
       }
       navigator.clipboard
@@ -41,7 +41,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
             Table: <span className="font-semibold">{playingTable!.name}</span>
           </div>
           <button
-            className="!py-1 !px-0 text-xs border border-cyan-300 hover:bg-cyan-300 w-[5rem]"
+            className="w-[5rem] !py-1 !px-0 text-xs border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
             onClick={() => copy("url")}
           >
             {textCopies.url}
@@ -61,7 +61,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
             </span>
           </div>
           <button
-            className="!py-1 !px-0 text-xs border border-cyan-300 hover:bg-cyan-300 w-[5rem]"
+            className="w-[5rem] !py-1 !px-0 text-xs border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
             onClick={() => copy("key")}
           >
             {textCopies.key}
@@ -70,7 +70,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
         <div className="flex justify-center mt-4 pt-4 border-t border-t-gray-300">
           <button
             type="button"
-            className="border border-gray-300 hover:bg-gray-300"
+            className="border border-gray-300 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300"
             onClick={onClose}
           >
             Close

@@ -1,6 +1,7 @@
 import { useCallback, useState, type FormEvent } from "react";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
+import type { NewTableParams } from "@logic/table";
 
 function isNameValid(value?: string): boolean {
   return !!value && value.length <= 20;
@@ -18,28 +19,36 @@ function isTurnTimeoutValid(value: number): boolean {
   return !isNaN(value) && value >= 0 && value <= 90;
 }
 
+const normalizedFormValues = (
+  formData: Partial<NewTableParams>,
+): Partial<NewTableParams> => {
+  formData.bo = Number(formData.bo || -1);
+  formData.playerLimit = Number(formData.playerLimit || 5);
+  formData.turnTimeout = Number(formData.turnTimeout || 20);
+
+  return formData;
+};
+
 const NewTable = (props: { close: () => void; limit: number }) => {
   const { localPlayer } = useLocalPlayer();
   const { createTable, tables } = useAppData();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [form, setForm] = useState<Partial<Table>>({
+  const [form, setForm] = useState<Partial<NewTableParams>>({
     name: "",
     password: "",
-    bo: -1, // normal mode
-    playerLimit: 5,
-    turnTimeout: 20, // 20 seconds
   });
 
-  const updateFormValue = (key: keyof Table, value: string | number) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const updateFormValue = (key: keyof Table, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: String(value) }));
   };
 
   const isFormValid = useCallback(() => {
+    const checkingForm = normalizedFormValues({ ...form });
     return (
-      isNameValid(form.name) &&
-      isBoValid(Number(form.bo)) &&
-      isPlayerLimitValid(Number(form.playerLimit)) &&
-      isTurnTimeoutValid(Number(form.turnTimeout))
+      isNameValid(checkingForm.name) &&
+      isBoValid(checkingForm.bo!) &&
+      isPlayerLimitValid(checkingForm.playerLimit!) &&
+      isTurnTimeoutValid(checkingForm.turnTimeout!)
     );
   }, [form]);
 
@@ -51,14 +60,13 @@ const NewTable = (props: { close: () => void; limit: number }) => {
       return;
     }
     setIsSubmitting(true);
-    const { error } = await createTable({
-      name: form.name!,
-      password: form.password || "",
+    const payload: NewTableParams = {
+      ...form,
+      ...normalizedFormValues({ ...form }),
       player: localPlayer!,
-      bo: Number(form.bo),
-      playerLimit: Number(form.playerLimit),
-      turnTimeout: Number(form.turnTimeout),
-    });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+    const { error } = await createTable(payload);
     setIsSubmitting(false);
     if (error) {
       alert(error.message);
@@ -77,16 +85,16 @@ const NewTable = (props: { close: () => void; limit: number }) => {
         <p className="text-center text-lg">New Table</p>
         <input
           name="tblName"
-          className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
+          className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
           autoFocus
-          placeholder="Name"
+          placeholder="Name(*)"
           type="text"
           value={form.name}
           onInput={(e) => updateFormValue("name", e.currentTarget.value)}
         />
         <input
           name="tblPassword"
-          className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
+          className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
           placeholder="Password"
           type="password"
           value={form.password}
@@ -94,8 +102,8 @@ const NewTable = (props: { close: () => void; limit: number }) => {
         />
         <input
           name="tblBo"
-          className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
-          placeholder="Best Of X. -1 == No Limit"
+          className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
+          placeholder="Best Of X. Default = No Limit"
           type="number"
           min={-1}
           value={form.bo}
@@ -103,8 +111,8 @@ const NewTable = (props: { close: () => void; limit: number }) => {
         />
         <input
           name="tblLimitPlayer"
-          className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
-          placeholder="Max number of players (2-5)"
+          className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
+          placeholder="Player limit. Default = 5"
           type="number"
           min={2}
           max={5}
@@ -113,8 +121,8 @@ const NewTable = (props: { close: () => void; limit: number }) => {
         />
         <input
           name="tblPlayerTurnTimeout"
-          className="py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
-          placeholder="Turn timeout (sec). 0 == Disabled"
+          className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
+          placeholder="Turn timeout. Default = 20s. 0 = Disabled"
           type="number"
           min={0}
           max={90}
@@ -124,7 +132,7 @@ const NewTable = (props: { close: () => void; limit: number }) => {
         <div className="mt-2 flex justify-between">
           <button
             type="button"
-            className="flex-1 border border-gray-300 hover:bg-gray-300"
+            className="flex-1 border border-gray-300 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300"
             onClick={props.close}
             disabled={isSubmitting}
           >
