@@ -1,0 +1,18 @@
+.card-item {
+  &:last-child {
+    overflow: visible !important;
+  }
+  transform: translateY(0);
+  transition: transform 0.2s ease-in-out;
+  &.selected {
+    transform: translateY(-10%);
+  }
+}
+
+playing-card {
+  display: flex !important;
+  img {
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+}

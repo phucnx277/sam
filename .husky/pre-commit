@@ -1,0 +1,3 @@
+npm run build
+./bump-version.sh
+git add -u
