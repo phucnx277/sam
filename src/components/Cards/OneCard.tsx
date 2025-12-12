@@ -86,8 +86,8 @@ const OneCard = ({
       style={{ ...style, aspectRatio: "18/25" }}
     >
       {opponentTiger && (
-        <div className="absolute z-5 top-0 left-0 bottom-0 right-0 flex items-center justify-center text-3xl lg:text-6xl">
-          🐆
+        <div className="absolute z-5 top-0 left-0 bottom-0 right-0 flex items-center justify-center">
+          <img className="w-[50%]" src="/logo.svg" alt="tiger" />
         </div>
       )}
       <playing-card {...cardOptions} />

@@ -50,9 +50,9 @@ const PlayerInfo = memo(
             {gamePlayer.starOfHope && (
               <span className="text-sm lg:text-lg">⭐</span>
             )}
-            <ChipCount chipCount={gamePlayer.chipCount} />{" "}
+            <ChipCount chipCount={gamePlayer.chipCount} />
             {gamePlayer.lastAction === "tiger" && (
-              <span className="text-sm lg:text-lg">🐆</span>
+              <img alt="tiger" className="size-6 pb-0.5" src="/logo.svg" />
             )}
           </div>
         </div>

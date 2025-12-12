@@ -1,7 +1,7 @@
 import { isStraight } from "./card";
 import { CardsPerPlayer, SuitColorMap } from "./deck";
 
-const WhiteWinnerRanks = {
+const WhiteTigerRank = {
   Poor: 1,
   SameColor: 2,
   FivePairs: 3,
@@ -10,14 +10,23 @@ const WhiteWinnerRanks = {
   Straight: 6,
 };
 
+export const WhiteTigerRankName: Record<number, string> = {
+  [WhiteTigerRank.Straight]: "Sảnh rồng",
+  [WhiteTigerRank.FourPigs]: "Tứ heo",
+  [WhiteTigerRank.ThreeSets]: "Ba sám",
+  [WhiteTigerRank.FivePairs]: "Năm đôi",
+  [WhiteTigerRank.SameColor]: "Đồng màu",
+  [WhiteTigerRank.Poor]: "Nghèo",
+};
+
 export const checkWhiteTiger = (cards: Card[]): number => {
   if (cards.length !== CardsPerPlayer) return -1;
-  if (isStraight(cards)) return WhiteWinnerRanks.Straight;
-  if (isFourPigs(cards)) return WhiteWinnerRanks.FourPigs;
-  if (isThreeSets(cards)) return WhiteWinnerRanks.ThreeSets;
-  if (isFivePairs(cards)) return WhiteWinnerRanks.FivePairs;
-  if (isSameColor(cards)) return WhiteWinnerRanks.SameColor;
-  if (isPoor(cards)) return WhiteWinnerRanks.Poor;
+  if (isStraight(cards)) return WhiteTigerRank.Straight;
+  if (isFourPigs(cards)) return WhiteTigerRank.FourPigs;
+  if (isThreeSets(cards)) return WhiteTigerRank.ThreeSets;
+  if (isFivePairs(cards)) return WhiteTigerRank.FivePairs;
+  if (isSameColor(cards)) return WhiteTigerRank.SameColor;
+  if (isPoor(cards)) return WhiteTigerRank.Poor;
   return -1;
 };
 

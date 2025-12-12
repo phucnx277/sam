@@ -294,7 +294,7 @@ export const ActionDef: Record<
     },
   },
   tiger: {
-    label: "Báo 🐆",
+    label: "Báo",
     type: "button",
     inactiveClassName: "border-amber-600/90 bg-amber-300/30",
     activeClassName: "border-amber-600/90 bg-amber-600/90",

@@ -34,7 +34,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   };
 
   const sortLocalCards = (descending: boolean) => {
-    if (!isMe || !localGame) return;
+    if (!isMe || !localGame || reoderDisabled) return;
     setLocalCards(getSortedCards(localCards, descending));
   };
 
@@ -216,13 +216,27 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
                 <span>👑</span>
               )}
               {playingTable!.game?.winnerId === gamePlayer.id &&
-                gamePlayer.id === tiger?.id && <span>🐆</span>}
+                gamePlayer.id === tiger?.id && (
+                  <span>
+                    <img
+                      alt="tiger"
+                      className="size-10 pb-0.5 lg:size-22 lg:pb-1"
+                      src="/logo.svg"
+                    />
+                  </span>
+                )}
               {(gamePlayer.id === tigerKiller?.id ||
                 (gamePlayer.id === tiger?.id &&
                   gamePlayer.id !== playingTable!.game?.winnerId)) && (
                 <span className="relative">
-                  <span>🐆</span>
-                  <span className="absolute top-0 right-0 bottom-0 left-0">
+                  <span>
+                    <img
+                      alt="tiger"
+                      className="size-10 pb-0.5 lg:size-22 lg:pb-1"
+                      src="/logo.svg"
+                    />
+                  </span>
+                  <span className="absolute top-0 right-0 bottom-0 left-0 flex items-center justify-center">
                     🔪
                   </span>
                 </span>

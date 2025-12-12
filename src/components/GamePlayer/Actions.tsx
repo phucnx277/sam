@@ -1,4 +1,4 @@
-import { memo, useEffect } from "react";
+import { memo, useEffect, type ReactNode } from "react";
 import {
   ActionDef,
   findNextAutoPlayer,
@@ -6,6 +6,7 @@ import {
   getCurrentPossibleActions,
   isGameInProgress,
 } from "@logic/game";
+import { checkWhiteTiger, WhiteTigerRankName } from "@logic/hand";
 import useCountDown from "@hooks/useCountDown";
 import { calDurationSec } from "@logic/util";
 import useAppData from "@hooks/useAppData";
@@ -86,7 +87,7 @@ const Actions = memo(
           return (
             <TwoStepButton
               key={action}
-              className="flex w-1/2 lg:w-1/4 lg:min-w-[8rem] py-1 border-2 rounded-sm font-semibold"
+              className="flex w-1/2 lg:w-1/4 !min-w-[8rem] !max-w[12rem] py-1 border-2 rounded-sm font-semibold"
               activeClassName={def.activeClassName}
               inactiveClassName={def.inactiveClassName}
               onConfirm={() =>
@@ -102,6 +103,7 @@ const Actions = memo(
                 className="w-full !px-0"
                 action={action as PlayerAction}
                 disabled={false}
+                label={renderLabel(action)}
               />
             </TwoStepButton>
           );
@@ -127,6 +129,7 @@ const Actions = memo(
               action={action as PlayerAction}
               disabled={disabled}
               value={value}
+              label={renderLabel(action)}
               onAction={() =>
                 onAction(def.handleAction(playingTable!, gamePlayer))
               }
@@ -134,6 +137,26 @@ const Actions = memo(
           );
         })
         .filter(Boolean);
+    };
+
+    const renderLabel = (action: PlayerAction): ReactNode => {
+      const def = ActionDef[action as PlayerAction];
+      let label = def.label;
+      if (action !== "tiger") {
+        return label;
+      }
+
+      const whiteTiger = checkWhiteTiger(gamePlayer.cards);
+      if (whiteTiger > 0) {
+        label = WhiteTigerRankName[whiteTiger];
+      }
+
+      return (
+        <span className="flex justify-center items-center gap-1">
+          <span>{label}</span>
+          <img className="size-7 pb-1" src="/logo.svg" alt="tiger" />
+        </span>
+      );
     };
 
     useEffect(() => {
@@ -149,6 +172,7 @@ const Actions = memo(
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ds]);
+
     return (
       <>
         {isGameInProgress(playingTable!.game) && (
@@ -174,7 +198,7 @@ const Actions = memo(
             )}
             {playingTable!.game.state === "ended" && (
               <div className="flex flex-col gap-2 min-w-[8rem]">
-                {renderActions(["startGame", "newGame", "resetSession"])}
+                {renderActions(["newGame", "resetSession"])}
               </div>
             )}
           </div>
@@ -190,6 +214,7 @@ const Action = memo(
     value,
     disabled,
     className = "",
+    label,
     onAction,
   }: {
     action: PlayerAction;
@@ -197,6 +222,7 @@ const Action = memo(
     disabled: boolean;
     className?: string;
     onAction?: () => Promise<void>;
+    label: ReactNode;
   }) => {
     const def = ActionDef[action];
 
@@ -213,7 +239,7 @@ const Action = memo(
             disabled={disabled}
             onClick={handleAction}
           >
-            {def.label}
+            {label}
           </button>
         )}
         {def.type === "checkbox" && (
@@ -229,7 +255,7 @@ const Action = memo(
               checked={!!value}
               readOnly={true}
             />
-            <span className="ml-1">{def.label}</span>
+            <span className="ml-1">{label}</span>
           </button>
         )}
       </>
