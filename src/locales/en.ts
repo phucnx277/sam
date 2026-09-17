@@ -25,8 +25,12 @@ export const en = {
   "player.logout": "Log out",
   "player.infoCopied": "Player info copied",
 
-  "lobby.selectTable": "Select a table",
-  "lobby.pasteLink": "Or paste your link here",
+  "lobby.selectTable": "Join a table",
+  "lobby.pasteLink": "Or paste table's link here",
+  "lobby.scan": "Scan QR",
+  "lobby.chooseImage": "Choose image",
+  "lobby.scanError":
+    "Could not open the camera. Choose an image with a QR code instead.",
   "lobby.createTable": "Create table",
 
   "table.newTitle": "New Table",
@@ -34,7 +38,8 @@ export const en = {
   "table.passwordPlaceholder": "Password",
   "table.boPlaceholder": "Best Of X. Default = No Limit",
   "table.playerLimitPlaceholder": "Player limit. Default = 5",
-  "table.turnTimeoutPlaceholder": "Turn timeout (seconds). Default = 0 = Disabled",
+  "table.turnTimeoutPlaceholder":
+    "Turn timeout (seconds). Default = 0 = Disabled",
   "table.tableLabel": "Table: ",
   "table.enterPassword": "Enter password",
   "table.enter": "Enter",
@@ -43,8 +48,10 @@ export const en = {
   "table.activePlayers": "Active:",
   "table.removedPlayers": "Removed:",
   "table.apiKeyLabel": "API Key:",
+  "table.share": "Share",
   "table.copyLink": "Copy link",
   "table.linkCopied": "Link copied!",
+  "table.scanNote": "Ask your friend to scan this to join the table.",
   "table.summary": "Summary",
   "table.linkInvalid": "Link is invalid",
 
@@ -91,8 +98,7 @@ export const en = {
   "howToPlay.gesturesTab": "Gestures",
 
   "howToPlay.rules.setup": "Setup",
-  "howToPlay.rules.setup1":
-    "2 to 5 players, each is dealt 10 cards.",
+  "howToPlay.rules.setup1": "2 to 5 players, each is dealt 10 cards.",
   "howToPlay.rules.setup2":
     "The first game of a session starts with the holder of 3♠; later games start with the previous winner.",
 
@@ -102,8 +108,7 @@ export const en = {
   "howToPlay.rules.plays2": "Q-K-A and A-2-3 are valid straights.",
   "howToPlay.rules.plays3":
     "The 2 is the highest single and can only be beaten by a four of a kind.",
-  "howToPlay.rules.plays4":
-    "You may not leave a 2 as your final card.",
+  "howToPlay.rules.plays4": "You may not leave a 2 as your final card.",
 
   "howToPlay.rules.turns": "Turn flow",
   "howToPlay.rules.turns1":
@@ -146,11 +151,9 @@ export const en = {
   "howToPlay.gestures.flip2":
     "Swipe left / right to flip all cards face-down / face-up.",
   "howToPlay.gestures.select": "Selecting cards",
-  "howToPlay.gestures.select1":
-    "Tap a face-up card to select or deselect it.",
+  "howToPlay.gestures.select1": "Tap a face-up card to select or deselect it.",
   "howToPlay.gestures.sort": "Sorting cards",
-  "howToPlay.gestures.sort1":
-    "Swipe up / down to sort ascending / descending.",
+  "howToPlay.gestures.sort1": "Swipe up / down to sort ascending / descending.",
   "howToPlay.gestures.sort2":
     "In mobile portrait the axes swap: swipe up/down to flip, left/right to sort.",
   "howToPlay.gestures.reorder": "Reordering cards",

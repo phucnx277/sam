@@ -100,7 +100,12 @@ export const decodeApiKey = (apiKey: string): string => {
   if (apiKey.includes(":")) {
     return apiKey;
   }
-  return atob(apiKey);
+  try {
+    const decoded = atob(apiKey);
+    return decoded;
+  } catch {
+    return apiKey;
+  }
 };
 
 // Ably API Key has special characters which may not be well supported in some browsers
@@ -110,6 +115,10 @@ export const encodeApiKey = (apiKey: string): string => {
     return apiKey;
   }
   return btoa(apiKey);
+};
+
+export const isAblyApiKeyValid = (apiKey: string): boolean => {
+  return String(apiKey).length === 57 && apiKey.includes(":");
 };
 
 export const calDurationSec = (ts: number) => {

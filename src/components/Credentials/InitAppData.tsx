@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import useAppData from "@hooks/useAppData";
 import useI18n from "@hooks/useI18n";
+import { isAblyApiKeyValid } from "@logic/util";
 
 const InitAppData = () => {
   const { t } = useI18n();
@@ -120,9 +121,5 @@ const InitAppData = () => {
     </form>
   );
 };
-
-function isAblyApiKeyValid(apiKey: string): boolean {
-  return String(apiKey).length === 57 && apiKey.includes(":");
-}
 
 export default InitAppData;
