@@ -112,6 +112,10 @@ export const encodeApiKey = (apiKey: string): string => {
   return btoa(apiKey);
 };
 
+export const isAblyApiKeyValid = (apiKey: string): boolean => {
+  return String(apiKey).length === 57 && apiKey.includes(":");
+};
+
 export const calDurationSec = (ts: number) => {
   return Math.ceil((ts - Date.now()) / 1000);
 };

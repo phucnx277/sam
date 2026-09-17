@@ -25,6 +25,9 @@ export const vi = {
 
   "lobby.selectTable": "Chọn một bàn",
   "lobby.pasteLink": "Hoặc dán liên kết vào đây",
+  "lobby.scan": "Quét mã",
+  "lobby.chooseImage": "Chọn ảnh",
+  "lobby.scanError": "Không mở được camera. Hãy chọn ảnh chứa mã QR.",
   "lobby.createTable": "Tạo bàn",
 
   "table.newTitle": "Bàn mới",
@@ -41,8 +44,10 @@ export const vi = {
   "table.activePlayers": "Đang chơi:",
   "table.removedPlayers": "Đã chơi:",
   "table.apiKeyLabel": "API Key:",
+  "table.share": "Chia sẻ",
   "table.copyLink": "Sao chép liên kết",
   "table.linkCopied": "Đã sao chép liên kết!",
+  "table.scanNote": "Nhờ bạn của bạn quét mã này để vào bàn.",
   "table.summary": "Tổng kết",
   "table.linkInvalid": "Liên kết không hợp lệ",
 

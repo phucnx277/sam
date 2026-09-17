@@ -27,6 +27,9 @@ export const en = {
 
   "lobby.selectTable": "Select a table",
   "lobby.pasteLink": "Or paste your link here",
+  "lobby.scan": "Scan",
+  "lobby.chooseImage": "Choose image",
+  "lobby.scanError": "Could not open the camera. Choose an image with a QR code instead.",
   "lobby.createTable": "Create table",
 
   "table.newTitle": "New Table",
@@ -43,8 +46,10 @@ export const en = {
   "table.activePlayers": "Active:",
   "table.removedPlayers": "Removed:",
   "table.apiKeyLabel": "API Key:",
+  "table.share": "Share",
   "table.copyLink": "Copy link",
   "table.linkCopied": "Link copied!",
+  "table.scanNote": "Ask your friend to scan this to join the table.",
   "table.summary": "Summary",
   "table.linkInvalid": "Link is invalid",
 

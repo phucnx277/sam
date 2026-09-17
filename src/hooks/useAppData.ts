@@ -24,6 +24,7 @@ const Keys = {
 };
 
 const useAblyStore = create<{
+  client: Ably.Realtime | null;
   channel: Ably.RealtimeChannel | null;
   tablesMap: Ably.LiveMap<Ably.LiveMapType> | null;
   tables: Table[];
@@ -31,7 +32,8 @@ const useAblyStore = create<{
   init: (key: string) => Promise<{ error: Error | null }>;
   setPlayingTable: (data: Table) => Error | null;
   unsetPlayingTable: () => void;
-}>((set) => ({
+}>((set, get) => ({
+  client: null,
   channel: null,
   tablesMap: null,
   playingTableMap: null,
@@ -40,12 +42,11 @@ const useAblyStore = create<{
   init: async (apiKey: string): Promise<{ error: Error | null }> => {
     const normalizedApiKey = decodeApiKey(apiKey);
     let error: Error | null = null;
+    const client = new Ably.Realtime({
+      key: normalizedApiKey,
+      plugins: { Objects },
+    });
     try {
-      const client = new Ably.Realtime({
-        key: normalizedApiKey,
-        plugins: { Objects },
-      });
-      storeApiKey(normalizedApiKey);
       const channel = client.channels.get(CHANNEL_ID, {
         modes: ["OBJECT_SUBSCRIBE", "OBJECT_PUBLISH"],
       });
@@ -56,6 +57,14 @@ const useAblyStore = create<{
       if (!tablesMap) {
         tablesMap = await channel.objects.createMap();
         await root.set(Keys.Tables, tablesMap);
+      }
+
+      const { client: oldClient, tablesMap: oldTablesMap } = get();
+      if (oldTablesMap) {
+        oldTablesMap.unsubscribeAll();
+      }
+      if (oldClient) {
+        oldClient.close();
       }
 
       tablesMap.subscribe(() => {
@@ -73,11 +82,15 @@ const useAblyStore = create<{
       });
 
       set(() => ({
+        client,
         channel,
         tablesMap,
         tables: parseTables(tablesMap.entries()),
+        playingTable: null,
       }));
+      storeApiKey(normalizedApiKey);
     } catch (err) {
+      client.close();
       error = err as Error;
     }
 
@@ -256,6 +269,8 @@ const useAppData = () => {
     getApiKey,
   };
 };
+
+export const getTables = (): Table[] => useAblyStore.getState().tables;
 
 const storeApiKey = (apiKey: string) => {
   localStorage.setItem(LS_API_KEY, apiKey);
