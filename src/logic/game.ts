@@ -10,6 +10,7 @@ import { CardsPerPlayer, createDeck, dealCards, shuffleDeck } from "./deck";
 import { checkWhiteTiger } from "./hand";
 import { resetSession } from "./table";
 import { generateId, randomInt } from "./util";
+import { t, type TranslationKey } from "./i18n";
 
 const ChipDeductionLevel: Record<
   "Normal" | "StarOfHope",
@@ -75,7 +76,7 @@ export const newGamePlayer = (player: Player): GamePlayer => {
 export const startGame = (game: Game, playerLimit: number): Game => {
   const players = game.players.filter((player) => player.isReady);
   if (players.length > playerLimit) {
-    throw new Error("Number of players exceeds limit");
+    throw new Error(t("error.playersExceedLimit"));
   }
   const deck = createDeck();
   const cards = shuffleDeck(deck, randomInt(3, 10));
@@ -118,7 +119,7 @@ export const startGame = (game: Game, playerLimit: number): Game => {
 export const ActionDef: Record<
   PlayerAction,
   {
-    label: string;
+    label: TranslationKey;
     type: "button" | "checkbox";
     inactiveClassName?: string;
     activeClassName?: string;
@@ -134,7 +135,7 @@ export const ActionDef: Record<
   }
 > = {
   ready: {
-    label: "Sẵn sàng",
+    label: "action.ready",
     type: "checkbox",
     checkState(
       playingTable: Table,
@@ -162,7 +163,7 @@ export const ActionDef: Record<
     },
   },
   star: {
-    label: "⭐ hy vọng",
+    label: "action.starOfHope",
     type: "checkbox",
     checkState(
       playingTable: Table,
@@ -191,7 +192,7 @@ export const ActionDef: Record<
     },
   },
   newGame: {
-    label: "Ván mới",
+    label: "action.newGame",
     type: "button",
     checkState(
       playingTable: Table,
@@ -221,7 +222,7 @@ export const ActionDef: Record<
     },
   },
   startGame: {
-    label: "Chia bài",
+    label: "action.deal",
     type: "button",
     checkState(
       playingTable: Table,
@@ -254,7 +255,7 @@ export const ActionDef: Record<
     },
   },
   ask: {
-    label: "Hỏi",
+    label: "action.ask",
     type: "button",
     inactiveClassName: "border-cyan-600/90 bg-cyan-300/30",
     activeClassName: "border-cyan-600/90 bg-cyan-600/90",
@@ -294,7 +295,7 @@ export const ActionDef: Record<
     },
   },
   tiger: {
-    label: "Báo",
+    label: "action.tiger",
     type: "button",
     inactiveClassName: "border-amber-600/90 bg-amber-300/30",
     activeClassName: "border-amber-600/90 bg-amber-600/90",
@@ -314,7 +315,7 @@ export const ActionDef: Record<
       };
     },
     handleAction(playingTable: Table): Table {
-      const cf = window.confirm("Báo nhé 🐆?");
+      const cf = window.confirm(t("confirm.tiger"));
       if (!cf) {
         return playingTable;
       }
@@ -353,7 +354,7 @@ export const ActionDef: Record<
     },
   },
   play: {
-    label: "Đánh",
+    label: "action.play",
     type: "button",
     inactiveClassName: "border-green-600/90 bg-green-500/50",
     activeClassName: "border-green-600/95 bg-green-600/95",
@@ -435,7 +436,7 @@ export const ActionDef: Record<
   },
 
   pass: {
-    label: "Bỏ",
+    label: "action.pass",
     type: "button",
     inactiveClassName: "border-gray-600/90 bg-gray-500/50",
     activeClassName: "border-gray-600/95 bg-gray-600/95 text-white",
@@ -498,7 +499,7 @@ export const ActionDef: Record<
   },
 
   resetSession: {
-    label: "Reset session",
+    label: "action.resetSession",
     type: "button",
     checkState(
       playingTable: Table,
@@ -521,7 +522,7 @@ export const ActionDef: Record<
       };
     },
     handleAction(playingTable: Table): Table {
-      const cf = window.confirm("Chắc chưa?");
+      const cf = window.confirm(t("confirm.resetSession"));
       if (!cf) {
         return playingTable;
       }
@@ -530,7 +531,7 @@ export const ActionDef: Record<
   },
 
   removePlayers: {
-    label: "Xóa người chơi",
+    label: "action.removePlayers",
     type: "button",
     checkState(
       playingTable: Table,
@@ -569,7 +570,7 @@ export const ActionDef: Record<
   },
 
   transferHost: {
-    label: "Đổi chủ bàn",
+    label: "action.transferHost",
     type: "button",
     checkState(
       playingTable: Table,

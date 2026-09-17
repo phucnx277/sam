@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import useAppData from "@hooks/useAppData";
+import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { ActionDef, isGameInProgress } from "@logic/game";
+import LanguageSwitcher from "../common/LanguageSwitcher";
 
 const TableInfo = ({ onClose }: { onClose: () => void }) => {
+  const { t } = useI18n();
   const { playingTable, getApiKey, updateTable, isUpdatingTable } =
     useAppData();
   const { localPlayer } = useLocalPlayer();
@@ -13,10 +16,10 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
     playingTable!.hostId !== localPlayer!.id ||
     isGameInProgress(playingTable!.game);
 
-  const [textCopies, setTextCopies] = useState({
-    url: "Copy link",
-    key: "Copy",
-    result: "Tổng kết",
+  const [copied, setCopied] = useState({
+    url: false,
+    key: false,
+    result: false,
   });
   const [hostId, setHostId] = useState<string>(playingTable!.hostId);
   const [isDirty, setIsDirty] = useState<boolean>(false);
@@ -36,31 +39,31 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
     (type: "url" | "key" | "result") => {
       const encodedApiKey = getApiKey("encoded");
       let content = encodedApiKey;
-      let textCopy = "Copied!";
       if (!navigator.clipboard) {
         return;
       }
       if (type === "url") {
         content = `${window.location.origin}?apiKey=${encodedApiKey}&tblId=${playingTable!.id}&tblPw=${playingTable!.password}`;
-        textCopy = "Link copied!";
       }
 
       if (type === "result") {
         content = playingTable!.players
           .map((item) => `${item.name}: ${item.chipCount}`)
           .join("\n");
-        textCopy = "Copied!";
       }
       navigator.clipboard
         .writeText(content)
         .then(() => {
-          setTextCopies({ ...textCopies, [type]: textCopy });
+          setCopied((prev) => ({ ...prev, [type]: true }));
+          setTimeout(() => {
+            setCopied((prev) => ({ ...prev, [type]: false }));
+          }, 2000);
         })
         .catch((e) => {
           alert(e);
         });
     },
-    [playingTable, getApiKey, textCopies],
+    [playingTable, getApiKey],
   );
 
   const movePlayer = (player: TablePlayer) => {
@@ -79,10 +82,10 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
   const saveTable = async () => {
     if (isReadOnly || isUpdatingTable) return;
     if (inGamePlayers.length === 0) {
-      return alert("Không thể xóa hết người chơi");
+      return alert(t("error.cannotRemoveAllPlayers"));
     }
     if (removedPlayers.some((item) => item.id === hostId)) {
-      return alert("Không thể xóa chủ bàn");
+      return alert(t("error.cannotRemoveHost"));
     }
 
     const currentGamePlayer = playingTable!.game.players.find(
@@ -122,20 +125,22 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <div className="fixed z-10 top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">
-      <div className="bg-white flex flex-col p-4 lg:p-8 rounded-lg shadow-2xl shadow-gray-400 w-[25rem] max-w-[92%] gap-y-1">
-        <div className="flex align-center justify-between gap-x-2">
+      <div className="bg-white flex flex-col p-4 lg:p-8 rounded-lg shadow-2xl shadow-gray-400 w-[30rem] max-w-[92%] gap-y-1">
+        <div className="flex items-center justify-between gap-x-2">
           <div className="flex-1 text-ellipsis overflow-hidden whitespace-nowrap">
-            Tên bàn: <span className="font-semibold">{playingTable!.name}</span>
+            {t("table.nameLabel")}
+            <span className="font-semibold">{playingTable!.name}</span>
           </div>
           <button
-            className="w-[5rem] !py-1 !px-0 text-xs border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
+            className="!py-1 !px-2 text-xs border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
             onClick={() => copy("url")}
           >
-            {textCopies.url}
+            {copied.url ? t("table.linkCopied") : t("table.copyLink")}
           </button>
+          <LanguageSwitcher />
         </div>
         <div>
-          <span>Chủ bàn:</span>
+          <span>{t("table.hostLabel")}</span>
           {isReadOnly && (
             <span className="ml-1 font-semibold">
               {
@@ -161,7 +166,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
         </div>
 
         <div>
-          <p>Đang chơi:</p>
+          <p>{t("table.activePlayers")}</p>
           <div className="mt-2 flex gap-1 flex-wrap min-h-[2rem]">
             {inGamePlayers.map((item) => (
               <TablePlayerInfo
@@ -172,30 +177,35 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
               />
             ))}
           </div>
-          <p className="mt-2">Đã chơi:</p>
-          <div className="mt-2 flex gap-1 flex-wrap min-h-[2rem]">
-            {removedPlayers.map((item) => (
-              <TablePlayerInfo
-                data={item}
-                key={item.id}
-                onMove={movePlayer}
-                isReadOnly={isReadOnly || !!item.isRemoved}
-              />
-            ))}
-          </div>
+          {removedPlayers.length > 0 && (
+            <>
+              <p className="mt-2">{t("table.removedPlayers")}</p>
+              <div className="mt-2 flex gap-1 flex-wrap min-h-[2rem]">
+                {removedPlayers.map((item) => (
+                  <TablePlayerInfo
+                    data={item}
+                    key={item.id}
+                    onMove={movePlayer}
+                    isReadOnly={isReadOnly || !!item.isRemoved}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
           <div className="flex justify-end">
             <button
               className="w-[5rem] !py-1 !px-0 text-xs border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
               onClick={() => copy("result")}
             >
-              {textCopies.result}
+              {copied.result ? t("common.copied") : t("table.summary")}
             </button>
           </div>
         </div>
 
         <div className="flex align-center justify-between gap-x-2 mt-2 py-2 border-y border-y-gray-300">
           <div className="flex-1 text-ellipsis overflow-hidden whitespace-nowrap">
-            <span>API Key:</span>
+            <span>{t("table.apiKeyLabel")}</span>
             <span className="ml-1 font-semibold">
               {apiKey.slice(0, 6)}...{apiKey.slice(-6)}
             </span>
@@ -204,7 +214,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
             className="w-[5rem] !py-1 !px-0 text-xs border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
             onClick={() => copy("key")}
           >
-            {textCopies.key}
+            {copied.key ? t("common.copied") : t("common.copy")}
           </button>
         </div>
         <div className="flex justify-center mt-4">
@@ -213,7 +223,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
             className="!px-0 border border-gray-300 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300 w-[8rem]"
             onClick={onClose}
           >
-            Đóng
+            {t("common.close")}
           </button>
           {!isReadOnly && (
             <button
@@ -222,7 +232,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
               onClick={saveTable}
               disabled={isUpdatingTable}
             >
-              Cập nhật
+              {t("common.update")}
             </button>
           )}
         </div>

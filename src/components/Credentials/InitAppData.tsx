@@ -1,8 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState, type FormEvent } from "react";
 import useAppData from "@hooks/useAppData";
+import useI18n from "@hooks/useI18n";
 
 const InitAppData = () => {
+  const { t } = useI18n();
   const { init, getApiKey } = useAppData();
   const [apiKey, setApiKey] = useState<string>("");
   const [isInitializing, setIsInitializing] = useState(false);
@@ -79,13 +81,13 @@ const InitAppData = () => {
       autoComplete="off"
     >
       <div className="text-sm w-full flex justify-between items-end">
-        <span>Your Ably API Key</span>
+        <span>{t("credentials.apiKeyLabel")}</span>
         <button
           type="button"
           className="!py-1 !px-4 border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
           onClick={pasteKey}
         >
-          Paste
+          {t("credentials.paste")}
         </button>
       </div>
       <input
@@ -94,11 +96,11 @@ const InitAppData = () => {
         autoFocus
         type="text"
         value={apiKey}
-        placeholder="Ably API key"
+        placeholder={t("credentials.apiKeyPlaceholder")}
         onInput={(e) => setApiKey(e.currentTarget.value)}
       />
       <p className="text-sm w-full mt-2">
-        <span>Get a new key here: </span>
+        <span>{t("credentials.getKey")}</span>
         <a
           href="https://ably.com"
           target="_blank"
@@ -113,7 +115,7 @@ const InitAppData = () => {
         className={`bg-green-600 mt-6`}
         disabled={!apiKey || isInitializing}
       >
-        {isInitializing ? "Checking" : "Next"}
+        {isInitializing ? t("credentials.checking") : t("common.next")}
       </button>
     </form>
   );

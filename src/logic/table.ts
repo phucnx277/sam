@@ -1,5 +1,6 @@
 import { newGame, newGamePlayer } from "./game";
 import { generateId } from "./util";
+import { t } from "./i18n";
 
 export const TABLE_LIMIT = 10;
 
@@ -57,7 +58,7 @@ export const enterTable = (
     params.password !== table.password
   ) {
     return {
-      error: new Error("Password is incorrect"),
+      error: new Error(t("error.passwordIncorrect")),
       table,
     };
   }
@@ -67,7 +68,7 @@ export const enterTable = (
   ) {
     if (table.game.players.length >= table.playerLimit) {
       return {
-        error: new Error(`Table can only have ${table.playerLimit} players`),
+        error: new Error(t("error.tableFull", { limit: table.playerLimit })),
         table,
       };
     }

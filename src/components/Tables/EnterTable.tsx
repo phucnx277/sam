@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
+import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import useAppData from "@hooks/useAppData";
 
 const EnterTable = (props: { table: Table; close: () => void }) => {
+  const { t } = useI18n();
   const [password, setPassword] = useState("");
   const { localPlayer } = useLocalPlayer();
   const { enterTable } = useAppData();
@@ -55,14 +57,14 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
         autoComplete="off"
       >
         <div className="text-lg text-center">
-          <span>Table: </span>
+          <span>{t("table.tableLabel")}</span>
           <span className="font-semibold">{props.table.name}</span>
         </div>
         <input
           name="tblPassword"
           className="mt-2 py-1 px-2 border border-gray-500 rounded-sm text-lg w-full"
           autoFocus
-          placeholder="Enter password"
+          placeholder={t("table.enterPassword")}
           type="password"
           value={password}
           onInput={(e) => setPassword(e.currentTarget.value)}
@@ -73,14 +75,14 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
             className="flex-1 border border-gray-300 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300"
             onClick={props.close}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
             className="ml-4 flex-1 border border-green-600 bg-green-600"
             disabled={!password}
           >
-            Enter
+            {t("table.enter")}
           </button>
         </div>
       </form>

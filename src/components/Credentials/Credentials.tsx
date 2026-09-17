@@ -2,7 +2,7 @@ import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import InitAppData from "./InitAppData";
 import InputPlayerInfo from "./InputPlayerInfo";
-import VersionInfo from "../common/VersionInfo";
+import TopRightBar from "../common/TopRightBar";
 import WelcomePlayer from "./WelcomePlayer";
 
 const Credentials = () => {
@@ -18,9 +18,7 @@ const Credentials = () => {
           {!isInitialized && <InitAppData />}
         </>
       )}
-      <div className="fixed top-2 right-2">
-        <VersionInfo />
-      </div>
+      <TopRightBar />
     </div>
   );
 };

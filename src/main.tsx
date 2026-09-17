@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import "./lib/elements.cardmeister.min.js";
 import "./index.css";
+import "@hooks/useI18n";
 import App from "./App.tsx";
 
 registerSW({ immediate: true });

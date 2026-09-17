@@ -1,4 +1,5 @@
 import { memo, useEffect, useState } from "react";
+import useI18n from "@hooks/useI18n";
 
 const PlayerInfo = memo(
   ({
@@ -14,6 +15,7 @@ const PlayerInfo = memo(
     reorderDisabled: boolean;
     onCardReorderingChange: () => void;
   }) => {
+    const { t } = useI18n();
     return (
       <div className={`flex items-center`}>
         {isMe && gamePlayer.cards.length > 0 && (
@@ -28,7 +30,7 @@ const PlayerInfo = memo(
                 checked={!!reorderDisabled}
                 readOnly={true}
               />
-              <span className="ml-1 text-sm">Xếp bài xong</span>
+              <span className="ml-1 text-sm">{t("game.cardsSorted")}</span>
             </button>
           </div>
         )}

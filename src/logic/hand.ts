@@ -1,5 +1,6 @@
 import { isStraight } from "./card";
 import { CardsPerPlayer, SuitColorMap } from "./deck";
+import type { TranslationKey } from "./i18n";
 
 const WhiteTigerRank = {
   Poor: 1,
@@ -10,13 +11,13 @@ const WhiteTigerRank = {
   Straight: 6,
 };
 
-export const WhiteTigerRankName: Record<number, string> = {
-  [WhiteTigerRank.Straight]: "Sảnh rồng",
-  [WhiteTigerRank.FourPigs]: "Tứ heo",
-  [WhiteTigerRank.ThreeSets]: "Ba sám",
-  [WhiteTigerRank.FivePairs]: "Năm đôi",
-  [WhiteTigerRank.SameColor]: "Đồng màu",
-  [WhiteTigerRank.Poor]: "Nghèo",
+export const WhiteTigerRankKey: Record<number, TranslationKey> = {
+  [WhiteTigerRank.Straight]: "hand.straight",
+  [WhiteTigerRank.FourPigs]: "hand.fourPigs",
+  [WhiteTigerRank.ThreeSets]: "hand.threeSets",
+  [WhiteTigerRank.FivePairs]: "hand.fivePairs",
+  [WhiteTigerRank.SameColor]: "hand.sameColor",
+  [WhiteTigerRank.Poor]: "hand.poor",
 };
 
 export const checkWhiteTiger = (cards: Card[]): number => {

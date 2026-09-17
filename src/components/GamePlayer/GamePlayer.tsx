@@ -4,6 +4,7 @@ import { useSwipeable } from "react-swipeable";
 import { areCardsEqual, getSortedCards } from "@logic/card";
 import { findTigerAndKiller, isPlayerPassedTurn } from "@logic/game";
 import useLocalGame from "@hooks/useLocalGame";
+import useI18n from "@hooks/useI18n";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import useIsMobile from "@hooks/useIsMobile";
@@ -13,6 +14,7 @@ import PlayerInfo from "./PlayerInfo";
 import TableInfo from "../Tables/TableInfo";
 
 const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
+  const { t } = useI18n();
   const { localPlayer } = useLocalPlayer();
   const { localGame, setLocalGame, localCards, setLocalCards } = useLocalGame();
   const { playingTable } = useAppData();
@@ -102,7 +104,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   }, [playingTable!.game!.state]);
 
   const backToLobby = () => {
-    const confirmLeave = window.confirm("Rời bàn?");
+    const confirmLeave = window.confirm(t("confirm.leaveTable"));
     if (confirmLeave) {
       const url = new URL(window.location.href);
       url.searchParams.delete("tblId");

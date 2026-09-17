@@ -6,7 +6,8 @@ import {
   getCurrentPossibleActions,
   isGameInProgress,
 } from "@logic/game";
-import { checkWhiteTiger, WhiteTigerRankName } from "@logic/hand";
+import { checkWhiteTiger, WhiteTigerRankKey } from "@logic/hand";
+import useI18n from "@hooks/useI18n";
 import useCountDown from "@hooks/useCountDown";
 import { calDurationSec } from "@logic/util";
 import useAppData from "@hooks/useAppData";
@@ -23,6 +24,7 @@ const Actions = memo(
     gamePlayer: GamePlayer;
     onAction: (table: Table) => Promise<void>;
   }) => {
+    const { t } = useI18n();
     const { playingTable } = useAppData();
     const { localPlayer } = useLocalPlayer();
     const ds = useCountDown(playingTable!.game.turnEndTs);
@@ -141,14 +143,14 @@ const Actions = memo(
 
     const renderLabel = (action: PlayerAction): ReactNode => {
       const def = ActionDef[action as PlayerAction];
-      let label = def.label;
+      let label = t(def.label);
       if (action !== "tiger") {
         return label;
       }
 
       const whiteTiger = checkWhiteTiger(gamePlayer.cards);
       if (whiteTiger > 0) {
-        label = WhiteTigerRankName[whiteTiger];
+        label = t(WhiteTigerRankKey[whiteTiger]);
       }
 
       return (

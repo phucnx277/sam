@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import useAppData from "@hooks/useAppData";
+import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { TABLE_LIMIT } from "@logic/table";
 import NewTable from "./NewTable";
 import LobbyTable from "./LobbyTable";
 import EnterTable from "./EnterTable";
 import PlayingTable from "./PlayingTable";
-import VersionInfo from "../common/VersionInfo";
+import TopRightBar from "../common/TopRightBar";
 import WelcomePlayer from "../Credentials/WelcomePlayer";
 
 const Tables = () => {
+  const { t } = useI18n();
   const { tables, playingTable, removeTable } = useAppData();
   const { localPlayer } = useLocalPlayer();
   const [isCreatingTable, setIsCreatingTable] = useState(false);
@@ -19,7 +21,7 @@ const Tables = () => {
     e.preventDefault();
     e.stopPropagation();
 
-    const shouldDelete = window.confirm("Xóa nhé?");
+    const shouldDelete = window.confirm(t("confirm.deleteTable"));
     if (shouldDelete) {
       const err = await removeTable(table.id);
       if (err) {
@@ -32,7 +34,7 @@ const Tables = () => {
     try {
       const clipboardText = await navigator.clipboard.readText();
       if (!clipboardText?.startsWith(window.location.origin)) {
-        alert("Link is invalid");
+        alert(t("table.linkInvalid"));
         return;
       }
       enterTableWithLink(clipboardText, tables);
@@ -105,7 +107,7 @@ const Tables = () => {
         <>
           <div className="p-4 max-w-full">
             <WelcomePlayer />
-            {tables.length > 0 && <p>Select a table</p>}
+            {tables.length > 0 && <p>{t("lobby.selectTable")}</p>}
             <div className="flex flex-wrap gap-2 mt-4 items-center">
               {tables.map((item) => (
                 <div
@@ -131,12 +133,12 @@ const Tables = () => {
                     className="!py-0 !px-1  h-[6rem] w-[6rem] lg:h-[8rem] lg:w-[8rem] border border-green-600 hover:bg-green-600 active:bg-green-600 focus:bg-green-600"
                     onClick={() => setIsCreatingTable(true)}
                   >
-                    Create table
+                    {t("lobby.createTable")}
                   </button>
                 </>
               )}
             </div>
-            <p className="mt-4">Or paste your link here</p>
+            <p className="mt-4">{t("lobby.pasteLink")}</p>
             <button
               type="button"
               className="!p-2 mt-1 w-full max-w-[25rem] text-ellipsis overflow-hidden whitespace-nowrap border border-gray-500 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300 text-gray-500 hover:text-gray-800 text-sm text-left"
@@ -155,9 +157,7 @@ const Tables = () => {
               close={() => setEnteringTable(null)}
             />
           )}
-          <div className="fixed top-2 right-2">
-            <VersionInfo />
-          </div>
+          <TopRightBar />
         </>
       )}
       {!!playingTable && <PlayingTable />}

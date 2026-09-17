@@ -2,6 +2,7 @@ import "./PlayingTable.css";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import useCountDown from "@hooks/useCountDown";
+import useI18n from "@hooks/useI18n";
 import useLocalGame from "@hooks/useLocalGame";
 import { isGameInProgress, divideGamePlayers } from "@logic/game";
 import GamePlayer from "../GamePlayer/GamePlayer";
@@ -10,6 +11,7 @@ import AutoFadeout from "../common/AutoFadeout";
 import Actions from "../GamePlayer/Actions";
 
 const PlayingTable = () => {
+  const { t } = useI18n();
   const { playingTable, updateTable } = useAppData();
   const { localCards } = useLocalGame();
   const { localPlayer } = useLocalPlayer();
@@ -53,14 +55,14 @@ const PlayingTable = () => {
               <div
                 className={`flex flex-1 flex-col ${playingTable!.bo <= 0 ? "justify-center" : ""} items-center pt-1 gap-1`}
               >
-                <div className="text-sm">Lượt trước</div>
+                <div className="text-sm">{t("game.prevTurn")}</div>
                 <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
                   {prevPlayer?.name || "--"}
                 </div>
               </div>
               {playingTable!.bo > 0 && (
                 <div className="flex items-center justify-center gap-x-1">
-                  <span>BO:</span>
+                  <span>{t("game.bo")}</span>
                   <strong className="text-green-600">{playingTable!.bo}</strong>
                 </div>
               )}
@@ -86,7 +88,7 @@ const PlayingTable = () => {
                 isGameInProgress(playingTable!.game) && (
                   <AutoFadeout ts={playingTable!.game.turnStartTs}>
                     <span className="text-5xl lg:text-9xl text-red-600 font-semibold">
-                      Your turn!
+                      {t("game.yourTurn")}
                     </span>
                   </AutoFadeout>
                 )}
@@ -106,7 +108,7 @@ const PlayingTable = () => {
               className={`flex flex-col ${playingTable!.turnTimeout <= 0 ? "justify-center" : ""} w-[6rem] lg:w-[8rem] border-l border-l-gray-400`}
             >
               <div className="flex flex-col items-center justify-center pt-1 gap-1">
-                <div className="text-sm">Lượt hiện tại</div>
+                <div className="text-sm">{t("game.currentTurn")}</div>
                 <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
                   {curPlayer?.name || "--"}
                 </div>
