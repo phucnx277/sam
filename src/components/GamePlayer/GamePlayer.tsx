@@ -12,6 +12,7 @@ import useOrientation from "@hooks/useOrientation";
 import Cards from "../Cards/Cards";
 import PlayerInfo from "./PlayerInfo";
 import TableInfo from "../Tables/TableInfo";
+import HowToPlay from "./HowToPlay";
 
 const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const { t } = useI18n();
@@ -22,6 +23,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const orientation = useOrientation();
 
   const [shouldShowTableInfo, setShouldShowTableInfo] = useState(false);
+  const [shouldShowHowToPlay, setShouldShowHowToPlay] = useState(false);
   const [{ tiger, tigerKiller }, setTigers] = useState<{
     tiger?: GamePlayer | null;
     tigerKiller?: GamePlayer | null;
@@ -199,7 +201,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
             />
           </div>
           {isMe && (
-            <div>
+            <div className="flex flex-col">
               <button
                 className="!p-0"
                 onClick={() => setShouldShowTableInfo(true)}
@@ -208,6 +210,15 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
               </button>
               {shouldShowTableInfo && (
                 <TableInfo onClose={() => setShouldShowTableInfo(false)} />
+              )}
+              <button
+                className="!p-0"
+                onClick={() => setShouldShowHowToPlay(true)}
+              >
+                🙋‍♂️
+              </button>
+              {shouldShowHowToPlay && (
+                <HowToPlay onClose={() => setShouldShowHowToPlay(false)} />
               )}
             </div>
           )}
