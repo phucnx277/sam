@@ -60,6 +60,7 @@ export const en = {
   "game.bo": "BO:",
   "game.yourTurn": "Your turn!",
   "game.cardsSorted": "Cards sorted",
+  "game.fallbackMode": "Indirect connection",
 
   "action.ready": "Ready",
   "action.starOfHope": "⭐ Star of hope",

@@ -103,6 +103,37 @@ export const enterTable = (
   };
 };
 
+export const addTablePlayer = (table: Table, player: Player): Table => {
+  const next: Table = {
+    ...table,
+    game: { ...table.game, players: [...table.game.players] },
+    players: [...table.players],
+  };
+
+  if (next.game.players.findIndex((item) => item.id === player.id) === -1) {
+    const tblPlayer = next.players.find(
+      (item) => item.id === player.id && item.isRemoved,
+    );
+    const newGp = newGamePlayer(player);
+    if (tblPlayer) {
+      newGp.chipCount = tblPlayer.chipCount;
+      next.players = next.players.map((item) =>
+        item.id === player.id ? { ...item, isRemoved: false } : item,
+      );
+    }
+    next.game.players = [...next.game.players, newGp];
+  }
+
+  if (next.players.findIndex((item) => item.id === player.id) === -1) {
+    next.players = [
+      ...next.players,
+      { id: player.id, name: player.name, chipCount: 0 },
+    ];
+  }
+
+  return next;
+};
+
 export const resetSession = (table: Table): Table => {
   return {
     ...table,

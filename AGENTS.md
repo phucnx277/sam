@@ -24,7 +24,15 @@ React 19 + Vite 7 PWA for playing "Sam", a Vietnamese card game. Multiplayer has
 - `src/logic/*` — pure, framework-free game rules. Functions take/return `Table`/`Game`; no I/O. Most game behavior (turns, tigers, chip settlement) is here and in `logic/game.ts`'s `ActionDef`.
 - `src/hooks/*` — Zustand stores (module-level singletons via `create()`) that wire logic to React and Ably. `useAppData` is the Ably client; `useLocalGame`/`useLocalPlayer` persist to `localStorage` under `sam.*` keys.
 - i18n: `src/locales/*` holds the `vi`/`en` dictionaries (`vi` is the key source of truth; `en` must satisfy the same key set). `logic/i18n.ts` is framework-free (types, `translate`, `detectLocale`, a module-level `t()` used by the logic layer); `hooks/useI18n.ts` owns the locale, persists it under `sam.locale`, and syncs `<html lang>` + the logic-layer locale.
-- Realtime data model: a root Ably LiveMap on channel `sam.lobby` with key `tables`; each table is a nested LiveMap whose values are **JSON-stringified** and parsed with helpers in `logic/util.ts` (`stringifyValues`, `parseTable`). Read by subscribing to the LiveMap, write via `channel.objects.batch`.
+- Realtime data model: **PeerJS is the primary transport** between clients. The
+  table host runs a peer with id `sam-<tableId>`; other players connect to it
+  and updates are broadcast host -> clients (optimistic full-table snapshots
+  tagged with a host-local `rev`). Ably LiveObjects on channel `sam.lobby` (root
+  LiveMap key `tables`) is now **write-through fallback only**: every update is
+  written there, but nothing subscribes. The lobby/table snapshot is read once
+  at load (`parseTables`/`parseTable` in `logic/util.ts`). If a client cannot
+  reach the host it polls the table from Ably (~3s). Peer protocol helpers live
+  in `logic/peer.ts`; the lifecycle store is `hooks/usePeerData.ts`.
 - `src/components/*` — grouped by flow: `Credentials` (player + Ably API key setup) → `Tables` → `GamePlayer`. `Lobby.tsx` switches between them based on init state.
 - Playing cards render through the vendored custom elements `<card-item>` / `<card-list>` from `src/lib/elements.cardmeister.min.js` (loaded once in `src/main.tsx`); don't reintroduce it elsewhere.
 
