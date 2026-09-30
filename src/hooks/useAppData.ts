@@ -280,6 +280,8 @@ const useAppData = () => {
         // A host transfer happens through a normal update, so reconcile here too.
         reconcilePeerRole(data);
         await persistTableToAbly(data);
+      } catch (err) {
+        return err as Error;
       } finally {
         setIsUpdatingTable(false);
       }
