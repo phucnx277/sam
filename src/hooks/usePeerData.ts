@@ -313,7 +313,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         clearConnectTimer();
         set({ hostConn: null });
         const type = (err as { type?: string }).type;
-        if (type === "unavailable-id") {
+        if (type === "unavailable-id" || type === "peer-unavailable") {
           hostRetryTimer = window.setTimeout(() => {
             hostRetryTimer = null;
             if (mySession !== session) return;
