@@ -10,6 +10,7 @@ import {
 
 const HOST_RETRY_MS = 1500;
 const CONNECT_TIMEOUT_MS = 8000;
+const MAX_PEER_RETRIES = 4;
 
 let session = 0;
 let connectTimer: number | null = null;
@@ -51,7 +52,12 @@ type PeerDataState = {
   fallback: boolean;
   callbacks: PeerCallbacks | null;
   startHost: (table: Table, player: Player, cb: PeerCallbacks) => void;
-  joinHost: (table: Table, player: Player, cb: PeerCallbacks) => void;
+  joinHost: (
+    table: Table,
+    player: Player,
+    cb: PeerCallbacks,
+    attempt?: number,
+  ) => void;
   sendUpdate: (table: Table) => void;
   stop: () => void;
 };
@@ -223,7 +229,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
       });
     },
 
-    joinHost: (table, player, cb) => {
+    joinHost: (table, player, cb, attempt = 0) => {
       const prev = get();
       session += 1;
       const mySession = session;
@@ -314,10 +320,23 @@ const usePeerData = create<PeerDataState>((set, get) => {
         set({ hostConn: null });
         const type = (err as { type?: string }).type;
         if (type === "unavailable-id" || type === "peer-unavailable") {
+          if (hostRetryTimer !== null) {
+            window.clearTimeout(hostRetryTimer);
+          }
+          if (attempt >= MAX_PEER_RETRIES) {
+            hostRetryTimer = null;
+            setFallback(true, cb);
+            return;
+          }
           hostRetryTimer = window.setTimeout(() => {
             hostRetryTimer = null;
             if (mySession !== session) return;
-            get().joinHost(get().latestTable ?? table, player, cb);
+            get().joinHost(
+              get().latestTable ?? table,
+              player,
+              cb,
+              attempt + 1,
+            );
           }, HOST_RETRY_MS);
           return;
         }
