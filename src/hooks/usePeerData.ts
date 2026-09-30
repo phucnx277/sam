@@ -14,6 +14,7 @@ const CONNECT_TIMEOUT_MS = 8000;
 let session = 0;
 let connectTimer: number | null = null;
 let hostRetryTimer: number | null = null;
+let reportedFallback: boolean | null = null;
 
 const clearConnectTimer = (): void => {
   if (connectTimer !== null) {
@@ -107,7 +108,8 @@ const destroyState = (state: PeerDataState): void => {
 
 const usePeerData = create<PeerDataState>((set, get) => {
   const setFallback = (fallback: boolean, cb: PeerCallbacks): void => {
-    if (get().fallback === fallback) return;
+    if (reportedFallback === fallback) return;
+    reportedFallback = fallback;
     set({ fallback });
     cb.onFallback(fallback);
   };
@@ -126,10 +128,11 @@ const usePeerData = create<PeerDataState>((set, get) => {
 
     startHost: (table, player, cb) => {
       const prev = get();
-      destroyState(prev);
-      clearTimers();
       session += 1;
       const mySession = session;
+      clearTimers();
+      reportedFallback = null;
+      destroyState(prev);
       const sameTable = prev.tableId === table.id;
       const baseRev = sameTable ? Math.max(prev.rev, prev.lastRev) : 0;
       const baseTable = sameTable ? (prev.latestTable ?? table) : table;
@@ -210,6 +213,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         const type = (err as { type?: string }).type;
         if (type !== "unavailable-id") return;
         hostRetryTimer = window.setTimeout(() => {
+          hostRetryTimer = null;
           if (mySession !== session) return;
           const state = get();
           if (state.role === "host" && state.tableId === table.id) {
@@ -221,10 +225,11 @@ const usePeerData = create<PeerDataState>((set, get) => {
 
     joinHost: (table, player, cb) => {
       const prev = get();
-      destroyState(prev);
-      clearTimers();
       session += 1;
       const mySession = session;
+      clearTimers();
+      reportedFallback = null;
+      destroyState(prev);
       const sameTable = prev.tableId === table.id;
       const baseTable = sameTable ? (prev.latestTable ?? table) : table;
 
@@ -243,6 +248,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
       });
 
       connectTimer = window.setTimeout(() => {
+        connectTimer = null;
         if (mySession !== session) return;
         if (!get().hostConn?.open) {
           setFallback(true, cb);
@@ -309,6 +315,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         const type = (err as { type?: string }).type;
         if (type === "unavailable-id") {
           hostRetryTimer = window.setTimeout(() => {
+            hostRetryTimer = null;
             if (mySession !== session) return;
             get().joinHost(get().latestTable ?? table, player, cb);
           }, HOST_RETRY_MS);
@@ -342,6 +349,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
     stop: () => {
       session += 1;
       clearTimers();
+      reportedFallback = null;
       destroyState(get());
       set({
         peer: null,
