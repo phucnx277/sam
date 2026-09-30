@@ -187,8 +187,10 @@ function reconcilePeerRole(table: Table): void {
   if (peer.tableId !== table.id) return;
 
   if (table.hostId === localPlayer.id && peer.role !== "host") {
+    stopPolling();
     peer.startHost(table, localPlayer, bridge);
   } else if (table.hostId !== localPlayer.id && peer.role === "host") {
+    stopPolling();
     peer.joinHost(table, localPlayer, bridge);
   }
 }
@@ -268,18 +270,19 @@ const useAppData = () => {
   const updateTable = useCallback(
     async (data: Table): Promise<Error | null> => {
       setIsUpdatingTable(true);
+      try {
+        if (data.id === playingTable?.id) {
+          setPlayingTable(data);
+        }
 
-      if (data.id === playingTable?.id) {
-        setPlayingTable(data);
+        // P2P is primary and synchronous; Ably is write-through fallback.
+        usePeerData.getState().sendUpdate(data);
+        // A host transfer happens through a normal update, so reconcile here too.
+        reconcilePeerRole(data);
+        await persistTableToAbly(data);
+      } finally {
+        setIsUpdatingTable(false);
       }
-
-      // P2P is primary and synchronous; Ably is write-through fallback.
-      usePeerData.getState().sendUpdate(data);
-      // A host transfer happens through a normal update, so reconcile here too.
-      reconcilePeerRole(data);
-      await persistTableToAbly(data);
-
-      setIsUpdatingTable(false);
       return null;
     },
     [playingTable, setPlayingTable],
