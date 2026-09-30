@@ -29,10 +29,22 @@ export const parsePeerMsg = (data: unknown): PeerMsg | null => {
       }
       return { type: "hello", playerId: msg.playerId, name: msg.name };
     case "snapshot":
-      if (!isTableLike(msg.table) || typeof msg.rev !== "number") return null;
+      if (
+        !isTableLike(msg.table) ||
+        typeof msg.rev !== "number" ||
+        !Number.isFinite(msg.rev)
+      ) {
+        return null;
+      }
       return { type: "snapshot", table: msg.table, rev: msg.rev, from };
     case "update":
-      if (!isTableLike(msg.table) || typeof msg.rev !== "number") return null;
+      if (
+        !isTableLike(msg.table) ||
+        typeof msg.rev !== "number" ||
+        !Number.isFinite(msg.rev)
+      ) {
+        return null;
+      }
       return { type: "update", table: msg.table, rev: msg.rev, from };
     default:
       return null;
