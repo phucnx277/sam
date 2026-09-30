@@ -171,6 +171,9 @@ const bridge: PeerCallbacks = {
     if (table.game.players.some((item) => item.id === player.id)) {
       return table;
     }
+    if (table.game.players.length >= table.playerLimit) {
+      return null;
+    }
     const merged = addTablePlayer(table, player);
     void persistTableToAbly(merged);
     return merged;
@@ -288,9 +291,7 @@ const useAppData = () => {
           setPlayingTable(data);
         }
 
-        // P2P is primary and synchronous; Ably is write-through fallback.
         usePeerData.getState().sendUpdate(data);
-        // A host transfer happens through a normal update, so reconcile here too.
         reconcilePeerRole(data);
         await persistTableToAbly(data);
       } catch (err) {
