@@ -27,6 +27,7 @@ const Keys = {
 const POLL_INTERVAL_MS = 3000;
 
 let pollTimer: number | null = null;
+let initGeneration = 0;
 
 const useAblyStore = create<{
   client: Ably.Realtime | null;
@@ -47,6 +48,7 @@ const useAblyStore = create<{
   isPeerFallback: false,
   init: async (apiKey: string): Promise<{ error: Error | null }> => {
     const normalizedApiKey = decodeApiKey(apiKey);
+    const generation = ++initGeneration;
     let error: Error | null = null;
     let client: Ably.Realtime | null = null;
     try {
@@ -61,12 +63,21 @@ const useAblyStore = create<{
         modes: ["OBJECT_SUBSCRIBE", "OBJECT_PUBLISH"],
       });
       await channel.attach();
+      if (generation !== initGeneration) {
+        client.close();
+        return { error: null };
+      }
       const root = await channel.objects.getRoot();
 
       let tablesMap = root.get(Keys.Tables) as Ably.LiveMap<Ably.LiveMapType>;
       if (!tablesMap) {
         tablesMap = await channel.objects.createMap();
         await root.set(Keys.Tables, tablesMap);
+      }
+
+      if (generation !== initGeneration) {
+        client.close();
+        return { error: null };
       }
 
       const { client: oldClient } = get();
@@ -122,10 +133,12 @@ async function persistTableToAbly(data: Table): Promise<Error | null> {
       const root = ctx.getRoot();
       const tablesMap = root.get(
         Keys.Tables,
-      ) as Ably.LiveMap<Ably.LiveMapType>;
+      ) as Ably.LiveMap<Ably.LiveMapType> | undefined;
+      if (!tablesMap) return;
       const tableMap = tablesMap.get(
         data.id,
-      ) as Ably.LiveMap<Ably.LiveMapType>;
+      ) as Ably.LiveMap<Ably.LiveMapType> | undefined;
+      if (!tableMap) return;
       const tableMapData = parseTable(tableMap.entries());
       if (!tableMapData) return;
       let updated = false;
@@ -166,15 +179,7 @@ const bridge: PeerCallbacks = {
   },
 };
 
-function applyRemoteTable(table: Table): void {
-  useAblyStore.setState((state) => {
-    const exists = state.tables.some((item) => item.id === table.id);
-    const tables = exists
-      ? state.tables.map((item) => (item.id === table.id ? table : item))
-      : [...state.tables, table];
-    return { playingTable: table, tables };
-  });
-
+function reconcilePeerRole(table: Table): void {
   const localPlayer = useLocalPlayer.getState().localPlayer;
   if (!localPlayer) return;
 
@@ -188,7 +193,22 @@ function applyRemoteTable(table: Table): void {
   }
 }
 
+function applyRemoteTable(table: Table): void {
+  useAblyStore.setState((state) => {
+    const tables = state.tables.some((item) => item.id === table.id)
+      ? state.tables.map((item) => (item.id === table.id ? table : item))
+      : [...state.tables, table];
+    if (state.playingTable?.id === table.id) {
+      return { playingTable: table, tables };
+    }
+    return { tables };
+  });
+
+  reconcilePeerRole(table);
+}
+
 function startPeerSession(table: Table, player: Player): void {
+  stopPolling();
   const peer = usePeerData.getState();
   if (table.hostId === player.id) {
     peer.startHost(table, player, bridge);
@@ -255,10 +275,12 @@ const useAppData = () => {
 
       // P2P is primary and synchronous; Ably is write-through fallback.
       usePeerData.getState().sendUpdate(data);
-      const error = await persistTableToAbly(data);
+      // A host transfer happens through a normal update, so reconcile here too.
+      reconcilePeerRole(data);
+      await persistTableToAbly(data);
 
       setIsUpdatingTable(false);
-      return error;
+      return null;
     },
     [playingTable, setPlayingTable],
   );
