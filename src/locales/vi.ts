@@ -56,6 +56,7 @@ export const vi = {
   "game.bo": "BO:",
   "game.yourTurn": "Đến lượt bạn!",
   "game.cardsSorted": "Xếp bài xong",
+  "game.fallbackMode": "Kết nối gián tiếp",
 
   "action.ready": "Sẵn sàng",
   "action.starOfHope": "⭐ hy vọng",
