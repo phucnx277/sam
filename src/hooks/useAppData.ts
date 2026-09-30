@@ -13,6 +13,7 @@ import {
 import {
   newTable,
   enterTable as joinTable,
+  addTablePlayer,
   type EnterTableParams,
   type NewTableParams,
 } from "@logic/table";
@@ -85,7 +86,6 @@ const useAblyStore = create<{
         oldClient.close();
       }
 
-      // One-time load only: never subscribe to LiveObjects events.
       set({
         client,
         channel,
@@ -155,7 +155,6 @@ async function persistTableToAbly(data: Table): Promise<Error | null> {
     });
     return null;
   } catch (err) {
-    // Fallback persistence only; P2P holds the authoritative state.
     console.error("[ably] failed to persist table", data.id, err);
     return err as Error;
   }
@@ -167,6 +166,14 @@ const bridge: PeerCallbacks = {
   },
   onUpdate: (table) => {
     setTimeout(() => applyRemoteTable(table), 0);
+  },
+  onJoin: (player, table) => {
+    if (table.game.players.some((item) => item.id === player.id)) {
+      return table;
+    }
+    const merged = addTablePlayer(table, player);
+    void persistTableToAbly(merged);
+    return merged;
   },
   onFallback: (fallback) => {
     useAblyStore.setState({ isPeerFallback: fallback });
@@ -196,6 +203,12 @@ function reconcilePeerRole(table: Table): void {
 }
 
 function applyRemoteTable(table: Table): void {
+  const peer = usePeerData.getState();
+  const current = useAblyStore.getState();
+  if (current.playingTable?.id !== table.id && peer.tableId !== table.id) {
+    return;
+  }
+
   useAblyStore.setState((state) => {
     const tables = state.tables.some((item) => item.id === table.id)
       ? state.tables.map((item) => (item.id === table.id ? table : item))
@@ -297,7 +310,6 @@ const useAppData = () => {
       const error = setPlayingTable(table);
       if (error) return error;
       startPeerSession(table, params.player);
-      await persistTableToAbly(table);
       return null;
     },
     [setPlayingTable],
@@ -306,6 +318,7 @@ const useAppData = () => {
   const leaveTable = useCallback(() => {
     usePeerData.getState().stop();
     stopPolling();
+    useAblyStore.setState({ isPeerFallback: false });
     unsetPlayingTable();
   }, [unsetPlayingTable]);
 
@@ -317,6 +330,7 @@ const useAppData = () => {
         if (usePeerData.getState().tableId === tableId) {
           usePeerData.getState().stop();
           stopPolling();
+          useAblyStore.setState({ isPeerFallback: false });
           unsetPlayingTable();
         }
       } catch (err) {

@@ -16,6 +16,7 @@ let session = 0;
 let connectTimer: number | null = null;
 let hostRetryTimer: number | null = null;
 let reportedFallback: boolean | null = null;
+let connectAttempt = 0;
 
 const clearConnectTimer = (): void => {
   if (connectTimer !== null) {
@@ -35,6 +36,7 @@ const clearTimers = (): void => {
 export type PeerCallbacks = {
   onSnapshot: (table: Table, rev: number) => void;
   onUpdate: (table: Table, rev: number) => void;
+  onJoin: (player: Player, table: Table) => Table | null;
   onFallback: (fallback: boolean) => void;
 };
 
@@ -52,12 +54,7 @@ type PeerDataState = {
   fallback: boolean;
   callbacks: PeerCallbacks | null;
   startHost: (table: Table, player: Player, cb: PeerCallbacks) => void;
-  joinHost: (
-    table: Table,
-    player: Player,
-    cb: PeerCallbacks,
-    attempt?: number,
-  ) => void;
+  joinHost: (table: Table, player: Player, cb: PeerCallbacks) => void;
   sendUpdate: (table: Table) => void;
   stop: () => void;
 };
@@ -138,10 +135,11 @@ const usePeerData = create<PeerDataState>((set, get) => {
       const mySession = session;
       clearTimers();
       reportedFallback = null;
+      connectAttempt = 0;
       destroyState(prev);
-      const sameTable = prev.tableId === table.id;
-      const baseRev = sameTable ? Math.max(prev.rev, prev.lastRev) : 0;
-      const baseTable = sameTable ? (prev.latestTable ?? table) : table;
+      const baseTable =
+        prev.tableId === table.id ? (prev.latestTable ?? table) : table;
+      const baseRev = Math.max(prev.rev, prev.lastRev, Date.now());
 
       const peer = new Peer(tablePeerId(table.id), peerOptions());
       set({
@@ -172,11 +170,27 @@ const usePeerData = create<PeerDataState>((set, get) => {
             if (!state.clientConns.includes(conn)) {
               set({ clientConns: [...state.clientConns, conn] });
             }
+            const joining: Player = { id: msg.playerId, name: msg.name };
+            let latest = get().latestTable ?? table;
+            const merged = get().callbacks?.onJoin(joining, latest);
+            if (merged && merged !== latest) {
+              const rev = get().rev + 1;
+              set({ latestTable: merged, rev });
+              latest = merged;
+              const out: PeerMsg = {
+                type: "update",
+                table: merged,
+                rev,
+                from: joining.id,
+              };
+              get().clientConns.forEach((c) => safeSend(c, out));
+              get().callbacks?.onUpdate(merged, rev);
+            }
             safeSend(conn, {
               type: "snapshot",
-              table: get().latestTable ?? table,
+              table: latest,
               rev: get().rev,
-              from: player.id,
+              from: joining.id,
             });
             return;
           }
@@ -229,15 +243,15 @@ const usePeerData = create<PeerDataState>((set, get) => {
       });
     },
 
-    joinHost: (table, player, cb, attempt = 0) => {
+    joinHost: (table, player, cb) => {
       const prev = get();
       session += 1;
       const mySession = session;
       clearTimers();
       reportedFallback = null;
       destroyState(prev);
-      const sameTable = prev.tableId === table.id;
-      const baseTable = sameTable ? (prev.latestTable ?? table) : table;
+      const baseTable =
+        prev.tableId === table.id ? (prev.latestTable ?? table) : table;
 
       const peer = new Peer(randomClientPeerId(), peerOptions());
       set({
@@ -253,10 +267,25 @@ const usePeerData = create<PeerDataState>((set, get) => {
         callbacks: cb,
       });
 
+      const scheduleReconnect = (): boolean => {
+        if (connectAttempt >= MAX_PEER_RETRIES) return false;
+        connectAttempt += 1;
+        if (hostRetryTimer !== null) {
+          window.clearTimeout(hostRetryTimer);
+        }
+        hostRetryTimer = window.setTimeout(() => {
+          hostRetryTimer = null;
+          if (mySession !== session) return;
+          get().joinHost(get().latestTable ?? table, player, cb);
+        }, HOST_RETRY_MS);
+        return true;
+      };
+
       connectTimer = window.setTimeout(() => {
         connectTimer = null;
         if (mySession !== session) return;
-        if (!get().hostConn?.open) {
+        if (get().hostConn?.open) return;
+        if (!scheduleReconnect()) {
           setFallback(true, cb);
         }
       }, CONNECT_TIMEOUT_MS);
@@ -269,17 +298,12 @@ const usePeerData = create<PeerDataState>((set, get) => {
         conn.on("open", () => {
           if (mySession !== session) return;
           clearConnectTimer();
+          connectAttempt = 0;
           setFallback(false, cb);
           safeSend(conn, {
             type: "hello",
             playerId: player.id,
             name: player.name,
-          });
-          safeSend(conn, {
-            type: "update",
-            table: get().latestTable ?? table,
-            rev: get().lastRev + 1,
-            from: player.id,
           });
         });
 
@@ -303,15 +327,28 @@ const usePeerData = create<PeerDataState>((set, get) => {
           if (mySession !== session) return;
           clearConnectTimer();
           set({ hostConn: null });
-          setFallback(true, cb);
+          if (!scheduleReconnect()) {
+            setFallback(true, cb);
+          }
         });
 
         conn.on("error", () => {
           if (mySession !== session) return;
           clearConnectTimer();
           set({ hostConn: null });
-          setFallback(true, cb);
+          if (!scheduleReconnect()) {
+            setFallback(true, cb);
+          }
         });
+      });
+
+      peer.on("disconnected", () => {
+        if (mySession !== session) return;
+        try {
+          peer.reconnect();
+        } catch {
+          /* noop */
+        }
       });
 
       peer.on("error", (err) => {
@@ -320,24 +357,9 @@ const usePeerData = create<PeerDataState>((set, get) => {
         set({ hostConn: null });
         const type = (err as { type?: string }).type;
         if (type === "unavailable-id" || type === "peer-unavailable") {
-          if (hostRetryTimer !== null) {
-            window.clearTimeout(hostRetryTimer);
-          }
-          if (attempt >= MAX_PEER_RETRIES) {
-            hostRetryTimer = null;
+          if (!scheduleReconnect()) {
             setFallback(true, cb);
-            return;
           }
-          hostRetryTimer = window.setTimeout(() => {
-            hostRetryTimer = null;
-            if (mySession !== session) return;
-            get().joinHost(
-              get().latestTable ?? table,
-              player,
-              cb,
-              attempt + 1,
-            );
-          }, HOST_RETRY_MS);
           return;
         }
         setFallback(true, cb);
@@ -369,6 +391,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
       session += 1;
       clearTimers();
       reportedFallback = null;
+      connectAttempt = 0;
       destroyState(get());
       set({
         peer: null,
