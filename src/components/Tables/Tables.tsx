@@ -1,9 +1,9 @@
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import useAppData, { getTables } from "@hooks/useAppData";
 import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { TABLE_LIMIT } from "@logic/table";
-import { decodeApiKey, isAblyApiKeyValid } from "@logic/util";
+import { decodeApiKey, isAblyApiKeyValid, parseTableLink } from "@logic/util";
 import NewTable from "./NewTable";
 import LobbyTable from "./LobbyTable";
 import EnterTable from "./EnterTable";
@@ -15,11 +15,25 @@ const ScanTable = lazy(() => import("./ScanTable"));
 
 const Tables = () => {
   const { t } = useI18n();
-  const { tables, playingTable, removeTable, init, getApiKey } = useAppData();
+  const {
+    tables,
+    playingTable,
+    removeTable,
+    init,
+    initPeer,
+    joinPeerTable,
+    switchToAbly,
+    mode,
+    getApiKey,
+  } = useAppData();
   const { localPlayer } = useLocalPlayer();
   const [isCreatingTable, setIsCreatingTable] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [enteringTable, setEnteringTable] = useState<Table | null>(null);
+  const [enteringPeerTableId, setEnteringPeerTableId] = useState<string | null>(
+    null,
+  );
+  const autoLinkedRef = useRef(false);
 
   const confirmRemoveTable = async (e: React.MouseEvent, table: Table) => {
     e.preventDefault();
@@ -34,6 +48,61 @@ const Tables = () => {
     }
   };
 
+  const applyLink = async (link: string): Promise<boolean> => {
+    const parsed = parseTableLink(link);
+    if (!parsed) return false;
+
+    if (parsed.mode === "peer") {
+      if (mode !== "peer") {
+        initPeer();
+      }
+      const localTable = getTables().find((item) => item.id === parsed.tableId);
+      if (localTable) {
+        setEnteringTable(localTable);
+        return true;
+      }
+      if (parsed.password !== null) {
+        joinPeerTable(parsed.tableId, parsed.password);
+        return true;
+      }
+      setEnteringPeerTableId(parsed.tableId);
+      return true;
+    }
+
+    const key = parsed.apiKey ?? "";
+    const isSameKey = key === getApiKey("encoded");
+    if (!isSameKey || mode !== "ably") {
+      if (!isSameKey) {
+        let isValidScannedKey = false;
+        try {
+          isValidScannedKey = isAblyApiKeyValid(decodeApiKey(key));
+        } catch {
+          isValidScannedKey = false;
+        }
+        if (!isValidScannedKey) return false;
+      }
+
+      const { error } = await init(key);
+      if (error) {
+        alert(error.message);
+        return false;
+      }
+    }
+
+    const currentUrl = new URL(window.location.href);
+    if (parsed.password !== null) {
+      currentUrl.searchParams.set("tblPw", parsed.password);
+    } else {
+      currentUrl.searchParams.delete("tblPw");
+    }
+    window.history.replaceState({}, "", currentUrl.toString());
+
+    const table = getTables().find((item) => item.id === parsed.tableId);
+    if (!table) return false;
+    setEnteringTable(table);
+    return true;
+  };
+
   const handlePasteLink = async () => {
     try {
       const clipboardText = await navigator.clipboard.readText();
@@ -41,7 +110,7 @@ const Tables = () => {
         alert(t("table.linkInvalid"));
         return;
       }
-      if (!enterTableWithLink(clipboardText, tables)) {
+      if (!(await applyLink(clipboardText))) {
         alert(t("table.linkInvalid"));
       }
     } catch {
@@ -49,81 +118,46 @@ const Tables = () => {
     }
   };
 
-  const enterTableWithLink = (link: string, tables: Table[]): boolean => {
-    if (!tables?.length || !link) return false;
-
-    const queryObj = new URL(link).searchParams;
-    const tableId = queryObj.get("tblId");
-    if (!tableId) return false;
-
-    const table = tables.find((item) => item.id === tableId);
-    if (!table) return false;
-
-    setEnteringTable(table);
-    return true;
-  };
-
   const handleScan = async (payload: string) => {
     setIsScanning(false);
-
-    let scannedUrl: URL;
-    try {
-      scannedUrl = new URL(payload);
-    } catch {
-      alert(t("table.linkInvalid"));
-      return;
-    }
-
-    const tableId = scannedUrl.searchParams.get("tblId");
-    if (!tableId) {
-      alert(t("table.linkInvalid"));
-      return;
-    }
-
-    const scannedKey = scannedUrl.searchParams.get("apiKey");
-    if (!scannedKey) {
-      alert(t("table.linkInvalid"));
-      return;
-    }
-
-    const isSameKey = scannedKey === getApiKey("encoded");
-
-    if (!isSameKey) {
-      let isValidScannedKey = false;
-      try {
-        isValidScannedKey = isAblyApiKeyValid(decodeApiKey(scannedKey));
-      } catch {
-        isValidScannedKey = false;
-      }
-      if (!isValidScannedKey) {
-        alert(t("table.linkInvalid"));
-        return;
-      }
-
-      const { error } = await init(scannedKey);
-      if (error) {
-        alert(error.message);
-        return;
-      }
-    }
-
-    const scannedPassword = scannedUrl.searchParams.get("tblPw");
-    const currentUrl = new URL(window.location.href);
-    if (scannedPassword !== null) {
-      currentUrl.searchParams.set("tblPw", scannedPassword);
-    } else {
-      currentUrl.searchParams.delete("tblPw");
-    }
-    window.history.replaceState({}, "", currentUrl.toString());
-
-    if (!enterTableWithLink(payload, getTables())) {
+    if (!(await applyLink(payload))) {
       alert(t("table.linkInvalid"));
     }
   };
 
+  // Peer links: rejoin once, even before any local tables exist.
+  // InitAppData strips `mode` from the URL before this mounts, so read
+  // tblId/tblPw directly instead of requiring `mode=peer`.
   useEffect(() => {
-    enterTableWithLink(window.location.href, tables);
-  }, [tables]);
+    if (mode !== "peer" || autoLinkedRef.current) return;
+    autoLinkedRef.current = true;
+    const url = new URL(window.location.href);
+    const tableId = url.searchParams.get("tblId");
+    if (!tableId) return;
+    const localTable = getTables().find((item) => item.id === tableId);
+    if (localTable) {
+      setEnteringTable(localTable);
+      return;
+    }
+    const password = url.searchParams.get("tblPw");
+    if (password !== null) {
+      joinPeerTable(tableId, password);
+      return;
+    }
+    setEnteringPeerTableId(tableId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  // Ably deep links: resolve once the table list has loaded.
+  useEffect(() => {
+    if (mode === "peer") return;
+    const parsed = parseTableLink(window.location.href);
+    if (parsed?.mode !== "ably") return;
+    const table = tables.find((item) => item.id === parsed.tableId);
+    if (table) {
+      setEnteringTable(table);
+    }
+  }, [tables, mode]);
 
   useEffect(() => {
     let tableId = playingTable?.id || null;
@@ -152,13 +186,17 @@ const Tables = () => {
 
     if (tableId && tblIdFromUrl !== tableId) {
       url.searchParams.set("tblId", tableId);
-      url.searchParams.delete("tblPw");
+      if (mode !== "peer") {
+        url.searchParams.delete("tblPw");
+      }
       window.history.replaceState({}, "", url.toString());
       return;
     }
 
     if (tblPwFromUrl !== null) {
-      url.searchParams.delete("tblPw");
+      if (mode !== "peer") {
+        url.searchParams.delete("tblPw");
+      }
       window.history.replaceState({}, "", url.toString());
       return;
     }
@@ -170,22 +208,22 @@ const Tables = () => {
     <>
       {!playingTable && (
         <>
-          <div className="p-2 max-w-full min-w-[25rem]">
+          <div className="p-2 max-w-full min-w-[22rem]">
             <WelcomePlayer />
-            {tables.length > 0 && (
-              <div className="mt-8 flex items-baseline justify-between">
-                <span>{t("lobby.selectTable")}</span>
-                {tables.length < TABLE_LIMIT && (
-                  <button
-                    type="button"
-                    className="!py-1 !px-4 border border-green-600 hover:bg-green-600 active:bg-green-600 focus:bg-green-600"
-                    onClick={() => setIsCreatingTable(true)}
-                  >
-                    {t("lobby.createTable")}
-                  </button>
-                )}
-              </div>
-            )}
+            <div className="mt-6 flex items-baseline justify-between">
+              <span>
+                {t(tables.length > 0 ? "lobby.selectTable" : "lobby.noTable")}
+              </span>
+              {tables.length < TABLE_LIMIT && (
+                <button
+                  type="button"
+                  className="!py-1 !px-4 border border-green-600 hover:bg-green-600 active:bg-green-600 focus:bg-green-600"
+                  onClick={() => setIsCreatingTable(true)}
+                >
+                  {t("lobby.createTable")}
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2 mt-2 items-center">
               {tables.map((item) => (
                 <div
@@ -206,7 +244,7 @@ const Tables = () => {
                 </div>
               ))}
             </div>
-            <div className="mt-8 flex items-baseline justify-between">
+            <div className="mt-4 flex items-baseline justify-between">
               <span>{t("lobby.pasteLink")}</span>
               <button
                 type="button"
@@ -221,6 +259,28 @@ const Tables = () => {
               className="!p-2 mt-1 w-full text-ellipsis overflow-hidden whitespace-nowrap border border-gray-500 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300 text-gray-500 hover:text-gray-800 text-sm text-left"
               onClick={handlePasteLink}
             >{`${window.location.origin}?apiKey=xxx&tblId=xxx`}</button>
+            {mode === "peer" && (
+              <div className="mt-2 text-center">
+                <button
+                  type="button"
+                  className="text-sm text-cyan-600 underline"
+                  onClick={switchToAbly}
+                >
+                  {t("lobby.connectWithAbly")}
+                </button>
+              </div>
+            )}
+            {mode === "ably" && (
+              <div className="mt-2 text-center">
+                <button
+                  type="button"
+                  className="text-sm text-cyan-600 underline"
+                  onClick={initPeer}
+                >
+                  {t("lobby.switchToPeer")}
+                </button>
+              </div>
+            )}
           </div>
           {isCreatingTable && (
             <NewTable
@@ -240,6 +300,12 @@ const Tables = () => {
             <EnterTable
               table={enteringTable}
               close={() => setEnteringTable(null)}
+            />
+          )}
+          {!!enteringPeerTableId && (
+            <EnterTable
+              tableId={enteringPeerTableId}
+              close={() => setEnteringPeerTableId(null)}
             />
           )}
           <TopRightBar />

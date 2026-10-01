@@ -8,7 +8,7 @@ import ShareTable from "./ShareTable";
 
 const TableInfo = ({ onClose }: { onClose: () => void }) => {
   const { t } = useI18n();
-  const { playingTable, getApiKey, updateTable, isUpdatingTable } =
+  const { playingTable, getApiKey, updateTable, isUpdatingTable, mode } =
     useAppData();
   const { localPlayer } = useLocalPlayer();
   const apiKey = getApiKey("original");
@@ -200,20 +200,22 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
           </div>
         </div>
 
-        <div className="flex align-center justify-between gap-x-2 mt-2 py-2 border-y border-y-gray-300">
-          <div className="flex-1 text-ellipsis overflow-hidden whitespace-nowrap">
-            <span>{t("table.apiKeyLabel")}</span>
-            <span className="ml-1 font-semibold">
-              {apiKey.slice(0, 6)}...{apiKey.slice(-6)}
-            </span>
+        {mode !== "peer" && (
+          <div className="flex align-center justify-between gap-x-2 mt-2 py-2 border-y border-y-gray-300">
+            <div className="flex-1 text-ellipsis overflow-hidden whitespace-nowrap">
+              <span>{t("table.apiKeyLabel")}</span>
+              <span className="ml-1 font-semibold">
+                {apiKey.slice(0, 6)}...{apiKey.slice(-6)}
+              </span>
+            </div>
+            <button
+              className="w-[5rem] !py-1 !px-0 text-xs border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
+              onClick={() => copy("key")}
+            >
+              {copied.key ? t("common.copied") : t("common.copy")}
+            </button>
           </div>
-          <button
-            className="w-[5rem] !py-1 !px-0 text-xs border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
-            onClick={() => copy("key")}
-          >
-            {copied.key ? t("common.copied") : t("common.copy")}
-          </button>
-        </div>
+        )}
         <div className="flex justify-center mt-4">
           <button
             type="button"

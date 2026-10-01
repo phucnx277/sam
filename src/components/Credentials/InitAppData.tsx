@@ -1,14 +1,15 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import useAppData from "@hooks/useAppData";
 import useI18n from "@hooks/useI18n";
 import { isAblyApiKeyValid } from "@logic/util";
 
 const InitAppData = () => {
   const { t } = useI18n();
-  const { init, getApiKey } = useAppData();
+  const { init, initPeer, getApiKey } = useAppData();
   const [apiKey, setApiKey] = useState<string>("");
   const [isInitializing, setIsInitializing] = useState(false);
+  const didReadUrlRef = useRef(false);
 
   const initAppData = async (e?: FormEvent, key?: string) => {
     e?.preventDefault?.();
@@ -33,7 +34,19 @@ const InitAppData = () => {
   };
 
   useEffect(() => {
+    if (didReadUrlRef.current) return;
+    didReadUrlRef.current = true;
+
     const url = new URL(window.location.href);
+
+    if (url.searchParams.get("mode") === "peer") {
+      url.searchParams.delete("mode");
+      url.searchParams.delete("apiKey");
+      window.history.replaceState({}, "", url.toString());
+      initPeer();
+      return;
+    }
+
     let apiKey = url.searchParams.get("apiKey");
     apiKey = getApiKey("original", apiKey);
     setApiKey(apiKey);
@@ -117,6 +130,14 @@ const InitAppData = () => {
         disabled={!apiKey || isInitializing}
       >
         {isInitializing ? t("credentials.checking") : t("common.next")}
+      </button>
+      <button
+        type="button"
+        className="mt-4 text-sm text-cyan-600 underline"
+        disabled={isInitializing}
+        onClick={() => initPeer()}
+      >
+        {t("credentials.playWithoutAbly")}
       </button>
     </form>
   );

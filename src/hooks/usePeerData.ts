@@ -7,6 +7,7 @@ import {
   tablePeerId,
   type PeerMsg,
 } from "@logic/peer";
+import { validateJoin, type JoinRejectReason } from "@logic/table";
 
 const HOST_RETRY_MS = 1500;
 const CONNECT_TIMEOUT_MS = 8000;
@@ -38,6 +39,7 @@ export type PeerCallbacks = {
   onUpdate: (table: Table, rev: number) => void;
   onJoin: (player: Player, table: Table) => Table | null;
   onFallback: (fallback: boolean) => void;
+  onReject: (reason: JoinRejectReason) => void;
 };
 
 type PeerRole = "host" | "client" | null;
@@ -54,7 +56,13 @@ type PeerDataState = {
   fallback: boolean;
   callbacks: PeerCallbacks | null;
   startHost: (table: Table, player: Player, cb: PeerCallbacks) => void;
-  joinHost: (table: Table, player: Player, cb: PeerCallbacks) => void;
+  joinHost: (
+    tableId: string,
+    player: Player,
+    password: string,
+    cb: PeerCallbacks,
+    baseTable?: Table,
+  ) => void;
   sendUpdate: (table: Table) => void;
   stop: () => void;
 };
@@ -172,6 +180,23 @@ const usePeerData = create<PeerDataState>((set, get) => {
             }
             const joining: Player = { id: msg.playerId, name: msg.name };
             let latest = get().latestTable ?? table;
+
+            const reason = validateJoin(latest, joining, msg.password);
+            if (reason) {
+              safeSend(conn, { type: "reject", reason });
+              window.setTimeout(() => {
+                try {
+                  conn.close();
+                } catch {
+                  /* noop */
+                }
+              }, 250);
+              set({
+                clientConns: get().clientConns.filter((c) => c !== conn),
+              });
+              return;
+            }
+
             const merged = get().callbacks?.onJoin(joining, latest);
             if (merged && merged !== latest) {
               const rev = get().rev + 1;
@@ -243,22 +268,24 @@ const usePeerData = create<PeerDataState>((set, get) => {
       });
     },
 
-    joinHost: (table, player, cb) => {
+    joinHost: (tableId, player, password, cb, baseTable) => {
       const prev = get();
       session += 1;
       const mySession = session;
       clearTimers();
       reportedFallback = null;
       destroyState(prev);
-      const baseTable =
-        prev.tableId === table.id ? (prev.latestTable ?? table) : table;
+      const seeded =
+        prev.tableId === tableId
+          ? (prev.latestTable ?? baseTable ?? null)
+          : (baseTable ?? null);
 
       const peer = new Peer(randomClientPeerId(), peerOptions());
       set({
         peer,
         role: "client",
-        tableId: table.id,
-        latestTable: baseTable,
+        tableId,
+        latestTable: seeded,
         rev: 0,
         lastRev: 0,
         fallback: false,
@@ -276,7 +303,13 @@ const usePeerData = create<PeerDataState>((set, get) => {
         hostRetryTimer = window.setTimeout(() => {
           hostRetryTimer = null;
           if (mySession !== session) return;
-          get().joinHost(get().latestTable ?? table, player, cb);
+          get().joinHost(
+            tableId,
+            player,
+            password,
+            cb,
+            get().latestTable ?? baseTable,
+          );
         }, HOST_RETRY_MS);
         return true;
       };
@@ -292,7 +325,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
 
       peer.on("open", () => {
         if (mySession !== session) return;
-        const conn = peer.connect(tablePeerId(table.id), { reliable: true });
+        const conn = peer.connect(tablePeerId(tableId), { reliable: true });
         set({ hostConn: conn });
 
         conn.on("open", () => {
@@ -304,6 +337,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
             type: "hello",
             playerId: player.id,
             name: player.name,
+            password,
           });
         });
 
@@ -314,6 +348,12 @@ const usePeerData = create<PeerDataState>((set, get) => {
           if (msg.type === "snapshot") {
             set({ latestTable: msg.table, lastRev: msg.rev });
             cb.onSnapshot(msg.table, msg.rev);
+            return;
+          }
+          if (msg.type === "reject") {
+            const callbacks = get().callbacks;
+            get().stop();
+            callbacks?.onReject(msg.reason);
             return;
           }
           if (msg.type === "update") {

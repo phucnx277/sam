@@ -17,6 +17,7 @@ export const en = {
   "credentials.apiKeyPlaceholder": "Ably API key",
   "credentials.getKey": "Get a new key here: ",
   "credentials.checking": "Checking",
+  "credentials.playWithoutAbly": "Play without Ably (PeerJS only)",
 
   "player.enterName": "Enter your name",
   "player.namePlaceholder": "Input your name",
@@ -25,6 +26,7 @@ export const en = {
   "player.logout": "Log out",
   "player.infoCopied": "Player info copied",
 
+  "lobby.noTable": "No table created",
   "lobby.selectTable": "Join a table",
   "lobby.pasteLink": "Or paste table's link here",
   "lobby.scan": "Scan QR",
@@ -32,6 +34,8 @@ export const en = {
   "lobby.scanError":
     "Could not open the camera. Choose an image with a QR code instead.",
   "lobby.createTable": "Create table",
+  "lobby.connectWithAbly": "Connect with Ably",
+  "lobby.switchToPeer": "Switch to PeerJS",
 
   "table.newTitle": "New Table",
   "table.namePlaceholder": "Name(*)",
@@ -41,6 +45,7 @@ export const en = {
   "table.turnTimeoutPlaceholder":
     "Turn timeout (seconds). Default = 0 = Disabled",
   "table.tableLabel": "Table: ",
+  "table.idLabel": "Table ID: ",
   "table.enterPassword": "Enter password",
   "table.enter": "Enter",
   "table.nameLabel": "Table name: ",
@@ -93,6 +98,8 @@ export const en = {
   "error.playersExceedLimit": "Number of players exceeds limit",
   "error.cannotRemoveAllPlayers": "Cannot remove all players",
   "error.cannotRemoveHost": "Cannot remove the host",
+  "error.peerFull": "The table is full",
+  "error.peerUnreachable": "Could not reach the table host",
 
   "howToPlay.title": "How to play",
   "howToPlay.rulesTab": "Rules",

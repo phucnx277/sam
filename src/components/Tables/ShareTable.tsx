@@ -5,11 +5,19 @@ import useI18n from "@hooks/useI18n";
 
 const ShareTable = (props: { table: Table; onClose: () => void }) => {
   const { t } = useI18n();
-  const { getApiKey } = useAppData();
+  const { getApiKey, mode } = useAppData();
 
   const [copied, setCopied] = useState(false);
 
-  const joinUrl = `${window.location.origin}?apiKey=${getApiKey("encoded")}&tblId=${props.table.id}&tblPw=${props.table.password}`;
+  const params = new URLSearchParams();
+  if (mode === "peer") {
+    params.set("mode", "peer");
+  } else {
+    params.set("apiKey", getApiKey("encoded"));
+  }
+  params.set("tblId", props.table.id);
+  params.set("tblPw", props.table.password);
+  const joinUrl = `${window.location.origin}?${params.toString()}`;
 
   const copyLink = useCallback(() => {
     if (!navigator.clipboard) {

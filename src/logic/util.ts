@@ -124,3 +124,36 @@ export const isAblyApiKeyValid = (apiKey: string): boolean => {
 export const calDurationSec = (ts: number) => {
   return Math.ceil((ts - Date.now()) / 1000);
 };
+
+export type TableLinkMode = "ably" | "peer";
+
+export type TableLink = {
+  mode: TableLinkMode;
+  tableId: string;
+  password: string | null;
+  apiKey: string | null;
+};
+
+export const parseTableLink = (link: string): TableLink | null => {
+  let url: URL;
+  try {
+    url = new URL(link);
+  } catch {
+    return null;
+  }
+
+  const tableId = url.searchParams.get("tblId");
+  if (!tableId) return null;
+
+  const password = url.searchParams.get("tblPw");
+  const apiKey = url.searchParams.get("apiKey");
+  const mode = url.searchParams.get("mode");
+
+  if (mode === "peer" && !apiKey) {
+    return { mode: "peer", tableId, password, apiKey: null };
+  }
+  if (apiKey) {
+    return { mode: "ably", tableId, password, apiKey };
+  }
+  return null;
+};

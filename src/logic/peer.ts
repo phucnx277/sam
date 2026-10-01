@@ -1,3 +1,5 @@
+import type { JoinRejectReason } from "./table";
+
 export const HOST_PEER_PREFIX = "sam";
 export const CLIENT_PEER_PREFIX = "sam-c";
 
@@ -5,9 +7,10 @@ export const tablePeerId = (tableId: string): string =>
   `${HOST_PEER_PREFIX}-${tableId}`;
 
 export type PeerMsg =
-  | { type: "hello"; playerId: string; name: string }
+  | { type: "hello"; playerId: string; name: string; password: string }
   | { type: "snapshot"; table: Table; rev: number; from: string }
-  | { type: "update"; table: Table; rev: number; from: string };
+  | { type: "update"; table: Table; rev: number; from: string }
+  | { type: "reject"; reason: JoinRejectReason };
 
 const isTableLike = (value: unknown): value is Table => {
   if (typeof value !== "object" || value === null) return false;
@@ -27,7 +30,12 @@ export const parsePeerMsg = (data: unknown): PeerMsg | null => {
       if (typeof msg.playerId !== "string" || typeof msg.name !== "string") {
         return null;
       }
-      return { type: "hello", playerId: msg.playerId, name: msg.name };
+      return {
+        type: "hello",
+        playerId: msg.playerId,
+        name: msg.name,
+        password: typeof msg.password === "string" ? msg.password : "",
+      };
     case "snapshot":
       if (
         !isTableLike(msg.table) ||
@@ -46,6 +54,11 @@ export const parsePeerMsg = (data: unknown): PeerMsg | null => {
         return null;
       }
       return { type: "update", table: msg.table, rev: msg.rev, from };
+    case "reject":
+      if (msg.reason !== "password" && msg.reason !== "full") {
+        return null;
+      }
+      return { type: "reject", reason: msg.reason };
     default:
       return null;
   }

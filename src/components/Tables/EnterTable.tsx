@@ -3,26 +3,32 @@ import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import useAppData from "@hooks/useAppData";
 
-const EnterTable = (props: { table: Table; close: () => void }) => {
+const EnterTable = (props: {
+  table?: Table;
+  tableId?: string;
+  close: () => void;
+}) => {
   const { t } = useI18n();
   const [password, setPassword] = useState("");
   const { localPlayer } = useLocalPlayer();
-  const { enterTable } = useAppData();
+  const { enterTable, joinPeerTable } = useAppData();
+  const isPeer = !props.table;
 
   useEffect(() => {
-    if (!localPlayer) return;
+    if (!localPlayer || !props.table) return;
+    const table = props.table;
     const url = new URL(window.location.href);
     let password = url.searchParams.get("tblPw") || "";
-    const alreadyJoined = props.table.game?.players?.some(
+    const alreadyJoined = table.game?.players?.some(
       (gp) => gp.id === localPlayer.id,
     );
     if (alreadyJoined) {
-      password = props.table.password;
+      password = table.password;
     }
-    if (alreadyJoined || password || !props.table.password) {
+    if (alreadyJoined || password || !table.password) {
       (async () => {
         const error = await enterTable({
-          table: props.table,
+          table,
           player: localPlayer,
           password,
         });
@@ -37,9 +43,16 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!password || !localPlayer) return;
+    if (!localPlayer) return;
+    if (isPeer) {
+      if (!props.tableId) return;
+      joinPeerTable(props.tableId, password);
+      props.close();
+      return;
+    }
+    if (!password) return;
     const error = await enterTable({
-      table: props.table,
+      table: props.table!,
       player: localPlayer,
       password,
     });
@@ -57,8 +70,10 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
         autoComplete="off"
       >
         <div className="text-lg text-center">
-          <span>{t("table.tableLabel")}</span>
-          <span className="font-semibold">{props.table.name}</span>
+          <span>{props.table ? t("table.tableLabel") : t("table.idLabel")}</span>
+          <span className="font-semibold">
+            {props.table ? props.table.name : props.tableId}
+          </span>
         </div>
         <input
           name="tblPassword"
@@ -80,7 +95,7 @@ const EnterTable = (props: { table: Table; close: () => void }) => {
           <button
             type="submit"
             className="ml-4 flex-1 border border-green-600 bg-green-600"
-            disabled={!password}
+            disabled={!isPeer && !password}
           >
             {t("table.enter")}
           </button>

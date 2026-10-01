@@ -15,6 +15,7 @@ export const vi = {
   "credentials.apiKeyPlaceholder": "Ably API key",
   "credentials.getKey": "Lấy key mới tại: ",
   "credentials.checking": "Đang kiểm tra",
+  "credentials.playWithoutAbly": "Chơi không cần Ably (chỉ PeerJS)",
 
   "player.enterName": "Nhập tên của bạn",
   "player.namePlaceholder": "Nhập tên",
@@ -23,12 +24,15 @@ export const vi = {
   "player.logout": "Đăng xuất",
   "player.infoCopied": "Đã sao chép thông tin người chơi",
 
+  "lobby.noTable": "Chưa có bàn nào",
   "lobby.selectTable": "Chọn một bàn",
   "lobby.pasteLink": "Hoặc dán liên kết vào đây",
   "lobby.scan": "Quét QR",
   "lobby.chooseImage": "Chọn ảnh",
   "lobby.scanError": "Không mở được camera. Hãy chọn ảnh chứa mã QR.",
   "lobby.createTable": "Tạo bàn",
+  "lobby.connectWithAbly": "Kết nối Ably",
+  "lobby.switchToPeer": "Chuyển sang PeerJS",
 
   "table.newTitle": "Bàn mới",
   "table.namePlaceholder": "Tên(*)",
@@ -37,6 +41,7 @@ export const vi = {
   "table.playerLimitPlaceholder": "Giới hạn người chơi. Mặc định = 5",
   "table.turnTimeoutPlaceholder": "Thời gian mỗi lượt (giây). Mặc định = 0 = Tắt",
   "table.tableLabel": "Bàn: ",
+  "table.idLabel": "Mã bàn: ",
   "table.enterPassword": "Nhập mật khẩu",
   "table.enter": "Vào",
   "table.nameLabel": "Tên bàn: ",
@@ -89,6 +94,8 @@ export const vi = {
   "error.playersExceedLimit": "Số người chơi vượt quá giới hạn",
   "error.cannotRemoveAllPlayers": "Không thể xóa hết người chơi",
   "error.cannotRemoveHost": "Không thể xóa chủ bàn",
+  "error.peerFull": "Bàn đã đầy",
+  "error.peerUnreachable": "Không kết nối được tới chủ bàn",
 
   "howToPlay.title": "Hướng dẫn chơi",
   "howToPlay.rulesTab": "Luật chơi",

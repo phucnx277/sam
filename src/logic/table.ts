@@ -47,18 +47,45 @@ export const newTable = (params: NewTableParams): Table => {
   return table;
 };
 
+export type JoinRejectReason = "password" | "full";
+
+export const validateJoin = (
+  table: Table,
+  player: Player,
+  password: string,
+): JoinRejectReason | null => {
+  const alreadyPresent = table.game.players.some(
+    (item) => item.id === player.id,
+  );
+
+  if (
+    table.password &&
+    player.id !== table.hostId &&
+    password !== table.password
+  ) {
+    return "password";
+  }
+
+  if (!alreadyPresent && table.game.players.length >= table.playerLimit) {
+    return "full";
+  }
+
+  return null;
+};
+
 export const enterTable = (
   params: EnterTableParams,
 ): { error: Error | null; table: Table | null } => {
   const table = { ...params.table };
 
-  if (
-    table.password &&
-    params.player.id !== table.hostId &&
-    params.password !== table.password
-  ) {
+  const reason = validateJoin(table, params.player, params.password);
+  if (reason) {
     return {
-      error: new Error(t("error.passwordIncorrect")),
+      error: new Error(
+        reason === "password"
+          ? t("error.passwordIncorrect")
+          : t("error.tableFull", { limit: table.playerLimit }),
+      ),
       table,
     };
   }
@@ -66,13 +93,6 @@ export const enterTable = (
   if (
     table.game.players.findIndex((item) => item.id === params.player.id) === -1
   ) {
-    if (table.game.players.length >= table.playerLimit) {
-      return {
-        error: new Error(t("error.tableFull", { limit: table.playerLimit })),
-        table,
-      };
-    }
-
     const tblPlayer = table.players.find(
       (item) => item.id === params.player.id && item.isRemoved,
     );

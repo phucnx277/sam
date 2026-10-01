@@ -84,11 +84,11 @@ const HowToPlay = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <div className="fixed z-10 top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">
-      <div className="bg-white flex flex-col p-4 lg:p-8 rounded-lg shadow-2xl shadow-gray-400 w-[30rem] max-w-[92%] max-h-[90%]">
+      <div className="relative bg-white flex flex-col py-2 lg:py-4 px-4 rounded-lg shadow-2xl shadow-gray-400 w-[30rem] max-w-[92%] max-h-[90%]">
         <div className="text-center text-lg font-semibold">
           {t("howToPlay.title")}
         </div>
-        <div className="flex justify-center gap-x-2 mt-3">
+        <div className="flex justify-center gap-x-2 mt-1">
           <button
             type="button"
             className={`!py-1 !px-3 text-sm border ${tab === "rules" ? "border-cyan-600 bg-cyan-300" : "border-cyan-300 hover:bg-cyan-300"}`}
@@ -105,7 +105,7 @@ const HowToPlay = ({ onClose }: { onClose: () => void }) => {
           </button>
         </div>
 
-        <div className="mt-4 flex-1 overflow-y-auto pr-1 flex flex-col gap-y-4">
+        <div className="mt-2 flex-1 overflow-y-auto pr-1 flex flex-col gap-y-4">
           {sections.map((section) => (
             <div key={section.titleKey}>
               <div className="font-semibold">{t(section.titleKey)}</div>
@@ -117,16 +117,12 @@ const HowToPlay = ({ onClose }: { onClose: () => void }) => {
             </div>
           ))}
         </div>
-
-        <div className="flex justify-center mt-4">
-          <button
-            type="button"
-            className="!px-0 border border-gray-300 hover:bg-gray-300 active:bg-gray-300 focus:bg-gray-300 w-[8rem]"
-            onClick={onClose}
-          >
-            {t("common.close")}
-          </button>
-        </div>
+        <span
+          className="absolute text-2xl right-4 top-2 font-normal text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
+          onClick={onClose}
+        >
+          {"×"}
+        </span>
       </div>
     </div>
   );
