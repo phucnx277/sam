@@ -56,6 +56,7 @@ export const en = {
   "table.share": "Share",
   "table.copyLink": "Copy link",
   "table.linkCopied": "Link copied!",
+  "table.downloadQr": "Download QR",
   "table.scanNote": "Ask your friend to scan this to join the table.",
   "table.summary": "Summary",
   "table.linkInvalid": "Link is invalid",

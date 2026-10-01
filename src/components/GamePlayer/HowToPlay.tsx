@@ -84,7 +84,7 @@ const HowToPlay = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <div className="fixed z-10 top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">
-      <div className="relative bg-white flex flex-col py-2 lg:py-4 px-4 rounded-lg shadow-2xl shadow-gray-400 w-[30rem] max-w-[92%] max-h-[90%]">
+      <div className="relative bg-white flex flex-col py-2 lg:py-4 px-4 rounded-lg shadow-2xl shadow-gray-400 w-[30rem] max-w-[92%] max-h-[92%]">
         <div className="text-center text-lg font-semibold">
           {t("howToPlay.title")}
         </div>

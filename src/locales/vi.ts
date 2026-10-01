@@ -52,6 +52,7 @@ export const vi = {
   "table.share": "Chia sẻ",
   "table.copyLink": "Sao chép liên kết",
   "table.linkCopied": "Đã sao chép liên kết!",
+  "table.downloadQr": "Tải mã QR",
   "table.scanNote": "Nhờ bạn của bạn quét mã này để vào bàn.",
   "table.summary": "Tổng kết",
   "table.linkInvalid": "Liên kết không hợp lệ",
