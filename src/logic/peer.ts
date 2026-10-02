@@ -10,9 +10,24 @@ export const clientPeerId = (playerId: string): string =>
   `${CLIENT_PEER_PREFIX}-${playerId}`;
 
 export type PeerMsg =
-  | { type: "hello"; playerId: string; name: string; password: string }
+  | {
+      type: "hello";
+      playerId: string;
+      name: string;
+      password: string;
+      cards?: Card[];
+      gameId?: string;
+    }
   | { type: "snapshot"; table: Table; rev: number; from: string }
   | { type: "update"; table: Table; rev: number; from: string }
+  | {
+      type: "action";
+      playerId: string;
+      action: PlayerAction;
+      data?: unknown;
+      rev: number;
+      from: string;
+    }
   | { type: "reject"; reason: JoinRejectReason }
   | { type: "present"; playerId: string; epoch: number; round: number }
   | {
@@ -22,6 +37,20 @@ export type PeerMsg =
       epoch: number;
       round: number;
     };
+
+const PlayerActionSet = new Set<string>([
+  "startGame",
+  "newGame",
+  "ready",
+  "star",
+  "ask",
+  "tiger",
+  "play",
+  "pass",
+  "removePlayers",
+  "transferHost",
+  "resetSession",
+]);
 
 const isTableLike = (value: unknown): value is Table => {
   if (typeof value !== "object" || value === null) return false;
@@ -46,6 +75,8 @@ export const parsePeerMsg = (data: unknown): PeerMsg | null => {
         playerId: msg.playerId,
         name: msg.name,
         password: typeof msg.password === "string" ? msg.password : "",
+        cards: Array.isArray(msg.cards) ? (msg.cards as Card[]) : undefined,
+        gameId: typeof msg.gameId === "string" ? msg.gameId : undefined,
       };
     case "snapshot":
       if (
@@ -65,6 +96,24 @@ export const parsePeerMsg = (data: unknown): PeerMsg | null => {
         return null;
       }
       return { type: "update", table: msg.table, rev: msg.rev, from };
+    case "action":
+      if (
+        typeof msg.playerId !== "string" ||
+        typeof msg.action !== "string" ||
+        !PlayerActionSet.has(msg.action) ||
+        typeof msg.rev !== "number" ||
+        !Number.isFinite(msg.rev)
+      ) {
+        return null;
+      }
+      return {
+        type: "action",
+        playerId: msg.playerId,
+        action: msg.action as PlayerAction,
+        data: msg.data,
+        rev: msg.rev,
+        from,
+      };
     case "reject":
       if (msg.reason !== "password" && msg.reason !== "full") {
         return null;

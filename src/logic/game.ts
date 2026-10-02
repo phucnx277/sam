@@ -319,11 +319,6 @@ export const ActionDef: Record<
       };
     },
     handleAction(playingTable: Table): Table {
-      const cf = window.confirm(t("confirm.tiger"));
-      if (!cf) {
-        return playingTable;
-      }
-
       const table = { ...playingTable };
       table.game = {
         ...table.game,
@@ -526,10 +521,6 @@ export const ActionDef: Record<
       };
     },
     handleAction(playingTable: Table): Table {
-      const cf = window.confirm(t("confirm.resetSession"));
-      if (!cf) {
-        return playingTable;
-      }
       return resetSession(playingTable);
     },
   },
@@ -606,6 +597,43 @@ export const ActionDef: Record<
       };
     },
   },
+};
+
+export const TurnActions = new Set<PlayerAction>(["ask", "tiger", "play", "pass"]);
+
+export const intendedPlayerId = (
+  table: Table,
+  senderId: string,
+  action: PlayerAction,
+  data?: unknown,
+): string => {
+  const provided = (data as { actingPlayerId?: string } | undefined)
+    ?.actingPlayerId;
+  return (
+    provided ??
+    (TurnActions.has(action)
+      ? (table.game.currentPlayerId ?? senderId)
+      : senderId)
+  );
+};
+
+export const applyAction = (
+  table: Table,
+  playerId: string,
+  action: PlayerAction,
+  data?: unknown,
+): Table => {
+  const actingId = intendedPlayerId(table, playerId, action, data);
+  const player = table.game.players.find((gp) => gp.id === actingId);
+  if (!player) return table;
+  const selectedCards =
+    (data as { selectedCards?: Card[] } | undefined)?.selectedCards ??
+    player.selectedCards;
+  return ActionDef[action].handleAction(
+    table,
+    { ...player, selectedCards },
+    data,
+  );
 };
 
 const updateTurnTimes = (game: Game) => {

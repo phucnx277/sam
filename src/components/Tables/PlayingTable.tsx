@@ -13,7 +13,7 @@ import HostElection from "../GamePlayer/HostElection";
 
 const PlayingTable = () => {
   const { t } = useI18n();
-  const { playingTable, updateTable, isPeerFallback } = useAppData();
+  const { playingTable, dispatchAction, isPeerFallback } = useAppData();
   const { localCards } = useLocalGame();
   const { localPlayer } = useLocalPlayer();
   const { targetGamePlayer: localGamePlayer, opponents } = divideGamePlayers(
@@ -30,8 +30,8 @@ const PlayingTable = () => {
     (item) => item.id === playingTable!.game.currentPlayerId,
   );
 
-  const handleAction = async (table: Table) => {
-    const error = await updateTable(table);
+  const handleAction = async (action: PlayerAction, data?: unknown) => {
+    const error = await dispatchAction(action, data);
     if (error) {
       alert(error.message);
     }

@@ -27,8 +27,18 @@ const Tables = () => {
     getApiKey,
   } = useAppData();
   const { localPlayer } = useLocalPlayer();
-  const visible =
-    mode === "peer" ? tables : visibleTables(tables, localPlayer);
+  const visible = mode === "peer" ? [] : visibleTables(tables, localPlayer);
+  const canCreateTable =
+    hostedTables(tables, localPlayer).length < TABLE_LIMIT;
+  const createTableButton = canCreateTable ? (
+    <button
+      type="button"
+      className="!py-1 !px-4 border border-green-600 hover:bg-green-600 active:bg-green-600 focus:bg-green-600"
+      onClick={() => setIsCreatingTable(true)}
+    >
+      {t("lobby.createTable")}
+    </button>
+  ) : null;
   const [isCreatingTable, setIsCreatingTable] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [enteringTable, setEnteringTable] = useState<Table | null>(null);
@@ -212,40 +222,46 @@ const Tables = () => {
         <>
           <div className="p-2 max-w-full min-w-[22rem]">
             <WelcomePlayer />
-            <div className="mt-6 flex items-baseline justify-between">
-              <span>
-                {t(visible.length > 0 ? "lobby.selectTable" : "lobby.noTable")}
-              </span>
-              {hostedTables(tables, localPlayer).length < TABLE_LIMIT && (
-                <button
-                  type="button"
-                  className="!py-1 !px-4 border border-green-600 hover:bg-green-600 active:bg-green-600 focus:bg-green-600"
-                  onClick={() => setIsCreatingTable(true)}
-                >
-                  {t("lobby.createTable")}
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2 items-center">
-              {visible.map((item) => (
-                <div
-                  className="!p-0 h-[6rem] w-[6rem] lg:h-[8rem] lg:w-[8rem] cursor-pointer relative"
-                  key={item.id}
-                  onClick={() => setEnteringTable(item)}
-                >
-                  {(localPlayer!.isAdmin ||
-                    item.hostId === localPlayer!.id) && (
-                    <span
-                      className="absolute text-2xl right-2 top-0 font-normal text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
-                      onClick={(e) => confirmRemoveTable(e, item)}
-                    >
-                      {"×"}
-                    </span>
-                  )}
-                  <LobbyTable data={item} />
+            {mode !== "peer" ? (
+              <>
+                <div className="mt-6 flex items-baseline justify-between">
+                  <span>
+                    {
+                      t(
+                        visible.length > 0
+                          ? "lobby.selectTable"
+                          : "lobby.noTable",
+                      )
+                    }
+                  </span>
+                  {createTableButton}
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-2 mt-2 items-center">
+                  {visible.map((item) => (
+                    <div
+                      className="!p-0 h-[6rem] w-[6rem] lg:h-[8rem] lg:w-[8rem] cursor-pointer relative"
+                      key={item.id}
+                      onClick={() => setEnteringTable(item)}
+                    >
+                      {(localPlayer!.isAdmin ||
+                        item.hostId === localPlayer!.id) && (
+                        <span
+                          className="absolute text-2xl right-2 top-0 font-normal text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
+                          onClick={(e) => confirmRemoveTable(e, item)}
+                        >
+                          {"×"}
+                        </span>
+                      )}
+                      <LobbyTable data={item} />
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="mt-6 flex items-baseline justify-end">
+                {createTableButton}
+              </div>
+            )}
             <div className="mt-4 flex items-baseline justify-between">
               <span>{t("lobby.pasteLink")}</span>
               <button

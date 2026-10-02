@@ -173,6 +173,36 @@ export const hostedTables = (
 ): Table[] =>
   !player ? [] : tables.filter((table) => table.hostId === player.id);
 
+const hiddenCard = (index: number): Card => ({
+  rank: ((index % 13) + 1) as Rank,
+  suit: "S",
+  hidden: true,
+});
+
+export const maskTableFor = (table: Table, viewerId: string): Table => {
+  if (table.game.state === "ended") return table;
+  return {
+    ...table,
+    game: {
+      ...table.game,
+      players: table.game.players.map((gp) =>
+        gp.id === viewerId
+          ? gp
+          : {
+              ...gp,
+              cards: gp.cards.map((_, index) => hiddenCard(index)),
+              selectedCards: gp.selectedCards.map((_, index) =>
+                hiddenCard(index),
+              ),
+            },
+      ),
+    },
+  };
+};
+
+export const hasHiddenCards = (cards: Card[]): boolean =>
+  cards.length > 0 && cards.every((card) => card.hidden);
+
 export const resetSession = (table: Table): Table => {
   return {
     ...table,

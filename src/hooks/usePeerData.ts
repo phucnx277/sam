@@ -8,10 +8,13 @@ import {
   type PeerMsg,
 } from "@logic/peer";
 import {
+  hasHiddenCards,
+  maskTableFor,
   promoteHost,
   validateJoin,
   type JoinRejectReason,
 } from "@logic/table";
+import { applyAction, intendedPlayerId, TurnActions } from "@logic/game";
 
 const HOST_RETRY_MS = 1500;
 const CONNECT_TIMEOUT_MS = 8000;
@@ -67,6 +70,8 @@ export type PeerCallbacks = {
 
 type PeerRole = "host" | "client" | null;
 
+type ClientConn = { conn: DataConnection; playerId: string };
+
 export type HostElectionState = {
   active: boolean;
   round: number;
@@ -86,7 +91,7 @@ type PeerDataState = {
   role: PeerRole;
   tableId: string | null;
   hostConn: DataConnection | null;
-  clientConns: DataConnection[];
+  clientConns: ClientConn[];
   latestTable: Table | null;
   rev: number;
   lastRev: number;
@@ -104,6 +109,7 @@ type PeerDataState = {
     baseTable?: Table,
   ) => void;
   sendUpdate: (table: Table) => void;
+  sendAction: (action: PlayerAction, data?: unknown) => void;
   castVote: (candidateId: string) => void;
   restartElection: () => void;
   stop: () => void;
@@ -140,7 +146,7 @@ const destroyState = (state: PeerDataState): void => {
       /* noop */
     }
   }
-  state.clientConns.forEach((conn) => {
+  state.clientConns.forEach(({ conn }) => {
     try {
       conn.close();
     } catch {
@@ -162,6 +168,45 @@ const usePeerData = create<PeerDataState>((set, get) => {
     reportedFallback = fallback;
     set({ fallback });
     cb.onFallback(fallback);
+  };
+
+  const broadcastTable = (table: Table, rev: number, from: string): void => {
+    get().clientConns.forEach(({ conn, playerId }) => {
+      safeSend(conn, {
+        type: "update",
+        table: maskTableFor(table, playerId),
+        rev,
+        from,
+      });
+    });
+  };
+
+  const applyHostAction = (
+    playerId: string,
+    action: PlayerAction,
+    data?: unknown,
+  ): void => {
+    const state = get();
+    const table = state.latestTable;
+    if (!table) return;
+    const state2 = table.game.state;
+    if (action === "startGame" && state2 !== "waiting") return;
+    if (action === "newGame" && state2 !== "ended") return;
+    if (action === "resetSession" && state2 !== "ended") return;
+    if ((action === "ready" || action === "star") && state2 !== "waiting") {
+      return;
+    }
+    const actingId = intendedPlayerId(table, playerId, action, data);
+    const expected = TurnActions.has(action)
+      ? table.game.currentPlayerId
+      : playerId;
+    if (actingId !== expected) return;
+    const next = applyAction(table, playerId, action, data);
+    if (next === table) return;
+    const rev = state.rev + 1;
+    set({ latestTable: next, rev });
+    broadcastTable(next, rev, playerId);
+    state.callbacks?.onUpdate(next, rev);
   };
 
   const endElection = (): void => {
@@ -421,8 +466,13 @@ const usePeerData = create<PeerDataState>((set, get) => {
           if (!msg) return;
           if (msg.type === "hello") {
             const state = get();
-            if (!state.clientConns.includes(conn)) {
-              set({ clientConns: [...state.clientConns, conn] });
+            if (!state.clientConns.some((c) => c.conn === conn)) {
+              set({
+                clientConns: [
+                  ...state.clientConns,
+                  { conn, playerId: msg.playerId },
+                ],
+              });
             }
             const joining: Player = { id: msg.playerId, name: msg.name };
             let latest = get().latestTable ?? table;
@@ -438,7 +488,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
                 }
               }, 250);
               set({
-                clientConns: get().clientConns.filter((c) => c !== conn),
+                clientConns: get().clientConns.filter((c) => c.conn !== conn),
               });
               return;
             }
@@ -448,51 +498,66 @@ const usePeerData = create<PeerDataState>((set, get) => {
               const rev = get().rev + 1;
               set({ latestTable: merged, rev });
               latest = merged;
-              const out: PeerMsg = {
-                type: "update",
-                table: merged,
-                rev,
-                from: joining.id,
-              };
-              get().clientConns.forEach((c) => safeSend(c, out));
+              broadcastTable(merged, rev, joining.id);
               get().callbacks?.onUpdate(merged, rev);
             }
+
+            if (
+              msg.cards?.length &&
+              msg.gameId &&
+              latest.game.id === msg.gameId &&
+              latest.game.state !== "ended"
+            ) {
+              const gp = latest.game.players.find(
+                (item) => item.id === joining.id,
+              );
+              if (gp && (gp.cards.length === 0 || hasHiddenCards(gp.cards))) {
+                const cards = msg.cards.map((card) => ({
+                  rank: card.rank,
+                  suit: card.suit,
+                }));
+                latest = {
+                  ...latest,
+                  game: {
+                    ...latest.game,
+                    players: latest.game.players.map((item) =>
+                      item.id === joining.id ? { ...item, cards } : item,
+                    ),
+                  },
+                };
+                const rev = get().rev + 1;
+                set({ latestTable: latest, rev });
+                broadcastTable(latest, rev, joining.id);
+              }
+            }
+
             safeSend(conn, {
               type: "snapshot",
-              table: latest,
+              table: maskTableFor(latest, joining.id),
               rev: get().rev,
               from: joining.id,
             });
             return;
           }
-          if (msg.type === "update") {
-            if (
-              (msg.table.hostEpoch ?? 0) <
-              (get().latestTable?.hostEpoch ?? 0)
-            ) {
-              return;
-            }
-            const rev = get().rev + 1;
-            set({ latestTable: msg.table, rev });
-            const out: PeerMsg = {
-              type: "update",
-              table: msg.table,
-              rev,
-              from: msg.from,
-            };
-            get().clientConns.forEach((c) => safeSend(c, out));
-            get().callbacks?.onUpdate(msg.table, rev);
+          if (msg.type === "action") {
+            const connInfo = get().clientConns.find((c) => c.conn === conn);
+            if (!connInfo || connInfo.playerId !== msg.playerId) return;
+            applyHostAction(msg.playerId, msg.action, msg.data);
           }
         });
 
         conn.on("close", () => {
           if (mySession !== session) return;
-          set({ clientConns: get().clientConns.filter((c) => c !== conn) });
+          set({
+            clientConns: get().clientConns.filter((c) => c.conn !== conn),
+          });
         });
 
         conn.on("error", () => {
           if (mySession !== session) return;
-          set({ clientConns: get().clientConns.filter((c) => c !== conn) });
+          set({
+            clientConns: get().clientConns.filter((c) => c.conn !== conn),
+          });
         });
       });
 
@@ -627,11 +692,17 @@ const usePeerData = create<PeerDataState>((set, get) => {
           clearGraceTimer();
           endElection();
           setFallback(false, cb);
+          const latest = get().latestTable;
+          const self = latest?.game.players.find(
+            (item) => item.id === player.id,
+          );
           safeSend(conn, {
             type: "hello",
             playerId: player.id,
             name: player.name,
             password,
+            cards: self?.cards,
+            gameId: latest?.game.id,
           });
         });
 
@@ -759,21 +830,31 @@ const usePeerData = create<PeerDataState>((set, get) => {
 
     sendUpdate: (table) => {
       const state = get();
+      if (state.role !== "host") return;
+      const rev = state.rev + 1;
+      set({ latestTable: table, rev });
+      broadcastTable(table, rev, "host");
+    },
+
+    sendAction: (action, data) => {
+      const state = get();
       if (state.role === "host") {
-        const rev = state.rev + 1;
-        set({ latestTable: table, rev });
-        const out: PeerMsg = { type: "update", table, rev, from: "host" };
-        state.clientConns.forEach((c) => safeSend(c, out));
+        const self = state.selfPlayer;
+        if (!self) return;
+        applyHostAction(self.id, action, data);
         return;
       }
-      if (state.role === "client" && state.hostConn) {
+      if (state.role === "client" && state.hostConn?.open) {
+        const self = state.selfPlayer;
+        if (!self) return;
         const rev = state.lastRev + 1;
-        set({ latestTable: table, lastRev: rev });
         safeSend(state.hostConn, {
-          type: "update",
-          table,
+          type: "action",
+          playerId: self.id,
+          action,
+          data,
           rev,
-          from: "client",
+          from: self.id,
         });
       }
     },

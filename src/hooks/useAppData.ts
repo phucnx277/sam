@@ -20,6 +20,7 @@ import {
   type NewTableParams,
   type JoinRejectReason,
 } from "@logic/table";
+import { applyAction } from "@logic/game";
 import usePeerData, { type PeerCallbacks } from "@hooks/usePeerData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 
@@ -31,7 +32,14 @@ const Keys = {
 const POLL_INTERVAL_MS = 3000;
 
 const LS_MODE = "sam.mode";
-const LS_PEER_TABLES = "sam.tables";
+const LEGACY_PEER_TABLES_KEY = "sam.tables";
+localStorage.removeItem(LEGACY_PEER_TABLES_KEY);
+
+const DEAL_ACTIONS = new Set<PlayerAction>([
+  "startGame",
+  "newGame",
+  "resetSession",
+]);
 
 export type TransportMode = TableLinkMode;
 export type PeerError = JoinRejectReason | "unreachable";
@@ -47,21 +55,6 @@ const storeMode = (mode: TransportMode): void => {
 
 const clearStoredMode = (): void => {
   localStorage.removeItem(LS_MODE);
-};
-
-const getPeerTables = (): Table[] => {
-  const stored = localStorage.getItem(LS_PEER_TABLES);
-  if (!stored) return [];
-  try {
-    const data = JSON.parse(stored);
-    return Array.isArray(data) ? (data as Table[]) : [];
-  } catch {
-    return [];
-  }
-};
-
-const savePeerTables = (tables: Table[]): void => {
-  localStorage.setItem(LS_PEER_TABLES, JSON.stringify(tables));
 };
 
 let pollTimer: number | null = null;
@@ -87,7 +80,7 @@ const useAblyStore = create<{
   client: null,
   channel: null,
   tablesMap: null,
-  tables: getStoredMode() === "peer" ? getPeerTables() : [],
+  tables: [],
   playingTable: null,
   isPeerFallback: false,
   mode: getStoredMode(),
@@ -165,9 +158,6 @@ const useAblyStore = create<{
         : [...state.tables, data];
       return { playingTable: data, tables };
     });
-    if (get().mode === "peer") {
-      savePeerTables(get().tables);
-    }
     return null;
   },
   unsetPlayingTable: () => {
@@ -187,7 +177,7 @@ const useAblyStore = create<{
       client: null,
       channel: null,
       tablesMap: null,
-      tables: getPeerTables(),
+      tables: [],
       playingTable: null,
       isPeerFallback: false,
       peerError: null,
@@ -283,7 +273,12 @@ const bridge: PeerCallbacks = {
     }, 0);
   },
   onUpdate: (table) => {
-    setTimeout(() => applyRemoteTable(table), 0);
+    setTimeout(() => {
+      if (usePeerData.getState().role === "host") {
+        void persistTableToAbly(table);
+      }
+      applyRemoteTable(table);
+    }, 0);
   },
   onJoin: (player, table) => {
     if (table.game.players.some((item) => item.id === player.id)) {
@@ -465,6 +460,27 @@ const useAppData = () => {
     [playingTable, setPlayingTable],
   );
 
+  const dispatchAction = useCallback(
+    async (action: PlayerAction, data?: unknown): Promise<Error | null> => {
+      const localPlayer = useLocalPlayer.getState().localPlayer;
+      if (!localPlayer) return null;
+      const table = useAblyStore.getState().playingTable;
+      if (!table) return null;
+
+      const role = usePeerData.getState().role;
+      if (role) {
+        if (role === "client" && !DEAL_ACTIONS.has(action)) {
+          setPlayingTable(applyAction(table, localPlayer.id, action, data));
+        }
+        usePeerData.getState().sendAction(action, data);
+        return null;
+      }
+
+      return updateTable(applyAction(table, localPlayer.id, action, data));
+    },
+    [setPlayingTable, updateTable],
+  );
+
   const enterTable = useCallback(
     async (params: EnterTableParams): Promise<Error | null> => {
       const { error: err, table } = joinTable(params);
@@ -490,7 +506,6 @@ const useAppData = () => {
         const tables = useAblyStore
           .getState()
           .tables.filter((item) => item.id !== tableId);
-        savePeerTables(tables);
         useAblyStore.setState({ tables });
         if (
           usePeerData.getState().tableId === tableId ||
@@ -539,6 +554,7 @@ const useAppData = () => {
     createTable,
     enterTable,
     updateTable,
+    dispatchAction,
     isUpdatingTable,
     removeTable,
     leaveTable,

@@ -22,7 +22,7 @@ const Actions = memo(
   }: {
     selectedCards: Card[];
     gamePlayer: GamePlayer;
-    onAction: (table: Table) => Promise<void>;
+    onAction: (action: PlayerAction, data?: unknown) => Promise<void>;
   }) => {
     const { t } = useI18n();
     const { playingTable } = useAppData();
@@ -45,15 +45,15 @@ const Actions = memo(
       const autoAction = possibleActions[0];
       let autoCards: Card[] = [];
       if (autoAction === "play") {
+        if (curPlayer!.id !== localPlayer!.id) {
+          return;
+        }
         autoCards = getAutoPlayCards(curPlayer!.cards);
       }
-      const def = ActionDef[autoAction];
-      onAction(
-        def.handleAction(playingTable!, {
-          ...curPlayer!,
-          selectedCards: autoCards,
-        }),
-      );
+      onAction(autoAction, {
+        selectedCards: autoCards,
+        actingPlayerId: curPlayer!.id,
+      });
     };
 
     const handleAutoActionWrapper = (): NodeJS.Timeout => {
@@ -94,12 +94,10 @@ const Actions = memo(
               activeClassName={def.activeClassName}
               inactiveClassName={def.inactiveClassName}
               onConfirm={() =>
-                onAction(
-                  def.handleAction(playingTable!, {
-                    ...gamePlayer,
-                    selectedCards,
-                  }),
-                )
+                onAction(action, {
+                  selectedCards,
+                  actingPlayerId: gamePlayer.id,
+                })
               }
             >
               <Action
@@ -134,7 +132,13 @@ const Actions = memo(
               value={value}
               label={renderLabel(action)}
               onAction={() =>
-                onAction(def.handleAction(playingTable!, gamePlayer))
+                action === "resetSession" &&
+                !window.confirm(t("confirm.resetSession"))
+                  ? Promise.resolve()
+                  : onAction(action, {
+                      selectedCards,
+                      actingPlayerId: gamePlayer.id,
+                    })
               }
             />
           );

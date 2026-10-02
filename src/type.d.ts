@@ -6,6 +6,7 @@ type Card = {
   suit: Suit;
   folded?: boolean;
   selected?: boolean;
+  hidden?: boolean;
 };
 
 type Player = {
