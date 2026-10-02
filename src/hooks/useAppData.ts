@@ -15,7 +15,7 @@ import {
   newTable,
   enterTable as joinTable,
   addTablePlayer,
-  resumePlayer,
+  applyRejoin,
   type EnterTableParams,
   type NewTableParams,
   type JoinRejectReason,
@@ -23,6 +23,7 @@ import {
 import { applyAction } from "@logic/game";
 import usePeerData, { type PeerCallbacks } from "@hooks/usePeerData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
+import useLocalGame from "@hooks/useLocalGame";
 
 const LS_API_KEY = "sam.apiKey";
 const CHANNEL_ID = "sam.lobby";
@@ -280,19 +281,20 @@ const bridge: PeerCallbacks = {
       applyRemoteTable(table);
     }, 0);
   },
-  onJoin: (player, table) => {
-    if (table.game.players.some((item) => item.id === player.id)) {
-      const resumed = resumePlayer(table, player.id);
-      if (resumed !== table) {
-        void persistTableToAbly(resumed);
+  onJoin: (player, table, rejoin) => {
+    const present = table.game.players.some((item) => item.id === player.id);
+    if (!present) {
+      if (table.game.players.length >= table.playerLimit) {
+        return null;
       }
-      return resumed;
+      const merged = addTablePlayer(table, player);
+      void persistTableToAbly(merged);
+      return merged;
     }
-    if (table.game.players.length >= table.playerLimit) {
-      return null;
+    const merged = applyRejoin(table, player.id, rejoin);
+    if (merged !== table) {
+      void persistTableToAbly(merged);
     }
-    const merged = addTablePlayer(table, player);
-    void persistTableToAbly(merged);
     return merged;
   },
   onFallback: (fallback) => {
@@ -497,6 +499,7 @@ const useAppData = () => {
     usePeerData.getState().stop();
     stopPolling();
     useAblyStore.setState({ isPeerFallback: false });
+    useLocalGame.getState().clearLocalGame();
     unsetPlayingTable();
   }, [unsetPlayingTable]);
 
@@ -513,6 +516,7 @@ const useAppData = () => {
         ) {
           usePeerData.getState().stop();
           stopPolling();
+          useLocalGame.getState().clearLocalGame();
           unsetPlayingTable();
         }
         return null;
@@ -525,6 +529,7 @@ const useAppData = () => {
           usePeerData.getState().stop();
           stopPolling();
           useAblyStore.setState({ isPeerFallback: false });
+          useLocalGame.getState().clearLocalGame();
           unsetPlayingTable();
         }
       } catch (err) {
