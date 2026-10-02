@@ -72,7 +72,7 @@ const ShareTable = (props: { table: Table; onClose: () => void }) => {
         alert(e);
       };
       img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-        svgString
+        svgString,
       )}`;
     } catch (e) {
       alert(e);
@@ -82,11 +82,7 @@ const ShareTable = (props: { table: Table; onClose: () => void }) => {
   return (
     <div className="fixed z-10 top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">
       <div className="bg-white overflow-y-auto flex flex-col p-4 lg:p-8 rounded-lg shadow-2xl shadow-gray-400 w-[22rem] max-w-[92%] max-h-[92%] gap-y-3 items-center">
-        <div className="text-lg text-center w-full text-ellipsis overflow-hidden whitespace-nowrap">
-          <span>{t("table.nameLabel")}</span>
-          <span className="font-semibold">{props.table.name}</span>
-        </div>
-        <div className="bg-white p-2 border border-gray-200 rounded-sm">
+        <div className="bg-white border border-gray-200 rounded-sm">
           <QRCodeSVG ref={svgRef} value={joinUrl} size={200} marginSize={4} />
         </div>
         <div className="w-full flex justify-center gap-x-4">

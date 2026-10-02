@@ -118,7 +118,7 @@ const HowToPlay = ({ onClose }: { onClose: () => void }) => {
           ))}
         </div>
         <span
-          className="absolute text-2xl right-4 top-2 font-normal text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
+          className="absolute text-2xl right-4 top-2 font-normal cursor-pointer text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
           onClick={onClose}
         >
           {"×"}
