@@ -8,18 +8,20 @@ import {
   type PeerMsg,
 } from "@logic/peer";
 import {
-  hasHiddenCards,
+  markPlayerDisconnected,
   maskTableFor,
   promoteHost,
   validateJoin,
   type JoinRejectReason,
 } from "@logic/table";
+import useLocalGame from "@hooks/useLocalGame";
 import { applyAction, intendedPlayerId, TurnActions } from "@logic/game";
 
 const HOST_RETRY_MS = 1500;
 const CONNECT_TIMEOUT_MS = 8000;
 const MAX_PEER_RETRIES = 4;
 const HOST_GRACE_MS = 10000;
+const PLAYER_AWAY_GRACE_MS = 10000;
 const ELECTION_ROUND_MS = 30000;
 
 let session = 0;
@@ -36,6 +38,20 @@ let clientIdSuffix = "";
 let graceTimer: number | null = null;
 let electionTimer: number | null = null;
 let electionConns: Map<string, DataConnection> = new Map();
+let presenceTimers: Map<string, number> = new Map();
+
+const clearPresenceTimer = (playerId: string): void => {
+  const timer = presenceTimers.get(playerId);
+  if (timer !== undefined) {
+    window.clearTimeout(timer);
+    presenceTimers.delete(playerId);
+  }
+};
+
+const clearPresenceTimers = (): void => {
+  presenceTimers.forEach((timer) => window.clearTimeout(timer));
+  presenceTimers = new Map();
+};
 
 const clearConnectTimer = (): void => {
   if (connectTimer !== null) {
@@ -45,6 +61,7 @@ const clearConnectTimer = (): void => {
 };
 
 const clearTimers = (): void => {
+  clearPresenceTimers();
   clearConnectTimer();
   if (hostRetryTimer !== null) {
     window.clearTimeout(hostRetryTimer);
@@ -63,7 +80,11 @@ const clearTimers = (): void => {
 export type PeerCallbacks = {
   onSnapshot: (table: Table, rev: number) => void;
   onUpdate: (table: Table, rev: number) => void;
-  onJoin: (player: Player, table: Table) => Table | null;
+  onJoin: (
+    player: Player,
+    table: Table,
+    rejoin: { gameId?: string; cards?: Card[] },
+  ) => Table | null;
   onFallback: (fallback: boolean) => void;
   onReject: (reason: JoinRejectReason) => void;
 };
@@ -474,6 +495,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
                 ],
               });
             }
+            clearPresenceTimer(msg.playerId);
             const joining: Player = { id: msg.playerId, name: msg.name };
             let latest = get().latestTable ?? table;
 
@@ -493,42 +515,16 @@ const usePeerData = create<PeerDataState>((set, get) => {
               return;
             }
 
-            const merged = get().callbacks?.onJoin(joining, latest);
+            const merged = get().callbacks?.onJoin(joining, latest, {
+              gameId: msg.gameId,
+              cards: msg.cards,
+            });
             if (merged && merged !== latest) {
               const rev = get().rev + 1;
               set({ latestTable: merged, rev });
               latest = merged;
               broadcastTable(merged, rev, joining.id);
               get().callbacks?.onUpdate(merged, rev);
-            }
-
-            if (
-              msg.cards?.length &&
-              msg.gameId &&
-              latest.game.id === msg.gameId &&
-              latest.game.state !== "ended"
-            ) {
-              const gp = latest.game.players.find(
-                (item) => item.id === joining.id,
-              );
-              if (gp && (gp.cards.length === 0 || hasHiddenCards(gp.cards))) {
-                const cards = msg.cards.map((card) => ({
-                  rank: card.rank,
-                  suit: card.suit,
-                }));
-                latest = {
-                  ...latest,
-                  game: {
-                    ...latest.game,
-                    players: latest.game.players.map((item) =>
-                      item.id === joining.id ? { ...item, cards } : item,
-                    ),
-                  },
-                };
-                const rev = get().rev + 1;
-                set({ latestTable: latest, rev });
-                broadcastTable(latest, rev, joining.id);
-              }
             }
 
             safeSend(conn, {
@@ -546,19 +542,44 @@ const usePeerData = create<PeerDataState>((set, get) => {
           }
         });
 
-        conn.on("close", () => {
+        const schedulePresence = () => {
           if (mySession !== session) return;
+          const info = get().clientConns.find((c) => c.conn === conn);
           set({
             clientConns: get().clientConns.filter((c) => c.conn !== conn),
           });
-        });
+          const playerId = info?.playerId;
+          if (!playerId || playerId === get().selfPlayer?.id) return;
+          clearPresenceTimer(playerId);
+          presenceTimers.set(
+            playerId,
+            window.setTimeout(() => {
+              presenceTimers.delete(playerId);
+              if (mySession !== session) return;
+              const state = get();
+              if (state.role !== "host") return;
+              if (state.clientConns.some((c) => c.playerId === playerId)) {
+                return;
+              }
+              const table = state.latestTable;
+              if (
+                !table ||
+                !table.game.players.some((item) => item.id === playerId)
+              ) {
+                return;
+              }
+              const next = markPlayerDisconnected(table, playerId);
+              if (next === table) return;
+              const rev = state.rev + 1;
+              set({ latestTable: next, rev });
+              broadcastTable(next, rev, playerId);
+              state.callbacks?.onUpdate(next, rev);
+            }, PLAYER_AWAY_GRACE_MS),
+          );
+        };
 
-        conn.on("error", () => {
-          if (mySession !== session) return;
-          set({
-            clientConns: get().clientConns.filter((c) => c.conn !== conn),
-          });
-        });
+        conn.on("close", schedulePresence);
+        conn.on("error", schedulePresence);
       });
 
       peer.on("disconnected", () => {
@@ -696,13 +717,21 @@ const usePeerData = create<PeerDataState>((set, get) => {
           const self = latest?.game.players.find(
             (item) => item.id === player.id,
           );
+          const local = useLocalGame.getState().localGame;
+          const localMatches =
+            local?.tableId === tableId && local?.playerId === player.id;
+          const cards =
+            (self?.cards?.length ? self.cards : undefined) ??
+            (localMatches ? local?.cards : undefined);
+          const gameId =
+            latest?.game.id ?? (localMatches ? local?.gameId : undefined);
           safeSend(conn, {
             type: "hello",
             playerId: player.id,
             name: player.name,
             password,
-            cards: self?.cards,
-            gameId: latest?.game.id,
+            cards,
+            gameId,
           });
         });
 
