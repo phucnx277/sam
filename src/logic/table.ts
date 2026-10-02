@@ -267,3 +267,73 @@ export const resumePlayer = (table: Table, playerId: string): Table => {
     },
   };
 };
+
+const updateTurnWindow = (game: Game): void => {
+  game.turnStartTs = Date.now();
+  game.turnEndTs =
+    game.turnTimeout > 0 ? game.turnStartTs + game.turnTimeout * 1000 : -1;
+};
+
+export const markPlayerDisconnected = (
+  table: Table,
+  playerId: string,
+): Table => {
+  const gp = table.game.players.find((item) => item.id === playerId);
+  if (!gp) return table;
+  const game: Game = {
+    ...table.game,
+    players: table.game.players.map((item) =>
+      item.id === playerId
+        ? { ...item, isDisconnected: true, isAway: true }
+        : item,
+    ),
+  };
+  const inProgress =
+    game.state === "playing" || game.state === "handChecking";
+  if (inProgress && game.currentPlayerId === playerId) {
+    game.currentPlayerId = findNextActivePlayerId(game, playerId);
+    updateTurnWindow(game);
+  }
+  return { ...table, game, updatedAt: Date.now() };
+};
+
+export const applyRejoin = (
+  table: Table,
+  playerId: string,
+  rejoin: { gameId?: string; cards?: Card[] },
+): Table => {
+  const gp = table.game.players.find((item) => item.id === playerId);
+  if (!gp) return table;
+  const inProgress =
+    table.game.state === "playing" || table.game.state === "handChecking";
+  const sameGame = !!rejoin.gameId && rejoin.gameId === table.game.id;
+  const canResume = table.game.state === "waiting" || gp.cards.length > 0;
+  const adoptCards =
+    canResume &&
+    inProgress &&
+    sameGame &&
+    !!rejoin.cards?.length &&
+    (gp.cards.length === 0 || hasHiddenCards(gp.cards));
+
+  return {
+    ...table,
+    game: {
+      ...table.game,
+      players: table.game.players.map((item) => {
+        if (item.id !== playerId) return item;
+        return {
+          ...item,
+          isDisconnected: false,
+          isAway: canResume ? false : true,
+          cards: adoptCards
+            ? rejoin.cards!.map((card) => ({
+                rank: card.rank,
+                suit: card.suit,
+              }))
+            : item.cards,
+        };
+      }),
+    },
+    updatedAt: Date.now(),
+  };
+};
