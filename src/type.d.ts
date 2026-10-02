@@ -29,6 +29,7 @@ type GamePlayer = Player & {
   lastAction: PlayerAction | null;
   starOfHope: boolean;
   paidVillage: boolean;
+  isAway?: boolean;
 };
 
 type TablePlayer = Player & { chipCount: number; isRemoved?: boolean };
@@ -73,6 +74,7 @@ type Game = {
 type Table = {
   id: string;
   hostId: string;
+  hostEpoch?: number;
   name: string;
   password: string;
   createdAt: number;

@@ -1,4 +1,4 @@
-import { newGame, newGamePlayer } from "./game";
+import { findNextActivePlayerId, newGame, newGamePlayer } from "./game";
 import { generateId } from "./util";
 import { t } from "./i18n";
 
@@ -24,6 +24,7 @@ export const newTable = (params: NewTableParams): Table => {
   const table: Table = {
     id: generateId("tbl"),
     hostId: params.player.id,
+    hostEpoch: 0,
     name: params.name,
     password: params.password,
     bo: params.bo,
@@ -187,5 +188,52 @@ export const resetSession = (table: Table): Table => {
       chipCount: 0,
     })),
     updatedAt: Date.now(),
+  };
+};
+
+export const promoteHost = (table: Table, winnerId: string): Table => {
+  const oldHostId = table.hostId;
+  const game: Game = {
+    ...table.game,
+    players: table.game.players.map((gp) =>
+      gp.id === oldHostId ? { ...gp, isAway: true } : gp,
+    ),
+  };
+
+  const active = game.players.filter((gp) => gp.isReady && !gp.isAway);
+  if (
+    active.length >= 2 &&
+    game.currentPlayerId &&
+    !active.some((gp) => gp.id === game.currentPlayerId)
+  ) {
+    game.currentPlayerId = findNextActivePlayerId(game, game.currentPlayerId);
+    game.turnStartTs = Date.now();
+    game.turnEndTs =
+      game.turnTimeout > 0
+        ? game.turnStartTs + game.turnTimeout * 1000
+        : -1;
+  }
+
+  return {
+    ...table,
+    hostId: winnerId,
+    hostEpoch: (table.hostEpoch ?? 0) + 1,
+    updatedAt: Date.now(),
+    game,
+  };
+};
+
+export const resumePlayer = (table: Table, playerId: string): Table => {
+  const gp = table.game.players.find((item) => item.id === playerId);
+  if (!gp || !gp.isAway) return table;
+  return {
+    ...table,
+    updatedAt: Date.now(),
+    game: {
+      ...table.game,
+      players: table.game.players.map((item) =>
+        item.id === playerId ? { ...item, isAway: false } : item,
+      ),
+    },
   };
 };

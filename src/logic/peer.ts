@@ -6,11 +6,22 @@ export const CLIENT_PEER_PREFIX = "sam-c";
 export const tablePeerId = (tableId: string): string =>
   `${HOST_PEER_PREFIX}-${tableId}`;
 
+export const clientPeerId = (playerId: string): string =>
+  `${CLIENT_PEER_PREFIX}-${playerId}`;
+
 export type PeerMsg =
   | { type: "hello"; playerId: string; name: string; password: string }
   | { type: "snapshot"; table: Table; rev: number; from: string }
   | { type: "update"; table: Table; rev: number; from: string }
-  | { type: "reject"; reason: JoinRejectReason };
+  | { type: "reject"; reason: JoinRejectReason }
+  | { type: "present"; playerId: string; epoch: number; round: number }
+  | {
+      type: "vote";
+      voterId: string;
+      candidateId: string;
+      epoch: number;
+      round: number;
+    };
 
 const isTableLike = (value: unknown): value is Table => {
   if (typeof value !== "object" || value === null) return false;
@@ -59,6 +70,40 @@ export const parsePeerMsg = (data: unknown): PeerMsg | null => {
         return null;
       }
       return { type: "reject", reason: msg.reason };
+    case "present":
+      if (
+        typeof msg.playerId !== "string" ||
+        typeof msg.epoch !== "number" ||
+        !Number.isFinite(msg.epoch) ||
+        typeof msg.round !== "number" ||
+        !Number.isFinite(msg.round)
+      ) {
+        return null;
+      }
+      return {
+        type: "present",
+        playerId: msg.playerId,
+        epoch: msg.epoch,
+        round: msg.round,
+      };
+    case "vote":
+      if (
+        typeof msg.voterId !== "string" ||
+        typeof msg.candidateId !== "string" ||
+        typeof msg.epoch !== "number" ||
+        !Number.isFinite(msg.epoch) ||
+        typeof msg.round !== "number" ||
+        !Number.isFinite(msg.round)
+      ) {
+        return null;
+      }
+      return {
+        type: "vote",
+        voterId: msg.voterId,
+        candidateId: msg.candidateId,
+        epoch: msg.epoch,
+        round: msg.round,
+      };
     default:
       return null;
   }

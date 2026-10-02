@@ -173,4 +173,13 @@ export const en = {
   "howToPlay.gestures.buttons": "Buttons",
   "howToPlay.gestures.buttons1":
     "⬅️ leave the table, ℹ️ table info, 🙋‍♂️ how to play.",
+
+  "hostElection.title": "Host disconnected",
+  "hostElection.subtitle":
+    "Vote for a new host so the game can continue.",
+  "hostElection.choose": "Choose a new host",
+  "hostElection.votesProgress": "{count}/{total} voted",
+  "hostElection.waiting": "Waiting for everyone to vote...",
+  "hostElection.retry": "Retry",
+  "hostElection.failed": "Not everyone agreed. Try again.",
 } satisfies Record<TranslationKey, string>;

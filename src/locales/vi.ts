@@ -173,4 +173,13 @@ export const vi = {
   "howToPlay.gestures.buttons": "Các nút",
   "howToPlay.gestures.buttons1":
     "⬅️ rời bàn, ℹ️ thông tin bàn, 🙋‍♂️ hướng dẫn chơi.",
+
+  "hostElection.title": "Chủ bàn mất kết nối",
+  "hostElection.subtitle":
+    "Bầu một người chơi mới làm chủ bàn để tiếp tục ván đấu.",
+  "hostElection.choose": "Chọn chủ bàn mới",
+  "hostElection.votesProgress": "Đã bầu {count}/{total}",
+  "hostElection.waiting": "Đang chờ mọi người bầu...",
+  "hostElection.retry": "Thử lại",
+  "hostElection.failed": "Chưa đủ phiếu đồng thuận. Thử lại.",
 } as const;

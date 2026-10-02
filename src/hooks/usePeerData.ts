@@ -1,23 +1,38 @@
 import { create } from "zustand";
 import Peer, { type DataConnection } from "peerjs";
 import {
-  CLIENT_PEER_PREFIX,
+  clientPeerId,
   parsePeerMsg,
   shouldApplyRevision,
   tablePeerId,
   type PeerMsg,
 } from "@logic/peer";
-import { validateJoin, type JoinRejectReason } from "@logic/table";
+import {
+  promoteHost,
+  validateJoin,
+  type JoinRejectReason,
+} from "@logic/table";
 
 const HOST_RETRY_MS = 1500;
 const CONNECT_TIMEOUT_MS = 8000;
 const MAX_PEER_RETRIES = 4;
+const HOST_GRACE_MS = 10000;
+const ELECTION_ROUND_MS = 30000;
 
 let session = 0;
 let connectTimer: number | null = null;
 let hostRetryTimer: number | null = null;
 let reportedFallback: boolean | null = null;
 let connectAttempt = 0;
+let wasConnected = false;
+let signalingAttempt = 0;
+let electionRound = 0;
+let hostClaimAttempt = 0;
+let clientIdRetried = false;
+let clientIdSuffix = "";
+let graceTimer: number | null = null;
+let electionTimer: number | null = null;
+let electionConns: Map<string, DataConnection> = new Map();
 
 const clearConnectTimer = (): void => {
   if (connectTimer !== null) {
@@ -32,6 +47,14 @@ const clearTimers = (): void => {
     window.clearTimeout(hostRetryTimer);
     hostRetryTimer = null;
   }
+  if (graceTimer !== null) {
+    window.clearTimeout(graceTimer);
+    graceTimer = null;
+  }
+  if (electionTimer !== null) {
+    window.clearTimeout(electionTimer);
+    electionTimer = null;
+  }
 };
 
 export type PeerCallbacks = {
@@ -44,6 +67,20 @@ export type PeerCallbacks = {
 
 type PeerRole = "host" | "client" | null;
 
+export type HostElectionState = {
+  active: boolean;
+  round: number;
+  epoch: number;
+  participants: string[];
+  votes: Record<string, string>;
+  selfVote: string | null;
+  deadline: number;
+  failed: boolean;
+  hostId: string;
+  tableId: string;
+  playerId: string;
+};
+
 type PeerDataState = {
   peer: Peer | null;
   role: PeerRole;
@@ -55,6 +92,9 @@ type PeerDataState = {
   lastRev: number;
   fallback: boolean;
   callbacks: PeerCallbacks | null;
+  selfPlayer: Player | null;
+  hostPassword: string;
+  election: HostElectionState | null;
   startHost: (table: Table, player: Player, cb: PeerCallbacks) => void;
   joinHost: (
     tableId: string,
@@ -64,6 +104,8 @@ type PeerDataState = {
     baseTable?: Table,
   ) => void;
   sendUpdate: (table: Table) => void;
+  castVote: (candidateId: string) => void;
+  restartElection: () => void;
   stop: () => void;
 };
 
@@ -80,9 +122,6 @@ const peerOptions = (): { host?: string; port?: number; path?: string } => {
   }
   return options;
 };
-
-export const randomClientPeerId = (): string =>
-  `${CLIENT_PEER_PREFIX}-${Math.random().toString(36).slice(2, 10)}`;
 
 const safeSend = (conn: DataConnection, msg: PeerMsg): void => {
   if (!conn.open) return;
@@ -125,6 +164,204 @@ const usePeerData = create<PeerDataState>((set, get) => {
     cb.onFallback(fallback);
   };
 
+  const endElection = (): void => {
+    if (electionTimer !== null) {
+      window.clearTimeout(electionTimer);
+      electionTimer = null;
+    }
+    electionConns.forEach((conn) => {
+      try {
+        conn.close();
+      } catch {
+        /* noop */
+      }
+    });
+    electionConns = new Map();
+    if (get().election) {
+      set({ election: null });
+    }
+  };
+
+  const evaluateElection = (): void => {
+    const el = get().election;
+    if (!el || !el.active || el.failed) return;
+    if (el.participants.length === 0) return;
+    const picks = el.participants.map((pid) => el.votes[pid]);
+    if (picks.some((pid) => !pid)) return;
+    const first = picks[0];
+    if (!picks.every((pid) => pid === first)) return;
+    const winner = first as string;
+    const state = get();
+    const table = state.latestTable;
+    const self = state.selfPlayer;
+    const callbacks = state.callbacks;
+    if (!table || !self || !callbacks) return;
+    const promoted = promoteHost(table, winner);
+    endElection();
+    set({ latestTable: promoted });
+    if (winner === self.id) {
+      state.startHost(promoted, self, callbacks);
+      callbacks.onSnapshot(promoted, get().rev);
+    } else {
+      state.joinHost(promoted.id, self, promoted.password, callbacks, promoted);
+    }
+  };
+
+  const handleElectionMsg = (
+    conn: DataConnection,
+    data: unknown,
+  ): void => {
+    const el = get().election;
+    if (!el || !el.active) return;
+    const msg = parsePeerMsg(data);
+    if (!msg) return;
+    if (msg.type === "present") {
+      if (msg.epoch < el.epoch) return;
+      const table = get().latestTable;
+      const known = table?.game.players.some(
+        (gp) =>
+          gp.id === msg.playerId && !gp.isAway && gp.id !== el.hostId,
+      );
+      if (!known) return;
+      if (!el.participants.includes(msg.playerId)) {
+        set((state) =>
+          state.election
+            ? {
+                election: {
+                  ...state.election,
+                  participants: [
+                    ...state.election.participants,
+                    msg.playerId,
+                  ],
+                },
+              }
+            : {},
+        );
+        safeSend(conn, {
+          type: "present",
+          playerId: el.playerId,
+          epoch: el.epoch,
+          round: el.round,
+        });
+      }
+      if (el.selfVote) {
+        safeSend(conn, {
+          type: "vote",
+          voterId: el.playerId,
+          candidateId: el.selfVote,
+          epoch: el.epoch,
+          round: el.round,
+        });
+      }
+      evaluateElection();
+      return;
+    }
+    if (msg.type === "vote") {
+      if (msg.epoch < el.epoch || msg.round < el.round) return;
+      set((state) =>
+        state.election
+          ? {
+              election: {
+                ...state.election,
+                votes: {
+                  ...state.election.votes,
+                  [msg.voterId]: msg.candidateId,
+                },
+              },
+            }
+          : {},
+      );
+      evaluateElection();
+    }
+  };
+
+  const beginElection = (): void => {
+    const state = get();
+    const table = state.latestTable;
+    const self = state.selfPlayer;
+    const peer = state.peer;
+    if (state.role !== "client" || !peer || !table || !self) return;
+    if (state.election?.active) return;
+
+    const epoch = table.hostEpoch ?? 0;
+    electionRound += 1;
+    const round = electionRound;
+    electionConns = new Map();
+    set({
+      election: {
+        active: true,
+        round,
+        epoch,
+        participants: [self.id],
+        votes: {},
+        selfVote: null,
+        deadline: Date.now() + ELECTION_ROUND_MS,
+        failed: false,
+        hostId: table.hostId,
+        tableId: table.id,
+        playerId: self.id,
+      },
+    });
+
+    table.game.players
+      .filter((gp) => gp.id !== self.id && gp.id !== table.hostId && !gp.isAway)
+      .forEach((gp) => {
+        const conn = peer.connect(clientPeerId(gp.id), { reliable: true });
+        electionConns.set(gp.id, conn);
+        conn.on("open", () => {
+          if (!get().election?.active) return;
+          safeSend(conn, {
+            type: "present",
+            playerId: self.id,
+            epoch,
+            round,
+          });
+        });
+        conn.on("data", (data) => handleElectionMsg(conn, data));
+        conn.on("close", () => electionConns.delete(gp.id));
+        conn.on("error", () => electionConns.delete(gp.id));
+      });
+
+    electionTimer = window.setTimeout(() => {
+      electionTimer = null;
+      const el = get().election;
+      if (!el || !el.active) return;
+      if (el.participants.length === 1) {
+        const state2 = get();
+        const table2 = state2.latestTable;
+        const self2 = state2.selfPlayer;
+        const callbacks = state2.callbacks;
+        if (table2 && self2 && callbacks) {
+          const promoted = promoteHost(table2, self2.id);
+          endElection();
+          set({ latestTable: promoted });
+          state2.startHost(promoted, self2, callbacks);
+          callbacks.onSnapshot(promoted, get().rev);
+        }
+        return;
+      }
+      set((s) =>
+        s.election ? { election: { ...s.election, failed: true } } : {},
+      );
+    }, ELECTION_ROUND_MS);
+  };
+
+  const startGraceTimer = (): void => {
+    if (graceTimer !== null) return;
+    graceTimer = window.setTimeout(() => {
+      graceTimer = null;
+      if (!wasConnected) return;
+      beginElection();
+    }, HOST_GRACE_MS);
+  };
+
+  const clearGraceTimer = (): void => {
+    if (graceTimer !== null) {
+      window.clearTimeout(graceTimer);
+      graceTimer = null;
+    }
+  };
+
   return {
     peer: null,
     role: null,
@@ -136,12 +373,18 @@ const usePeerData = create<PeerDataState>((set, get) => {
     lastRev: 0,
     fallback: false,
     callbacks: null,
+    selfPlayer: null,
+    hostPassword: "",
+    election: null,
 
     startHost: (table, player, cb) => {
       const prev = get();
+      if (prev.tableId !== table.id) hostClaimAttempt = 0;
       session += 1;
       const mySession = session;
       clearTimers();
+      endElection();
+      wasConnected = false;
       reportedFallback = null;
       connectAttempt = 0;
       destroyState(prev);
@@ -161,10 +404,13 @@ const usePeerData = create<PeerDataState>((set, get) => {
         hostConn: null,
         clientConns: [],
         callbacks: cb,
+        selfPlayer: player,
+        hostPassword: table.password,
       });
 
       peer.on("open", () => {
         if (mySession !== session) return;
+        hostClaimAttempt = 0;
         setFallback(false, cb);
       });
 
@@ -220,6 +466,12 @@ const usePeerData = create<PeerDataState>((set, get) => {
             return;
           }
           if (msg.type === "update") {
+            if (
+              (msg.table.hostEpoch ?? 0) <
+              (get().latestTable?.hostEpoch ?? 0)
+            ) {
+              return;
+            }
             const rev = get().rev + 1;
             set({ latestTable: msg.table, rev });
             const out: PeerMsg = {
@@ -257,6 +509,17 @@ const usePeerData = create<PeerDataState>((set, get) => {
         if (mySession !== session) return;
         const type = (err as { type?: string }).type;
         if (type !== "unavailable-id") return;
+        hostClaimAttempt += 1;
+        if (hostClaimAttempt > MAX_PEER_RETRIES) {
+          get().joinHost(
+            table.id,
+            player,
+            table.password,
+            cb,
+            get().latestTable ?? table,
+          );
+          return;
+        }
         hostRetryTimer = window.setTimeout(() => {
           hostRetryTimer = null;
           if (mySession !== session) return;
@@ -273,14 +536,26 @@ const usePeerData = create<PeerDataState>((set, get) => {
       session += 1;
       const mySession = session;
       clearTimers();
+      endElection();
       reportedFallback = null;
       destroyState(prev);
+      connectAttempt = 0;
+      if (prev.tableId !== tableId) {
+        wasConnected = false;
+        signalingAttempt = 0;
+        electionRound = 0;
+        clientIdRetried = false;
+        clientIdSuffix = "";
+      }
       const seeded =
         prev.tableId === tableId
           ? (prev.latestTable ?? baseTable ?? null)
           : (baseTable ?? null);
 
-      const peer = new Peer(randomClientPeerId(), peerOptions());
+      const peerId = clientIdSuffix
+        ? `${clientPeerId(player.id)}-${clientIdSuffix}`
+        : clientPeerId(player.id);
+      const peer = new Peer(peerId, peerOptions());
       set({
         peer,
         role: "client",
@@ -292,11 +567,122 @@ const usePeerData = create<PeerDataState>((set, get) => {
         hostConn: null,
         clientConns: [],
         callbacks: cb,
+        selfPlayer: player,
+        hostPassword: password,
       });
 
-      const scheduleReconnect = (): boolean => {
-        if (connectAttempt >= MAX_PEER_RETRIES) return false;
+      peer.on("connection", (conn) => {
+        conn.on("data", (data) => {
+          if (get().election?.active) handleElectionMsg(conn, data);
+        });
+        conn.on("close", () => {
+          electionConns.forEach((c, pid) => {
+            if (c === conn) electionConns.delete(pid);
+          });
+        });
+        conn.on("error", () => {
+          electionConns.forEach((c, pid) => {
+            if (c === conn) electionConns.delete(pid);
+          });
+        });
+      });
+
+      const scheduleReconnect = (retry: () => void): boolean => {
         connectAttempt += 1;
+        if (!wasConnected && connectAttempt > MAX_PEER_RETRIES) return false;
+        if (hostRetryTimer !== null) {
+          window.clearTimeout(hostRetryTimer);
+        }
+        hostRetryTimer = window.setTimeout(() => {
+          hostRetryTimer = null;
+          if (mySession !== session) return;
+          retry();
+        }, HOST_RETRY_MS);
+        return true;
+      };
+
+      const connectToHost = (): void => {
+        if (mySession !== session) return;
+        if (get().hostConn?.open) return;
+        clearConnectTimer();
+        const conn = peer.connect(tablePeerId(tableId), { reliable: true });
+        set({ hostConn: conn });
+
+        connectTimer = window.setTimeout(() => {
+          connectTimer = null;
+          if (mySession !== session) return;
+          if (get().hostConn?.open) return;
+          startGraceTimer();
+          if (!scheduleReconnect(connectToHost)) {
+            setFallback(true, cb);
+          }
+        }, CONNECT_TIMEOUT_MS);
+
+        conn.on("open", () => {
+          if (mySession !== session) return;
+          clearConnectTimer();
+          connectAttempt = 0;
+          signalingAttempt = 0;
+          wasConnected = true;
+          clearGraceTimer();
+          endElection();
+          setFallback(false, cb);
+          safeSend(conn, {
+            type: "hello",
+            playerId: player.id,
+            name: player.name,
+            password,
+          });
+        });
+
+        conn.on("data", (data) => {
+          if (mySession !== session) return;
+          const msg = parsePeerMsg(data);
+          if (!msg) return;
+          const localEpoch = get().latestTable?.hostEpoch ?? 0;
+          if (msg.type === "snapshot") {
+            if ((msg.table.hostEpoch ?? 0) < localEpoch) return;
+            set({ latestTable: msg.table, lastRev: msg.rev });
+            cb.onSnapshot(msg.table, msg.rev);
+            return;
+          }
+          if (msg.type === "reject") {
+            const callbacks = get().callbacks;
+            get().stop();
+            callbacks?.onReject(msg.reason);
+            return;
+          }
+          if (msg.type === "update") {
+            if ((msg.table.hostEpoch ?? 0) < localEpoch) return;
+            if (!shouldApplyRevision(msg.rev, get().lastRev)) return;
+            set({ latestTable: msg.table, lastRev: msg.rev });
+            cb.onUpdate(msg.table, msg.rev);
+          }
+        });
+
+        const onDrop = () => {
+          if (mySession !== session) return;
+          clearConnectTimer();
+          set({ hostConn: null });
+          startGraceTimer();
+          if (!scheduleReconnect(connectToHost)) {
+            setFallback(true, cb);
+          }
+        };
+
+        conn.on("close", onDrop);
+        conn.on("error", onDrop);
+      };
+
+      connectTimer = window.setTimeout(() => {
+        connectTimer = null;
+        if (mySession !== session) return;
+        if (peer.open) return;
+        signalingAttempt += 1;
+        if (!wasConnected && signalingAttempt > MAX_PEER_RETRIES) {
+          setFallback(true, cb);
+          return;
+        }
         if (hostRetryTimer !== null) {
           window.clearTimeout(hostRetryTimer);
         }
@@ -311,75 +697,11 @@ const usePeerData = create<PeerDataState>((set, get) => {
             get().latestTable ?? baseTable,
           );
         }, HOST_RETRY_MS);
-        return true;
-      };
-
-      connectTimer = window.setTimeout(() => {
-        connectTimer = null;
-        if (mySession !== session) return;
-        if (get().hostConn?.open) return;
-        if (!scheduleReconnect()) {
-          setFallback(true, cb);
-        }
       }, CONNECT_TIMEOUT_MS);
 
       peer.on("open", () => {
         if (mySession !== session) return;
-        const conn = peer.connect(tablePeerId(tableId), { reliable: true });
-        set({ hostConn: conn });
-
-        conn.on("open", () => {
-          if (mySession !== session) return;
-          clearConnectTimer();
-          connectAttempt = 0;
-          setFallback(false, cb);
-          safeSend(conn, {
-            type: "hello",
-            playerId: player.id,
-            name: player.name,
-            password,
-          });
-        });
-
-        conn.on("data", (data) => {
-          if (mySession !== session) return;
-          const msg = parsePeerMsg(data);
-          if (!msg) return;
-          if (msg.type === "snapshot") {
-            set({ latestTable: msg.table, lastRev: msg.rev });
-            cb.onSnapshot(msg.table, msg.rev);
-            return;
-          }
-          if (msg.type === "reject") {
-            const callbacks = get().callbacks;
-            get().stop();
-            callbacks?.onReject(msg.reason);
-            return;
-          }
-          if (msg.type === "update") {
-            if (!shouldApplyRevision(msg.rev, get().lastRev)) return;
-            set({ latestTable: msg.table, lastRev: msg.rev });
-            cb.onUpdate(msg.table, msg.rev);
-          }
-        });
-
-        conn.on("close", () => {
-          if (mySession !== session) return;
-          clearConnectTimer();
-          set({ hostConn: null });
-          if (!scheduleReconnect()) {
-            setFallback(true, cb);
-          }
-        });
-
-        conn.on("error", () => {
-          if (mySession !== session) return;
-          clearConnectTimer();
-          set({ hostConn: null });
-          if (!scheduleReconnect()) {
-            setFallback(true, cb);
-          }
-        });
+        connectToHost();
       });
 
       peer.on("disconnected", () => {
@@ -393,13 +715,42 @@ const usePeerData = create<PeerDataState>((set, get) => {
 
       peer.on("error", (err) => {
         if (mySession !== session) return;
-        clearConnectTimer();
-        set({ hostConn: null });
         const type = (err as { type?: string }).type;
-        if (type === "unavailable-id" || type === "peer-unavailable") {
-          if (!scheduleReconnect()) {
-            setFallback(true, cb);
+        const message = String((err as { message?: string }).message ?? "");
+        if (type === "peer-unavailable") {
+          if (message.includes(tablePeerId(tableId))) {
+            clearConnectTimer();
+            set({ hostConn: null });
+            startGraceTimer();
+            if (!scheduleReconnect(connectToHost)) {
+              setFallback(true, cb);
+            }
           }
+          return;
+        }
+        if (type === "unavailable-id") {
+          if (!clientIdRetried) {
+            clientIdRetried = true;
+          } else if (!clientIdSuffix) {
+            clientIdSuffix = Math.random().toString(36).slice(2, 8);
+          } else {
+            setFallback(true, cb);
+            return;
+          }
+          if (hostRetryTimer !== null) {
+            window.clearTimeout(hostRetryTimer);
+          }
+          hostRetryTimer = window.setTimeout(() => {
+            hostRetryTimer = null;
+            if (mySession !== session) return;
+            get().joinHost(
+              tableId,
+              player,
+              password,
+              cb,
+              get().latestTable ?? baseTable,
+            );
+          }, HOST_RETRY_MS);
           return;
         }
         setFallback(true, cb);
@@ -427,9 +778,43 @@ const usePeerData = create<PeerDataState>((set, get) => {
       }
     },
 
+    castVote: (candidateId) => {
+      const el = get().election;
+      if (!el || !el.active) return;
+      set({
+        election: {
+          ...el,
+          selfVote: candidateId,
+          votes: { ...el.votes, [el.playerId]: candidateId },
+        },
+      });
+      const msg: PeerMsg = {
+        type: "vote",
+        voterId: el.playerId,
+        candidateId,
+        epoch: el.epoch,
+        round: el.round,
+      };
+      electionConns.forEach((conn) => safeSend(conn, msg));
+      evaluateElection();
+    },
+
+    restartElection: () => {
+      if (!get().election) return;
+      endElection();
+      beginElection();
+    },
+
     stop: () => {
       session += 1;
       clearTimers();
+      endElection();
+      wasConnected = false;
+      signalingAttempt = 0;
+      electionRound = 0;
+      hostClaimAttempt = 0;
+      clientIdRetried = false;
+      clientIdSuffix = "";
       reportedFallback = null;
       connectAttempt = 0;
       destroyState(get());
@@ -444,6 +829,9 @@ const usePeerData = create<PeerDataState>((set, get) => {
         lastRev: 0,
         fallback: false,
         callbacks: null,
+        selfPlayer: null,
+        hostPassword: "",
+        election: null,
       });
     },
   };

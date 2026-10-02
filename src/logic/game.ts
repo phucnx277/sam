@@ -74,7 +74,9 @@ export const newGamePlayer = (player: Player): GamePlayer => {
 };
 
 export const startGame = (game: Game, playerLimit: number): Game => {
-  const players = game.players.filter((player) => player.isReady);
+  const players = game.players.filter(
+    (player) => player.isReady && !player.isAway,
+  );
   if (players.length > playerLimit) {
     throw new Error(t("error.playersExceedLimit"));
   }
@@ -104,7 +106,7 @@ export const startGame = (game: Game, playerLimit: number): Game => {
     startPlayerId: currentPlayerId,
     players: game.players.map((player) => ({
       ...player,
-      cards: player.isReady ? hands.shift()! : [],
+      cards: player.isReady && !player.isAway ? hands.shift()! : [],
       lastAction: null,
       lastPlayedRound: initialRound,
     })),
@@ -235,7 +237,9 @@ export const ActionDef: Record<
           : playingTable.hostId === currentPlayer.id);
       const disabled =
         !currentPlayer.isReady ||
-        playingTable.game.players.filter((gp) => gp.isReady).length < 2;
+        currentPlayer.isAway ||
+        playingTable.game.players.filter((gp) => gp.isReady && !gp.isAway)
+          .length < 2;
 
       return {
         visible,
@@ -693,13 +697,13 @@ const checkAndUpdateIfGameEnded = (
 
 const isGameEnded = (table: Table, handChecking: boolean): Game => {
   const game = { ...table.game };
-  const gamePlayers = game.players.filter((gp) => gp.isReady);
+  const gamePlayers = game.players.filter((gp) => gp.isReady && !gp.isAway);
 
   const { positive } = gameHasTigers(game);
   if (handChecking) {
     if (positive) {
-      const tiger = gamePlayers.find((gp) => gp.id === game.currentPlayerId)!;
-      if (checkWhiteTiger(tiger.cards) > -1) {
+      const tiger = gamePlayers.find((gp) => gp.id === game.currentPlayerId);
+      if (tiger && checkWhiteTiger(tiger.cards) > -1) {
         game.state = "ended";
         game.playHistory = [
           ...table.game.playHistory,
@@ -740,7 +744,7 @@ const calcGameChipCount = (table: Table): GamePlayer[] => {
   game.players = calcRoundChipCount(table);
 
   const isBO = table.bo > 0;
-  const players = game.players.filter((item) => item.isReady);
+  const players = game.players.filter((item) => item.isReady && !item.isAway);
   const { targetGamePlayer: winner, opponents } = divideGamePlayers(
     players,
     game.winnerId!,
@@ -819,13 +823,13 @@ const findFaultPlayer = (game: Game): GamePlayer | null => {
   const lastPlay = game.playHistory.slice(-1)[0];
   if (
     lastPlay.cards.length > 1 ||
-    game.players.filter((item) => item.isReady).length === 2
+    game.players.filter((item) => item.isReady && !item.isAway).length === 2
   ) {
     return null;
   }
 
   const gamePlayers = rotateGamePlayers(
-    game.players.filter((item) => item.isReady),
+    game.players.filter((item) => item.isReady && !item.isAway),
     game.currentPlayerId!,
   );
 
@@ -882,26 +886,37 @@ const calcRoundChipCount = (table: Table): GamePlayer[] => {
   return gamePlayers;
 };
 
-function findNextPlayerId(game: Game): string {
-  const gamePlayers = rotateGamePlayers(
-    game.players.filter((item) => item.isReady),
-    game.currentPlayerId!,
-  );
-  let index = 1;
-  while (index < gamePlayers.length) {
-    const nextPlayer = gamePlayers[index];
-    const lostTurn = isPlayerPassedTurn(game, nextPlayer);
-    if (!lostTurn) {
-      return nextPlayer.id;
-    }
-    index++;
+export function findNextActivePlayerId(
+  game: Game,
+  fromId: string | null,
+): string {
+  const active = game.players.filter((item) => item.isReady && !item.isAway);
+  if (active.length === 0) {
+    return fromId ?? game.players[0]?.id ?? "";
   }
-  return gamePlayers[0].id;
+  const startIdx = fromId
+    ? active.findIndex((item) => item.id === fromId)
+    : -1;
+  if (startIdx === -1) {
+    const candidate = active.find((item) => !isPlayerPassedTurn(game, item));
+    return (candidate ?? active[0]).id;
+  }
+  for (let i = 1; i <= active.length; i++) {
+    const gp = active[(startIdx + i) % active.length];
+    if (!isPlayerPassedTurn(game, gp)) {
+      return gp.id;
+    }
+  }
+  return active[startIdx].id;
+}
+
+function findNextPlayerId(game: Game): string {
+  return findNextActivePlayerId(game, game.currentPlayerId);
 }
 
 export function findNextAutoPlayer(game: Game, pos = 0): GamePlayer {
   const gamePlayers = rotateGamePlayers(
-    game.players.filter((item) => item.isReady),
+    game.players.filter((item) => item.isReady && !item.isAway),
     game.currentPlayerId!,
   );
   pos = Math.max(pos, 0);
@@ -919,11 +934,15 @@ export function isPlayerPassedTurn(game: Game, player: GamePlayer): boolean {
   return player.lastAction === "pass" && player.lastPlayedRound === game.round;
 }
 
+export const isPlayerAway = (player?: GamePlayer | null): boolean =>
+  !!player?.isAway;
+
 function isEveryonePassed(game: Game): boolean {
   const playerActionsInRound = game.players
     .filter(
       (item) =>
         item.isReady &&
+        !item.isAway &&
         item.lastPlayedRound === game.round &&
         item.id !== game.currentPlayerId,
     )
@@ -954,7 +973,9 @@ function gameHasTigers(game: Game): {
   multiple: boolean;
   tigers: GamePlayer[];
 } {
-  const tigers = game.players.filter((gp) => gp.lastAction === "tiger");
+  const tigers = game.players.filter(
+    (gp) => gp.lastAction === "tiger" && !gp.isAway,
+  );
   return { positive: tigers.length > 0, multiple: tigers.length > 1, tigers };
 }
 
@@ -962,9 +983,11 @@ export function findTigerAndKiller(game: Game): {
   tiger?: GamePlayer | null;
   tigerKiller?: GamePlayer | null;
 } {
-  const tiger = game.players.find((gp) => gp.lastAction === "tiger");
+  const tiger = game.players.find(
+    (gp) => gp.lastAction === "tiger" && !gp.isAway,
+  );
   const tigerKiller = tiger
-    ? game.players.find((gp) => gp.lastAction === "play")
+    ? game.players.find((gp) => gp.lastAction === "play" && !gp.isAway)
     : null;
 
   return { tiger, tigerKiller };

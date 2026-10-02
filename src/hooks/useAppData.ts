@@ -15,6 +15,7 @@ import {
   newTable,
   enterTable as joinTable,
   addTablePlayer,
+  resumePlayer,
   type EnterTableParams,
   type NewTableParams,
   type JoinRejectReason,
@@ -286,7 +287,11 @@ const bridge: PeerCallbacks = {
   },
   onJoin: (player, table) => {
     if (table.game.players.some((item) => item.id === player.id)) {
-      return table;
+      const resumed = resumePlayer(table, player.id);
+      if (resumed !== table) {
+        void persistTableToAbly(resumed);
+      }
+      return resumed;
     }
     if (table.game.players.length >= table.playerLimit) {
       return null;
@@ -410,6 +415,10 @@ const useAppData = () => {
     unsetPlayingTable,
   } = useAblyStore();
 
+  const election = usePeerData((s) => s.election);
+  const castVote = usePeerData((s) => s.castVote);
+  const restartElection = usePeerData((s) => s.restartElection);
+
   const [isUpdatingTable, setIsUpdatingTable] = useState(false);
 
   const createTable = useCallback(
@@ -524,6 +533,9 @@ const useAppData = () => {
     tables,
     playingTable,
     isPeerFallback,
+    election,
+    castVote,
+    restartElection,
     createTable,
     enterTable,
     updateTable,

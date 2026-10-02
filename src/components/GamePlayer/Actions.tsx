@@ -64,7 +64,8 @@ const Actions = memo(
         }
         const secPassed =
           Math.abs(calDurationSec(playingTable!.game.turnEndTs)) %
-          playingTable!.game.players.filter((gp) => gp.isReady).length;
+          playingTable!.game.players.filter((gp) => gp.isReady && !gp.isAway)
+            .length;
         const nextPlayer = findNextAutoPlayer(playingTable!.game, secPassed);
         if (nextPlayer.id === localPlayer!.id) {
           handleAutoAction();
