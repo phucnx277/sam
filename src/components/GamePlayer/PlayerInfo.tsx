@@ -47,6 +47,16 @@ const PlayerInfo = memo(
               />
             )}
             <span>{gamePlayer.name}</span>
+            {!isMe && gamePlayer.isDisconnected && (
+              <span className="ml-1 text-[0.65rem] px-1 rounded-sm bg-gray-300 text-gray-700">
+                {t("game.disconnected")}
+              </span>
+            )}
+            {!isMe && gamePlayer.isAway && !gamePlayer.isDisconnected && (
+              <span className="ml-1 text-[0.65rem] px-1 rounded-sm bg-amber-200 text-amber-900">
+                {t("game.watching")}
+              </span>
+            )}
           </div>
           <div className="flex items-center justify-center gap-x-2">
             {gamePlayer.starOfHope && (
