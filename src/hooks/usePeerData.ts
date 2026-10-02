@@ -218,11 +218,16 @@ const usePeerData = create<PeerDataState>((set, get) => {
     if ((action === "ready" || action === "star") && state2 !== "waiting") {
       return;
     }
-    const actingId = intendedPlayerId(table, playerId, action, data);
-    const expected = TurnActions.has(action)
-      ? table.game.currentPlayerId
-      : playerId;
+    const isTurnAction = TurnActions.has(action);
+    const actingId = isTurnAction
+      ? playerId
+      : intendedPlayerId(table, playerId, action, data);
+    const expected = isTurnAction ? table.game.currentPlayerId : playerId;
     if (actingId !== expected) return;
+    if (isTurnAction) {
+      const sender = table.game.players.find((gp) => gp.id === playerId);
+      if (sender?.isAway) return;
+    }
     const next = applyAction(table, playerId, action, data);
     if (next === table) return;
     const rev = state.rev + 1;

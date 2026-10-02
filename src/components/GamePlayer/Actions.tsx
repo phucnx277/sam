@@ -181,57 +181,58 @@ const Actions = memo(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ds]);
 
-  return (
-    <>
-      {isGameInProgress(playingTable!.game) && !isSpectator && (
-        <div className="w-full flex items-center">
-          <div className="flex-1 flex justify-start">
-            {renderTwoStepButtonActions(["pass", "ask"])}
-          </div>
-          <div className="flex-1 flex justify-end">
-            {renderTwoStepButtonActions(["play", "tiger"])}
-          </div>
-        </div>
-      )}
-
-      {isGameInProgress(playingTable!.game) && isSpectator && (
-        <div className="w-full text-center text-sm py-1 rounded-sm bg-amber-100 text-amber-900">
-          {t("game.watching")}
-        </div>
-      )}
-
-      {!isGameInProgress(playingTable!.game) && (
-        <div className="w-full flex items-center justify-center gap-8 bg-cyan-50/60">
-          {playingTable!.game.state === "waiting" && (
-            <div className="flex flex-col gap-4 min-w-[8rem]">
-              {isSpectator ? (
-                <button
-                  className="!px-4 !py-1 border-2 border-green-600 bg-green-600 rounded-sm font-semibold"
-                  onClick={() =>
-                    onAction("ready", { actingPlayerId: gamePlayer.id })
-                  }
-                >
-                  {t("game.joinNextGame")}
-                </button>
-              ) : (
-                <>
-                  <div className="flex justify-between items-center gap-4">
-                    {renderActions(["ready", "star"])}
-                  </div>
-                  {renderActions(["startGame"])}
-                </>
-              )}
+    return (
+      <>
+        {isGameInProgress(playingTable!.game) && !isSpectator && (
+          <div className="w-full flex items-center">
+            <div className="flex-1 flex justify-start">
+              {renderTwoStepButtonActions(["pass", "ask"])}
             </div>
-          )}
-          {playingTable!.game.state === "ended" && (
-            <div className="flex flex-col gap-2 min-w-[8rem]">
-              {renderActions(["newGame", "resetSession"])}
+            <div className="flex-1 flex justify-end">
+              {renderTwoStepButtonActions(["play", "tiger"])}
             </div>
-          )}
-        </div>
-      )}
-    </>
-  );
+          </div>
+        )}
+
+        {isGameInProgress(playingTable!.game) && isSpectator && (
+          <div className="w-full text-center text-sm py-1 rounded-sm bg-amber-100 text-amber-900">
+            {t("game.watching")}
+          </div>
+        )}
+
+        {!isGameInProgress(playingTable!.game) && (
+          <div className="w-full flex items-center justify-center gap-8 bg-cyan-50/60">
+            {playingTable!.game.state === "waiting" && (
+              <div className="flex flex-col gap-4 min-w-[8rem]">
+                {isSpectator ? (
+                  <button
+                    type="button"
+                    className="w-full !px-0 py-1 border-2 border-green-600 bg-green-600 rounded-sm font-semibold"
+                    onClick={() =>
+                      onAction("ready", { actingPlayerId: gamePlayer.id })
+                    }
+                  >
+                    {t("game.joinNextGame")}
+                  </button>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center gap-4">
+                      {renderActions(["ready", "star"])}
+                    </div>
+                    {renderActions(["startGame"])}
+                  </>
+                )}
+              </div>
+            )}
+            {playingTable!.game.state === "ended" && (
+              <div className="flex flex-col gap-2 min-w-[8rem]">
+                {renderActions(["newGame", "resetSession"])}
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    );
   },
 );
 
