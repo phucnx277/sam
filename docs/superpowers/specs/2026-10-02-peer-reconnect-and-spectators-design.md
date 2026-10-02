@@ -113,7 +113,6 @@ Grace-timer state is cleared in `clearTimers()` / `stop()`.
   - if the game is in progress and `currentPlayerId === playerId`, advance
     `currentPlayerId` past them with `findNextActivePlayerId` and reset
     `turnStartTs`/`turnEndTs` (same pattern as `promoteHost`).
-- `markPlayerReconnected(table, playerId): Table` — clear `isDisconnected`.
 - `applyRejoin(table, playerId, { gameId, cards }): Table`
   - clear `isDisconnected`.
   - `resume = game.state === "waiting" || gp.cards.length > 0`.
@@ -166,8 +165,7 @@ covered by a manual check.
 ## Files
 
 - `src/type.d.ts` — `GamePlayer.isDisconnected`, `LocalGame.tableId`.
-- `src/logic/table.ts` — `markPlayerDisconnected`, `markPlayerReconnected`,
-  `applyRejoin`.
+- `src/logic/table.ts` — `markPlayerDisconnected`, `applyRejoin`.
 - `src/logic/game.ts` — `ready` clears `isAway` when joining.
 - `src/logic/peer.ts` — no new message type; `hello` parsing unchanged.
 - `src/hooks/usePeerData.ts` — presence timers, `hello` metadata fallback,
