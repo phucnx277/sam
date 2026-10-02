@@ -2,7 +2,7 @@ import { useCallback, useState, type FormEvent } from "react";
 import useAppData from "@hooks/useAppData";
 import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
-import type { NewTableParams } from "@logic/table";
+import { hostedTables, type NewTableParams } from "@logic/table";
 
 function isNameValid(value?: string): boolean {
   return !!value && value.length <= 20;
@@ -60,7 +60,7 @@ const NewTable = (props: { close: () => void; limit: number }) => {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (isSubmitting || !isFormValid()) return;
-    if (tables.length >= props.limit) {
+    if (hostedTables(tables, localPlayer).length >= props.limit) {
       alert(t("error.tableLimit", { limit: props.limit }));
       return;
     }

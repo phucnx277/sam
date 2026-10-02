@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import useAppData, { getTables } from "@hooks/useAppData";
 import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
-import { TABLE_LIMIT } from "@logic/table";
+import { TABLE_LIMIT, hostedTables, visibleTables } from "@logic/table";
 import { decodeApiKey, isAblyApiKeyValid, parseTableLink } from "@logic/util";
 import NewTable from "./NewTable";
 import LobbyTable from "./LobbyTable";
@@ -27,6 +27,8 @@ const Tables = () => {
     getApiKey,
   } = useAppData();
   const { localPlayer } = useLocalPlayer();
+  const visible =
+    mode === "peer" ? tables : visibleTables(tables, localPlayer);
   const [isCreatingTable, setIsCreatingTable] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [enteringTable, setEnteringTable] = useState<Table | null>(null);
@@ -212,9 +214,9 @@ const Tables = () => {
             <WelcomePlayer />
             <div className="mt-6 flex items-baseline justify-between">
               <span>
-                {t(tables.length > 0 ? "lobby.selectTable" : "lobby.noTable")}
+                {t(visible.length > 0 ? "lobby.selectTable" : "lobby.noTable")}
               </span>
-              {tables.length < TABLE_LIMIT && (
+              {hostedTables(tables, localPlayer).length < TABLE_LIMIT && (
                 <button
                   type="button"
                   className="!py-1 !px-4 border border-green-600 hover:bg-green-600 active:bg-green-600 focus:bg-green-600"
@@ -225,7 +227,7 @@ const Tables = () => {
               )}
             </div>
             <div className="flex flex-wrap gap-2 mt-2 items-center">
-              {tables.map((item) => (
+              {visible.map((item) => (
                 <div
                   className="!p-0 h-[6rem] w-[6rem] lg:h-[8rem] lg:w-[8rem] cursor-pointer relative"
                   key={item.id}

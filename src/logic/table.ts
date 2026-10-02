@@ -154,6 +154,24 @@ export const addTablePlayer = (table: Table, player: Player): Table => {
   return next;
 };
 
+export const isTableMember = (table: Table, player: Player): boolean =>
+  table.hostId === player.id ||
+  table.players.some((item) => item.id === player.id && !item.isRemoved);
+
+export const visibleTables = (
+  tables: Table[],
+  player: Player | null,
+): Table[] =>
+  !player || player.isAdmin
+    ? tables
+    : tables.filter((table) => isTableMember(table, player));
+
+export const hostedTables = (
+  tables: Table[],
+  player: Player | null,
+): Table[] =>
+  !player ? [] : tables.filter((table) => table.hostId === player.id);
+
 export const resetSession = (table: Table): Table => {
   return {
     ...table,
