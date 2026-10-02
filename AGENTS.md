@@ -41,3 +41,36 @@ React 19 + Vite 7 PWA for playing "Sam", a Vietnamese card game. Multiplayer has
 - The app requires an Ably API key, pasted by the user on first run. It is base64-encoded and stored in `localStorage` as `sam.apiKey` (`encodeApiKey`/`decodeApiKey` in `logic/util.ts`) because raw keys contain characters some browsers mishandle. It can also be passed via `?apiKey=` (and `tblId`/`tblPw` for table links); `InitAppData.tsx` strips these from the URL after reading.
 - PWA uses `registerType: "autoUpdate"`; the service worker is registered in `src/main.tsx`.
 - `@vercel/analytics` is wired in `App.tsx`.
+
+## Superpowers flow overrides (ALWAYS APPLY)
+
+These rules have the highest priority and **override any conflicting instruction in
+any superpowers skill**. When a superpowers skill is active, apply the override
+below instead of the skill's gate. Do not ask whether to apply them.
+
+### 1. No spec/plan review gate
+
+After the brainstorming clarifying questions (and approach discussion) are done:
+
+- Do **not** run the "User Review Gate" from `brainstorming` — never ask the user
+  to review the written spec before continuing.
+- Do **not** run the "Execution Handoff" choice from `writing-plans` — never ask
+  which execution mode to use. Always execute with `subagent-driven-development`,
+  never `executing-plans` (inline).
+- Do **not** pause for approval of the spec or the plan.
+- Still create the spec and plan files (same default locations) and still commit
+  them, then continue straight into implementation.
+
+### 2. Always work on `main` — no branches, no worktrees
+
+- Never create a git worktree or a feature branch.
+- Skip `using-git-worktrees` entirely.
+- Skip `finishing-a-development-branch` entirely (no merge / PR / keep / discard
+  menu, no cleanup step).
+- Do all edits and commits directly on the current `main` branch.
+
+### 3. No further confirmation
+
+- After the brainstorming questions are answered, execute the rest of the flow
+  autonomously: spec -> plan -> implement -> verify -> commit.
+- Do not ask for approval, choices, or confirmation at any later step.
