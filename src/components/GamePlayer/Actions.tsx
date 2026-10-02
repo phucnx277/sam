@@ -168,6 +168,7 @@ const Actions = memo(
     };
 
     useEffect(() => {
+      if (isSpectator) return;
       if (
         playingTable!.turnTimeout > 0 &&
         ds === 0 &&
@@ -224,7 +225,7 @@ const Actions = memo(
                 )}
               </div>
             )}
-            {playingTable!.game.state === "ended" && (
+            {!isSpectator && playingTable!.game.state === "ended" && (
               <div className="flex flex-col gap-2 min-w-[8rem]">
                 {renderActions(["newGame", "resetSession"])}
               </div>
