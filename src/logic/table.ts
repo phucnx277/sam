@@ -253,20 +253,7 @@ export const promoteHost = (table: Table, winnerId: string): Table => {
   };
 };
 
-export const resumePlayer = (table: Table, playerId: string): Table => {
-  const gp = table.game.players.find((item) => item.id === playerId);
-  if (!gp || !gp.isAway) return table;
-  return {
-    ...table,
-    updatedAt: Date.now(),
-    game: {
-      ...table.game,
-      players: table.game.players.map((item) =>
-        item.id === playerId ? { ...item, isAway: false } : item,
-      ),
-    },
-  };
-};
+export type RejoinInfo = { gameId?: string; cards?: Card[] };
 
 const updateTurnWindow = (game: Game): void => {
   game.turnStartTs = Date.now();
@@ -300,7 +287,7 @@ export const markPlayerDisconnected = (
 export const applyRejoin = (
   table: Table,
   playerId: string,
-  rejoin: { gameId?: string; cards?: Card[] },
+  rejoin: RejoinInfo,
 ): Table => {
   const gp = table.game.players.find((item) => item.id === playerId);
   if (!gp) return table;

@@ -62,6 +62,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
     setLocalGame({
       playerId: localPlayer!.id,
       gameId: playingTable!.game.id,
+      tableId: playingTable!.id,
       cards: localCards,
     });
   }, [localCards]);

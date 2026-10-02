@@ -13,6 +13,7 @@ import {
   promoteHost,
   validateJoin,
   type JoinRejectReason,
+  type RejoinInfo,
 } from "@logic/table";
 import useLocalGame from "@hooks/useLocalGame";
 import { applyAction, intendedPlayerId, TurnActions } from "@logic/game";
@@ -83,7 +84,7 @@ export type PeerCallbacks = {
   onJoin: (
     player: Player,
     table: Table,
-    rejoin: { gameId?: string; cards?: Card[] },
+    rejoin: RejoinInfo,
   ) => Table | null;
   onFallback: (fallback: boolean) => void;
   onReject: (reason: JoinRejectReason) => void;
@@ -495,7 +496,6 @@ const usePeerData = create<PeerDataState>((set, get) => {
                 ],
               });
             }
-            clearPresenceTimer(msg.playerId);
             const joining: Player = { id: msg.playerId, name: msg.name };
             let latest = get().latestTable ?? table;
 
@@ -515,6 +515,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
               return;
             }
 
+            clearPresenceTimer(msg.playerId);
             const merged = get().callbacks?.onJoin(joining, latest, {
               gameId: msg.gameId,
               cards: msg.cards,
@@ -542,7 +543,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
           }
         });
 
-        const schedulePresence = () => {
+        const handleClientDrop = () => {
           if (mySession !== session) return;
           const info = get().clientConns.find((c) => c.conn === conn);
           set({
@@ -578,8 +579,8 @@ const usePeerData = create<PeerDataState>((set, get) => {
           );
         };
 
-        conn.on("close", schedulePresence);
-        conn.on("error", schedulePresence);
+        conn.on("close", handleClientDrop);
+        conn.on("error", handleClientDrop);
       });
 
       peer.on("disconnected", () => {
