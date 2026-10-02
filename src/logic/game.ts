@@ -152,13 +152,11 @@ export const ActionDef: Record<
         game: {
           ...playingTable.game,
           players: playingTable.game.players.map((gamePlayer) => {
-            return {
-              ...gamePlayer,
-              isReady:
-                gamePlayer.id === currentPlayer?.id
-                  ? !gamePlayer.isReady
-                  : gamePlayer.isReady,
-            };
+            if (gamePlayer.id !== currentPlayer?.id) return gamePlayer;
+            if (gamePlayer.isAway) {
+              return { ...gamePlayer, isAway: false, isReady: true };
+            }
+            return { ...gamePlayer, isReady: !gamePlayer.isReady };
           }),
         },
       };
