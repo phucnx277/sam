@@ -308,31 +308,36 @@ export const applyRejoin = (
     table.game.state === "playing" || table.game.state === "handChecking";
   const sameGame = !!rejoin.gameId && rejoin.gameId === table.game.id;
   const canResume = table.game.state === "waiting" || gp.cards.length > 0;
+  const incomingCards = rejoin.cards;
   const adoptCards =
     canResume &&
     inProgress &&
     sameGame &&
-    !!rejoin.cards?.length &&
-    (gp.cards.length === 0 || hasHiddenCards(gp.cards));
+    !!incomingCards?.length &&
+    hasHiddenCards(gp.cards);
+  const nextAway = !canResume;
+  const nextCards = adoptCards
+    ? incomingCards!.map((card) => ({ rank: card.rank, suit: card.suit }))
+    : gp.cards;
+
+  if (!gp.isDisconnected && !!gp.isAway === nextAway && nextCards === gp.cards) {
+    return table;
+  }
 
   return {
     ...table,
     game: {
       ...table.game,
-      players: table.game.players.map((item) => {
-        if (item.id !== playerId) return item;
-        return {
-          ...item,
-          isDisconnected: false,
-          isAway: canResume ? false : true,
-          cards: adoptCards
-            ? rejoin.cards!.map((card) => ({
-                rank: card.rank,
-                suit: card.suit,
-              }))
-            : item.cards,
-        };
-      }),
+      players: table.game.players.map((item) =>
+        item.id === playerId
+          ? {
+              ...item,
+              isDisconnected: false,
+              isAway: nextAway,
+              cards: nextCards,
+            }
+          : item,
+      ),
     },
     updatedAt: Date.now(),
   };
