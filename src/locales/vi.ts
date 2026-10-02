@@ -63,6 +63,9 @@ export const vi = {
   "game.yourTurn": "Đến lượt bạn!",
   "game.cardsSorted": "Xếp bài xong",
   "game.fallbackMode": "Kết nối gián tiếp",
+  "game.disconnected": "Mất kết nối",
+  "game.watching": "Đang xem",
+  "game.joinNextGame": "Vào ván sau",
 
   "action.ready": "Sẵn sàng",
   "action.starOfHope": "⭐ hy vọng",

@@ -67,6 +67,9 @@ export const en = {
   "game.yourTurn": "Your turn!",
   "game.cardsSorted": "Cards sorted",
   "game.fallbackMode": "Indirect connection",
+  "game.disconnected": "Disconnected",
+  "game.watching": "Watching",
+  "game.joinNextGame": "Join next game",
 
   "action.ready": "Ready",
   "action.starOfHope": "⭐ Star of hope",
