@@ -228,7 +228,13 @@ const usePeerData = create<PeerDataState>((set, get) => {
       const sender = table.game.players.find((gp) => gp.id === playerId);
       if (sender?.isAway) return;
     }
-    const next = applyAction(table, playerId, action, data);
+    const actionData = isTurnAction
+      ? {
+          ...(data as Record<string, unknown> | undefined),
+          actingPlayerId: playerId,
+        }
+      : data;
+    const next = applyAction(table, playerId, action, actionData);
     if (next === table) return;
     const rev = state.rev + 1;
     set({ latestTable: next, rev });
