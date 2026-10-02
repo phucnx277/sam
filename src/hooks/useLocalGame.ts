@@ -7,6 +7,7 @@ const gameStore = create<{
   localCards: Card[];
   setLocalGame: (data: LocalGame) => void;
   setLocalCards: React.Dispatch<React.SetStateAction<Card[]>>;
+  clearLocalGame: () => void;
 }>((set) => ({
   localGame: getLocalGame(),
   localCards: [],
@@ -22,6 +23,10 @@ const gameStore = create<{
       }
       return { localCards: data };
     });
+  },
+  clearLocalGame: () => {
+    localStorage.removeItem(LS_PLAYING_GAME_KEY);
+    set({ localGame: null, localCards: [] });
   },
 }));
 

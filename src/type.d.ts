@@ -18,6 +18,7 @@ type Player = {
 type LocalGame = {
   playerId: string;
   gameId: string;
+  tableId?: string;
   cards: Card[];
 };
 
@@ -31,6 +32,7 @@ type GamePlayer = Player & {
   starOfHope: boolean;
   paidVillage: boolean;
   isAway?: boolean;
+  isDisconnected?: boolean;
 };
 
 type TablePlayer = Player & { chipCount: number; isRemoved?: boolean };
