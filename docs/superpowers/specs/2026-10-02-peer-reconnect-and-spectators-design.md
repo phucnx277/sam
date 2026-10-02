@@ -118,8 +118,9 @@ Grace-timer state is cleared in `clearTimers()` / `stop()`.
   - `resume = game.state === "waiting" || gp.cards.length > 0`.
     - `resume` → clear `isAway`; additionally adopt `cards` only when
       `gameId === game.id`, the game is in progress, and the host copy is
-      missing or `hasHiddenCards(...)` (failover recovery; normal reconnects
-      never overwrite authoritative hands).
+      masked (`hasHiddenCards(...)`) (failover recovery; normal reconnects
+      never overwrite authoritative hands). A missing (`length === 0`) host
+      copy cannot occur for a resumable seat, so it is not a separate case.
     - otherwise → keep `isAway = true` (spectator) and ignore `cards`.
   - The `gp.cards.length > 0` test is the reliable "was dealt into this game"
     signal: `startGame` gives away players `cards: []`, and an active player
