@@ -181,25 +181,33 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
             {...(isMe && localCards.length > 0 ? swipeHandlers : {})}
             className={`flex flex-1 w-full swipeable ${playingTable!.game.state === "ended" ? "opacity-40" : ""}`}
           >
-            <Cards
-              isMe={isMe}
-              cards={
-                isMe
-                  ? localCards
-                  : gamePlayer.cards.map((c) => ({
-                      ...c,
-                      folded:
-                        c.folded === undefined || c.folded === null
-                          ? true
-                          : c.folded,
-                      selected: false,
-                    }))
-              }
-              onCardSelect={selectCard}
-              onReorder={reorderCards}
-              reorderDisabled={!isMe || reoderDisabled}
-              gamePlayer={gamePlayer}
-            />
+            {isMe && gamePlayer.isAway ? (
+              <div className="flex flex-1 w-full items-center justify-center">
+                <div className="rounded-sm bg-amber-100 p-2 text-center text-sm text-amber-900">
+                  {t("game.watching")}
+                </div>
+              </div>
+            ) : (
+              <Cards
+                isMe={isMe}
+                cards={
+                  isMe
+                    ? localCards
+                    : gamePlayer.cards.map((c) => ({
+                        ...c,
+                        folded:
+                          c.folded === undefined || c.folded === null
+                            ? true
+                            : c.folded,
+                        selected: false,
+                      }))
+                }
+                onCardSelect={selectCard}
+                onReorder={reorderCards}
+                reorderDisabled={!isMe || reoderDisabled}
+                gamePlayer={gamePlayer}
+              />
+            )}
           </div>
           {isMe && (
             <div className="flex flex-col">

@@ -34,6 +34,7 @@ const HostElection = () => {
                   ? "w-full !py-2 border border-green-600 bg-green-600 text-white"
                   : "w-full !py-2 border border-gray-400 hover:bg-gray-100"
               }
+              disabled={election.failed}
               onClick={() => castVote(pid)}
             >
               {nameOf(pid)}

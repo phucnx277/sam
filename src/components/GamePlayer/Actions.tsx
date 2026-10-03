@@ -196,12 +196,6 @@ const Actions = memo(
           </div>
         )}
 
-        {isGameInProgress(playingTable!.game) && isSpectator && (
-          <div className="mx-auto mt-1 w-auto self-start rounded-sm bg-amber-100 px-3 py-1 text-center text-sm text-amber-900">
-            {t("game.watching")}
-          </div>
-        )}
-
         {!isGameInProgress(playingTable!.game) && (
           <div className="w-full flex items-center justify-center gap-8 bg-cyan-50/60">
             {playingTable!.game.state === "waiting" && (
