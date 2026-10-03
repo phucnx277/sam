@@ -595,6 +595,7 @@ export const ActionDef: Record<
                 ...gp,
                 isAway: true,
                 isDisconnected: false,
+                isRemoved: true,
                 cards: [],
                 selectedCards: [],
               }

@@ -17,6 +17,7 @@ import {
 } from "@logic/table";
 import useLocalGame from "@hooks/useLocalGame";
 import { applyAction, intendedPlayerId, TurnActions } from "@logic/game";
+import type { TranslationKey } from "@logic/i18n";
 
 const HOST_RETRY_MS = 1500;
 const CONNECT_TIMEOUT_MS = 8000;
@@ -42,6 +43,7 @@ let electionTimer: number | null = null;
 let electionConns: Map<string, DataConnection> = new Map();
 let heartbeatTimer: number | null = null;
 let connLastSeen: Map<DataConnection, number> = new Map();
+let noticeTimer: number | null = null;
 
 const clearConnectTimer = (): void => {
   if (connectTimer !== null) {
@@ -52,6 +54,10 @@ const clearConnectTimer = (): void => {
 
 const clearTimers = (): void => {
   clearConnectTimer();
+  if (noticeTimer !== null) {
+    window.clearTimeout(noticeTimer);
+    noticeTimer = null;
+  }
   if (heartbeatTimer !== null) {
     window.clearTimeout(heartbeatTimer);
     heartbeatTimer = null;
@@ -111,6 +117,7 @@ type PeerDataState = {
   selfPlayer: Player | null;
   hostPassword: string;
   election: HostElectionState | null;
+  notice: TranslationKey | null;
   startHost: (table: Table, player: Player, cb: PeerCallbacks) => void;
   joinHost: (
     tableId: string,
@@ -123,6 +130,7 @@ type PeerDataState = {
   sendAction: (action: PlayerAction, data?: unknown) => void;
   castVote: (candidateId: string) => void;
   restartElection: () => void;
+  clearNotice: () => void;
   stop: () => void;
 };
 
@@ -190,6 +198,15 @@ const usePeerData = create<PeerDataState>((set, get) => {
         from,
       });
     });
+  };
+
+  const notify = (key: TranslationKey): void => {
+    if (noticeTimer !== null) window.clearTimeout(noticeTimer);
+    set({ notice: key });
+    noticeTimer = window.setTimeout(() => {
+      noticeTimer = null;
+      set({ notice: null });
+    }, 6000);
   };
 
   const applyHostAction = (
@@ -436,6 +453,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
     selfPlayer: null,
     hostPassword: "",
     election: null,
+    notice: null,
 
     startHost: (table, player, cb) => {
       const prev = get();
@@ -466,6 +484,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         callbacks: cb,
         selfPlayer: player,
         hostPassword: table.password,
+        notice: null,
       });
 
       peer.on("open", () => {
@@ -663,6 +682,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         callbacks: cb,
         selfPlayer: player,
         hostPassword: password,
+        notice: null,
       });
 
       peer.on("connection", (conn) => {
@@ -719,7 +739,9 @@ const usePeerData = create<PeerDataState>((set, get) => {
           signalingAttempt = 0;
           wasConnected = true;
           clearGraceTimer();
+          const aborted = !!get().election?.active;
           endElection();
+          if (aborted) notify("hostElection.hostReturned");
           setFallback(false, cb);
           const latest = get().latestTable;
           const self = latest?.game.players.find(
@@ -754,6 +776,11 @@ const usePeerData = create<PeerDataState>((set, get) => {
           const localEpoch = get().latestTable?.hostEpoch ?? 0;
           if (msg.type === "snapshot") {
             if ((msg.table.hostEpoch ?? 0) < localEpoch) return;
+            const el = get().election;
+            if (el?.active && msg.table.hostId === el.hostId) {
+              endElection();
+              notify("hostElection.hostReturned");
+            }
             set({ latestTable: msg.table, lastRev: msg.rev });
             cb.onSnapshot(msg.table, msg.rev);
             return;
@@ -927,6 +954,14 @@ const usePeerData = create<PeerDataState>((set, get) => {
       beginElection();
     },
 
+    clearNotice: () => {
+      if (noticeTimer !== null) {
+        window.clearTimeout(noticeTimer);
+        noticeTimer = null;
+      }
+      if (get().notice !== null) set({ notice: null });
+    },
+
     stop: () => {
       session += 1;
       clearTimers();
@@ -954,6 +989,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         selfPlayer: null,
         hostPassword: "",
         election: null,
+        notice: null,
       });
     },
   };

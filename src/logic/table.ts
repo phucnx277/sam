@@ -226,7 +226,7 @@ export const promoteHost = (table: Table, winnerId: string): Table => {
   const game: Game = {
     ...table.game,
     players: table.game.players.map((gp) =>
-      gp.id === oldHostId ? { ...gp, isAway: true } : gp,
+      gp.id === oldHostId ? { ...gp, isDisconnected: true } : gp,
     ),
   };
 
@@ -275,13 +275,17 @@ export const markPlayerDisconnected = (
 
 export const applyRejoin = (table: Table, playerId: string): Table => {
   const gp = table.game.players.find((item) => item.id === playerId);
-  if (!gp || !gp.isDisconnected) return table;
+  if (!gp) return table;
+  const nextAway = !!gp.isRemoved;
+  if (!gp.isDisconnected && !!gp.isAway === nextAway) return table;
   return {
     ...table,
     game: {
       ...table.game,
       players: table.game.players.map((item) =>
-        item.id === playerId ? { ...item, isDisconnected: false } : item,
+        item.id === playerId
+          ? { ...item, isDisconnected: false, isAway: nextAway }
+          : item,
       ),
     },
     updatedAt: Date.now(),

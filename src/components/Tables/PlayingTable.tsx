@@ -13,7 +13,8 @@ import HostElection from "../GamePlayer/HostElection";
 
 const PlayingTable = () => {
   const { t } = useI18n();
-  const { playingTable, dispatchAction, isPeerFallback } = useAppData();
+  const { playingTable, dispatchAction, isPeerFallback, notice, clearNotice } =
+    useAppData();
   const { localCards } = useLocalGame();
   const { localPlayer } = useLocalPlayer();
   const { targetGamePlayer: localGamePlayer, opponents } = divideGamePlayers(
@@ -42,6 +43,14 @@ const PlayingTable = () => {
       {isPeerFallback && (
         <div className="fixed top-2 left-2 z-20 px-2 py-0.5 text-xs rounded-sm bg-amber-200 text-amber-900">
           {t("game.fallbackMode")}
+        </div>
+      )}
+      {notice && (
+        <div className="fixed top-2 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-sm bg-amber-200 px-3 py-1 text-sm text-amber-900">
+          <span>{t(notice)}</span>
+          <button type="button" className="!p-0" onClick={clearNotice}>
+            ×
+          </button>
         </div>
       )}
       <div className="w-full flex flex-3 lg:flex-4 justify-around sm:gap-x-8 lg:gap-x-20">

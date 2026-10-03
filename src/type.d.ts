@@ -33,6 +33,7 @@ type GamePlayer = Player & {
   paidVillage: boolean;
   isAway?: boolean;
   isDisconnected?: boolean;
+  isRemoved?: boolean;
 };
 
 type TablePlayer = Player & { chipCount: number; isRemoved?: boolean };

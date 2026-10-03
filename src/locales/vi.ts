@@ -186,4 +186,6 @@ export const vi = {
   "hostElection.waiting": "Đang chờ mọi người bầu...",
   "hostElection.retry": "Thử lại",
   "hostElection.failed": "Chưa đủ phiếu đồng thuận. Thử lại.",
+  "hostElection.hostReturned":
+    "Chủ bàn đã kết nối lại — đã hủy bầu chủ bàn mới.",
 } as const;
