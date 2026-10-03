@@ -21,7 +21,6 @@ import { applyAction, intendedPlayerId, TurnActions } from "@logic/game";
 const HOST_RETRY_MS = 1500;
 const CONNECT_TIMEOUT_MS = 8000;
 const MAX_PEER_RETRIES = 4;
-const HOST_GRACE_MS = 10000;
 const ELECTION_ROUND_MS = 30000;
 const HEARTBEAT_INTERVAL_MS = 4000;
 const HEARTBEAT_TIMEOUT_MS = 10000;
@@ -37,7 +36,6 @@ let electionRound = 0;
 let hostClaimAttempt = 0;
 let clientIdRetried = false;
 let clientIdSuffix = "";
-let graceTimer: number | null = null;
 let electionTimer: number | null = null;
 let electionConns: Map<string, DataConnection> = new Map();
 let heartbeatTimer: number | null = null;
@@ -71,10 +69,6 @@ const clearTimers = (): void => {
   if (hostRetryTimer !== null) {
     window.clearTimeout(hostRetryTimer);
     hostRetryTimer = null;
-  }
-  if (graceTimer !== null) {
-    window.clearTimeout(graceTimer);
-    graceTimer = null;
   }
   if (electionTimer !== null) {
     window.clearTimeout(electionTimer);
@@ -417,20 +411,9 @@ const usePeerData = create<PeerDataState>((set, get) => {
     }, ELECTION_ROUND_MS);
   };
 
-  const startGraceTimer = (): void => {
-    if (graceTimer !== null) return;
-    graceTimer = window.setTimeout(() => {
-      graceTimer = null;
-      if (!wasConnected) return;
-      beginElection();
-    }, HOST_GRACE_MS);
-  };
-
-  const clearGraceTimer = (): void => {
-    if (graceTimer !== null) {
-      window.clearTimeout(graceTimer);
-      graceTimer = null;
-    }
+  const startHostElection = (): void => {
+    if (!wasConnected) return;
+    beginElection();
   };
 
   return {
@@ -719,7 +702,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
           connectTimer = null;
           if (mySession !== session) return;
           if (get().hostConn?.open) return;
-          startGraceTimer();
+          startHostElection();
           if (!scheduleReconnect(connectToHost)) {
             setFallback(true, cb);
           }
@@ -731,7 +714,6 @@ const usePeerData = create<PeerDataState>((set, get) => {
           connectAttempt = 0;
           signalingAttempt = 0;
           wasConnected = true;
-          clearGraceTimer();
           endElection();
           setFallback(false, cb);
           lastHostPing = Date.now();
@@ -792,7 +774,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
           clearHostWatchdog();
           clearConnectTimer();
           set({ hostConn: null });
-          startGraceTimer();
+          startHostElection();
           if (!scheduleReconnect(connectToHost)) {
             setFallback(true, cb);
           }
@@ -861,7 +843,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
           if (message.includes(tablePeerId(tableId))) {
             clearConnectTimer();
             set({ hostConn: null });
-            startGraceTimer();
+            startHostElection();
             if (!scheduleReconnect(connectToHost)) {
               setFallback(true, cb);
             }
