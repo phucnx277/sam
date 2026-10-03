@@ -36,6 +36,11 @@ scenario to handle.
     and hand;
   - a removed player stays a spectator ("Watching") until the table is `waiting`
     again, then marks Ready for the next game.
+- `applyRejoin` also re-adopts cards from the `hello` payload when the host's
+  stored copy is hidden or empty (same game, in progress). This is required
+  after failover: the new host only holds masked placeholder cards for the
+  other players, and without adoption it would broadcast placeholders, wiping
+  each client's hand.
 
 ## Data model
 

@@ -1,4 +1,9 @@
-import { findNextActivePlayerId, newGame, newGamePlayer } from "./game";
+import {
+  findNextActivePlayerId,
+  isGameInProgress,
+  newGame,
+  newGamePlayer,
+} from "./game";
 import { generateId } from "./util";
 import { t } from "./i18n";
 
@@ -273,18 +278,45 @@ export const markPlayerDisconnected = (
   };
 };
 
-export const applyRejoin = (table: Table, playerId: string): Table => {
+export const applyRejoin = (
+  table: Table,
+  playerId: string,
+  rejoin: RejoinInfo,
+): Table => {
   const gp = table.game.players.find((item) => item.id === playerId);
   if (!gp) return table;
-  const nextAway = !!gp.isRemoved;
-  if (!gp.isDisconnected && !!gp.isAway === nextAway) return table;
+  const canResume = !gp.isRemoved;
+  const nextAway = !canResume;
+  const sameGame = !!rejoin.gameId && rejoin.gameId === table.game.id;
+  const incomingCards = rejoin.cards;
+  const adoptCards =
+    canResume &&
+    isGameInProgress(table.game) &&
+    sameGame &&
+    !!incomingCards?.length &&
+    (gp.cards.length === 0 || hasHiddenCards(gp.cards));
+  const nextCards = adoptCards
+    ? incomingCards!.map((card) => ({ rank: card.rank, suit: card.suit }))
+    : gp.cards;
+  if (
+    !gp.isDisconnected &&
+    !!gp.isAway === nextAway &&
+    nextCards === gp.cards
+  ) {
+    return table;
+  }
   return {
     ...table,
     game: {
       ...table.game,
       players: table.game.players.map((item) =>
         item.id === playerId
-          ? { ...item, isDisconnected: false, isAway: nextAway }
+          ? {
+              ...item,
+              isDisconnected: false,
+              isAway: nextAway,
+              cards: nextCards,
+            }
           : item,
       ),
     },
