@@ -40,10 +40,27 @@ converged round.
 
 ---
 
-## Task 3: Final verification
+## Task 3: Immediate election (remove host grace)
+
+**File:** `src/hooks/usePeerData.ts`
+
+1. Remove `HOST_GRACE_MS`, the `graceTimer` module state, its `clearTimers`
+   block, and `clearGraceTimer`.
+2. Replace `startGraceTimer` with `startHostElection`, which calls
+   `beginElection()` directly when `wasConnected` (no timeout). Update the three
+   call sites (`connectToHost` timeout, `onDrop`, `peer-unavailable`) and drop
+   the `clearGraceTimer()` call in `conn.on("open")`.
+
+**Verify:** `npm run build`, `npm run lint`.
+
+---
+
+## Task 4: Final verification
 
 1. `npm run build` — PASS.
 2. `npm run lint` — PASS.
 3. Manual, 3 browsers: host drops → new host elected → old host rejoins → new
    host drops. Both remaining clients show both non-host candidates and can
    reach unanimity.
+4. Manual: refresh the host tab; the other clients show the voting modal almost
+   immediately.

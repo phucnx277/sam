@@ -39,10 +39,23 @@ Two defects:
   re-send a pending vote) with the converged round, so all participants agree on
   the round and votes are no longer rejected after a reload.
 
+### Immediate election (no host grace)
+
+- The 10s `HOST_GRACE_MS` window before entering the election is removed. As
+  soon as a previously-connected client notices the host is gone (P2P
+  `close`/`error`, connect timeout, `peer-unavailable`, or the watchdog), it
+  enters the election immediately, so the voting modal appears right away.
+- A refreshed host rejoins as a plain client (it cannot reclaim the host id),
+  so there is no reason to keep the grace open for a returning host. If the host
+  is in fact still reachable, the client's reconnect succeeds and `endElection`
+  cancels the just-started election.
+- The `wasConnected` guard stays, so first-time connect failures never start an
+  election.
+
 ## Files
 
 - `src/hooks/usePeerData.ts` — client host watchdog; round convergence in the
-  `present` handler.
+  `present` handler; immediate election on host loss (grace removed).
 
 ## Verification
 
@@ -50,3 +63,5 @@ Two defects:
 - Manual, 3 browsers: after a failover and the old host rejoins, kill the new
   host; both remaining clients must show the election modal with both non-host
   players as candidates, and voting must be able to reach unanimity.
+- Manual: refresh the host tab; the voting modal must appear on the other
+  clients almost immediately.
