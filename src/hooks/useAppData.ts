@@ -415,8 +415,6 @@ const useAppData = () => {
   const election = usePeerData((s) => s.election);
   const castVote = usePeerData((s) => s.castVote);
   const restartElection = usePeerData((s) => s.restartElection);
-  const notice = usePeerData((s) => s.notice);
-  const clearNotice = usePeerData((s) => s.clearNotice);
 
   const [isUpdatingTable, setIsUpdatingTable] = useState(false);
 
@@ -558,8 +556,6 @@ const useAppData = () => {
     election,
     castVote,
     restartElection,
-    notice,
-    clearNotice,
     createTable,
     enterTable,
     updateTable,

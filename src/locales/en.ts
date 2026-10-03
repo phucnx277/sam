@@ -186,6 +186,4 @@ export const en = {
   "hostElection.waiting": "Waiting for everyone to vote...",
   "hostElection.retry": "Retry",
   "hostElection.failed": "Not everyone agreed. Try again.",
-  "hostElection.hostReturned":
-    "Host reconnected — new host election cancelled.",
 } satisfies Record<TranslationKey, string>;
