@@ -47,6 +47,7 @@ type PlayerAction =
   | "play"
   | "pass"
   | "removePlayers"
+  | "removeDisconnected"
   | "transferHost"
   | "resetSession";
 

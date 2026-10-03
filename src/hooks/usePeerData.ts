@@ -22,8 +22,9 @@ const HOST_RETRY_MS = 1500;
 const CONNECT_TIMEOUT_MS = 8000;
 const MAX_PEER_RETRIES = 4;
 const HOST_GRACE_MS = 10000;
-const PLAYER_AWAY_GRACE_MS = 10000;
 const ELECTION_ROUND_MS = 30000;
+const HEARTBEAT_INTERVAL_MS = 4000;
+const HEARTBEAT_TIMEOUT_MS = 10000;
 
 let session = 0;
 let connectTimer: number | null = null;
@@ -39,20 +40,8 @@ let clientIdSuffix = "";
 let graceTimer: number | null = null;
 let electionTimer: number | null = null;
 let electionConns: Map<string, DataConnection> = new Map();
-let presenceTimers: Map<string, number> = new Map();
-
-const clearPresenceTimer = (playerId: string): void => {
-  const timer = presenceTimers.get(playerId);
-  if (timer !== undefined) {
-    window.clearTimeout(timer);
-    presenceTimers.delete(playerId);
-  }
-};
-
-const clearPresenceTimers = (): void => {
-  presenceTimers.forEach((timer) => window.clearTimeout(timer));
-  presenceTimers = new Map();
-};
+let heartbeatTimer: number | null = null;
+let connLastSeen: Map<DataConnection, number> = new Map();
 
 const clearConnectTimer = (): void => {
   if (connectTimer !== null) {
@@ -62,8 +51,12 @@ const clearConnectTimer = (): void => {
 };
 
 const clearTimers = (): void => {
-  clearPresenceTimers();
   clearConnectTimer();
+  if (heartbeatTimer !== null) {
+    window.clearTimeout(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+  connLastSeen = new Map();
   if (hostRetryTimer !== null) {
     window.clearTimeout(hostRetryTimer);
     hostRetryTimer = null;
@@ -81,11 +74,7 @@ const clearTimers = (): void => {
 export type PeerCallbacks = {
   onSnapshot: (table: Table, rev: number) => void;
   onUpdate: (table: Table, rev: number) => void;
-  onJoin: (
-    player: Player,
-    table: Table,
-    rejoin: RejoinInfo,
-  ) => Table | null;
+  onJoin: (player: Player, table: Table, rejoin: RejoinInfo) => Table | null;
   onFallback: (fallback: boolean) => void;
   onReject: (reason: JoinRejectReason) => void;
 };
@@ -285,10 +274,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
     }
   };
 
-  const handleElectionMsg = (
-    conn: DataConnection,
-    data: unknown,
-  ): void => {
+  const handleElectionMsg = (conn: DataConnection, data: unknown): void => {
     const el = get().election;
     if (!el || !el.active) return;
     const msg = parsePeerMsg(data);
@@ -297,8 +283,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
       if (msg.epoch < el.epoch) return;
       const table = get().latestTable;
       const known = table?.game.players.some(
-        (gp) =>
-          gp.id === msg.playerId && !gp.isAway && gp.id !== el.hostId,
+        (gp) => gp.id === msg.playerId && !gp.isAway && gp.id !== el.hostId,
       );
       if (!known) return;
       if (!el.participants.includes(msg.playerId)) {
@@ -307,10 +292,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
             ? {
                 election: {
                   ...state.election,
-                  participants: [
-                    ...state.election.participants,
-                    msg.playerId,
-                  ],
+                  participants: [...state.election.participants, msg.playerId],
                 },
               }
             : {},
@@ -492,11 +474,60 @@ const usePeerData = create<PeerDataState>((set, get) => {
         setFallback(false, cb);
       });
 
+      const dropClientConn = (conn: DataConnection): void => {
+        if (mySession !== session) return;
+        const state = get();
+        const info = state.clientConns.find((c) => c.conn === conn);
+        connLastSeen.delete(conn);
+        if (!info) return;
+        const remaining = state.clientConns.filter((c) => c.conn !== conn);
+        set({ clientConns: remaining });
+        const playerId = info.playerId;
+        if (!playerId || playerId === state.selfPlayer?.id) return;
+        if (remaining.some((c) => c.playerId === playerId)) return;
+        const latest = state.latestTable;
+        if (
+          !latest ||
+          !latest.game.players.some((item) => item.id === playerId)
+        ) {
+          return;
+        }
+        const next = markPlayerDisconnected(latest, playerId);
+        if (next === latest) return;
+        const rev = state.rev + 1;
+        set({ latestTable: next, rev });
+        broadcastTable(next, rev, playerId);
+        state.callbacks?.onUpdate(next, rev);
+      };
+
+      const heartbeat = (): void => {
+        if (mySession !== session) return;
+        if (get().role !== "host") return;
+        const now = Date.now();
+        for (const { conn, playerId } of get().clientConns) {
+          const last = connLastSeen.get(conn);
+          if (last === undefined) {
+            connLastSeen.set(conn, now);
+          } else if (now - last > HEARTBEAT_TIMEOUT_MS) {
+            dropClientConn(conn);
+            continue;
+          }
+          safeSend(conn, { type: "ping", playerId });
+        }
+        heartbeatTimer = window.setTimeout(heartbeat, HEARTBEAT_INTERVAL_MS);
+      };
+
+      heartbeatTimer = window.setTimeout(heartbeat, HEARTBEAT_INTERVAL_MS);
+
       peer.on("connection", (conn) => {
         conn.on("data", (data) => {
           if (mySession !== session) return;
           const msg = parsePeerMsg(data);
           if (!msg) return;
+          if (msg.type === "pong") {
+            connLastSeen.set(conn, Date.now());
+            return;
+          }
           if (msg.type === "hello") {
             const state = get();
             if (!state.clientConns.some((c) => c.conn === conn)) {
@@ -507,6 +538,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
                 ],
               });
             }
+            connLastSeen.set(conn, Date.now());
             const joining: Player = { id: msg.playerId, name: msg.name };
             let latest = get().latestTable ?? table;
 
@@ -520,13 +552,13 @@ const usePeerData = create<PeerDataState>((set, get) => {
                   /* noop */
                 }
               }, 250);
+              connLastSeen.delete(conn);
               set({
                 clientConns: get().clientConns.filter((c) => c.conn !== conn),
               });
               return;
             }
 
-            clearPresenceTimer(msg.playerId);
             const merged = get().callbacks?.onJoin(joining, latest, {
               gameId: msg.gameId,
               cards: msg.cards,
@@ -554,44 +586,8 @@ const usePeerData = create<PeerDataState>((set, get) => {
           }
         });
 
-        const handleClientDrop = () => {
-          if (mySession !== session) return;
-          const info = get().clientConns.find((c) => c.conn === conn);
-          set({
-            clientConns: get().clientConns.filter((c) => c.conn !== conn),
-          });
-          const playerId = info?.playerId;
-          if (!playerId || playerId === get().selfPlayer?.id) return;
-          clearPresenceTimer(playerId);
-          presenceTimers.set(
-            playerId,
-            window.setTimeout(() => {
-              presenceTimers.delete(playerId);
-              if (mySession !== session) return;
-              const state = get();
-              if (state.role !== "host") return;
-              if (state.clientConns.some((c) => c.playerId === playerId)) {
-                return;
-              }
-              const table = state.latestTable;
-              if (
-                !table ||
-                !table.game.players.some((item) => item.id === playerId)
-              ) {
-                return;
-              }
-              const next = markPlayerDisconnected(table, playerId);
-              if (next === table) return;
-              const rev = state.rev + 1;
-              set({ latestTable: next, rev });
-              broadcastTable(next, rev, playerId);
-              state.callbacks?.onUpdate(next, rev);
-            }, PLAYER_AWAY_GRACE_MS),
-          );
-        };
-
-        conn.on("close", handleClientDrop);
-        conn.on("error", handleClientDrop);
+        conn.on("close", () => dropClientConn(conn));
+        conn.on("error", () => dropClientConn(conn));
       });
 
       peer.on("disconnected", () => {
@@ -751,6 +747,10 @@ const usePeerData = create<PeerDataState>((set, get) => {
           if (mySession !== session) return;
           const msg = parsePeerMsg(data);
           if (!msg) return;
+          if (msg.type === "ping") {
+            safeSend(conn, { type: "pong", playerId: player.id });
+            return;
+          }
           const localEpoch = get().latestTable?.hostEpoch ?? 0;
           if (msg.type === "snapshot") {
             if ((msg.table.hostEpoch ?? 0) < localEpoch) return;

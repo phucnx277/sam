@@ -1,5 +1,8 @@
 import { memo, useEffect, useState } from "react";
 import useI18n from "@hooks/useI18n";
+import useAppData from "@hooks/useAppData";
+import useLocalPlayer from "@hooks/useLocalPlayer";
+import { isGameInProgress } from "@logic/game";
 
 const PlayerInfo = memo(
   ({
@@ -16,6 +19,13 @@ const PlayerInfo = memo(
     onCardReorderingChange: () => void;
   }) => {
     const { t } = useI18n();
+    const { playingTable, dispatchAction } = useAppData();
+    const { localPlayer } = useLocalPlayer();
+    const canRemove =
+      !isMe &&
+      playingTable!.hostId === localPlayer!.id &&
+      !!gamePlayer.isDisconnected &&
+      isGameInProgress(playingTable!.game);
     return (
       <div className={`flex items-center`}>
         {isMe && gamePlayer.cards.length > 0 && (
@@ -51,6 +61,20 @@ const PlayerInfo = memo(
               <span className="ml-1 text-[0.65rem] px-1 rounded-sm bg-gray-300 text-gray-700">
                 {t("game.disconnected")}
               </span>
+            )}
+            {canRemove && (
+              <button
+                type="button"
+                className="ml-1 text-[0.65rem] px-1 rounded-sm bg-red-500 text-white"
+                onClick={() =>
+                  dispatchAction("removeDisconnected", {
+                    removingPlayerId: gamePlayer.id,
+                    actingPlayerId: localPlayer!.id,
+                  })
+                }
+              >
+                {t("action.removeDisconnected")}
+              </button>
             )}
             {!isMe && gamePlayer.isAway && !gamePlayer.isDisconnected && (
               <span className="ml-1 text-[0.65rem] px-1 rounded-sm bg-amber-200 text-amber-900">

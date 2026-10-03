@@ -37,6 +37,7 @@ const Actions = memo(
       const curPlayer = playingTable!.game.players.find(
         (item) => item.id === playingTable!.game.currentPlayerId,
       );
+      if (!curPlayer || curPlayer.isDisconnected) return;
       const possibleActions = getCurrentPossibleActions(
         playingTable!,
         curPlayer!,

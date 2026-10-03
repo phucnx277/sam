@@ -562,6 +562,55 @@ export const ActionDef: Record<
     },
   },
 
+  removeDisconnected: {
+    label: "action.removeDisconnected",
+    type: "button",
+    checkState(
+      playingTable: Table,
+      curentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        isGameInProgress(playingTable.game) &&
+        playingTable.hostId === curentPlayer.id;
+      return { visible, disabled: false };
+    },
+    handleAction(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+      data: unknown,
+    ): Table {
+      if (playingTable.hostId !== currentPlayer.id) return playingTable;
+
+      const { removingPlayerId } = data as { removingPlayerId: string };
+      const target = playingTable.game.players.find(
+        (gp) => gp.id === removingPlayerId,
+      );
+      if (!target || !target.isDisconnected) return playingTable;
+
+      const game: Game = {
+        ...playingTable.game,
+        players: playingTable.game.players.map((gp) =>
+          gp.id === removingPlayerId
+            ? {
+                ...gp,
+                isAway: true,
+                isDisconnected: false,
+                cards: [],
+                selectedCards: [],
+              }
+            : gp,
+        ),
+      };
+
+      if (game.currentPlayerId === removingPlayerId) {
+        game.currentPlayerId = findNextActivePlayerId(game, removingPlayerId);
+        updateTurnTimes(game);
+      }
+
+      return { ...playingTable, game, updatedAt: Date.now() };
+    },
+  },
+
   transferHost: {
     label: "action.transferHost",
     type: "button",

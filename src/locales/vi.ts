@@ -77,6 +77,7 @@ export const vi = {
   "action.pass": "Bỏ",
   "action.resetSession": "Đặt lại phiên",
   "action.removePlayers": "Xóa người chơi",
+  "action.removeDisconnected": "Loại khỏi ván",
   "action.transferHost": "Đổi chủ bàn",
 
   "hand.straight": "Sảnh rồng",

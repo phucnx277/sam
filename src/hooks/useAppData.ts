@@ -281,7 +281,7 @@ const bridge: PeerCallbacks = {
       applyRemoteTable(table);
     }, 0);
   },
-  onJoin: (player, table, rejoin) => {
+  onJoin: (player, table) => {
     const present = table.game.players.some((item) => item.id === player.id);
     if (!present) {
       if (table.game.players.length >= table.playerLimit) {
@@ -291,7 +291,7 @@ const bridge: PeerCallbacks = {
       void persistTableToAbly(merged);
       return merged;
     }
-    const merged = applyRejoin(table, player.id, rejoin);
+    const merged = applyRejoin(table, player.id);
     if (merged !== table) {
       void persistTableToAbly(merged);
     }

@@ -29,6 +29,8 @@ export type PeerMsg =
       from: string;
     }
   | { type: "reject"; reason: JoinRejectReason }
+  | { type: "ping"; playerId: string }
+  | { type: "pong"; playerId: string }
   | { type: "present"; playerId: string; epoch: number; round: number }
   | {
       type: "vote";
@@ -48,6 +50,7 @@ const PlayerActionSet = new Set<string>([
   "play",
   "pass",
   "removePlayers",
+  "removeDisconnected",
   "transferHost",
   "resetSession",
 ]);
@@ -135,6 +138,10 @@ export const parsePeerMsg = (data: unknown): PeerMsg | null => {
         epoch: msg.epoch,
         round: msg.round,
       };
+    case "ping":
+    case "pong":
+      if (typeof msg.playerId !== "string") return null;
+      return { type: msg.type, playerId: msg.playerId };
     case "vote":
       if (
         typeof msg.voterId !== "string" ||

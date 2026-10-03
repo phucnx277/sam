@@ -81,6 +81,7 @@ export const en = {
   "action.pass": "Pass",
   "action.resetSession": "Reset session",
   "action.removePlayers": "Remove players",
+  "action.removeDisconnected": "Remove from game",
   "action.transferHost": "Transfer host",
 
   "hand.straight": "Dragon straight",
