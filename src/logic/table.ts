@@ -275,28 +275,13 @@ export const markPlayerDisconnected = (
 
 export const applyRejoin = (table: Table, playerId: string): Table => {
   const gp = table.game.players.find((item) => item.id === playerId);
-  if (!gp) return table;
-  const canResume = table.game.state === "waiting";
-  const nextAway = !canResume;
-  const nextCards = canResume ? gp.cards : [];
-
-  if (!gp.isDisconnected && !!gp.isAway === nextAway && nextCards === gp.cards) {
-    return table;
-  }
-
+  if (!gp || !gp.isDisconnected) return table;
   return {
     ...table,
     game: {
       ...table.game,
       players: table.game.players.map((item) =>
-        item.id === playerId
-          ? {
-              ...item,
-              isDisconnected: false,
-              isAway: nextAway,
-              cards: nextCards,
-            }
-          : item,
+        item.id === playerId ? { ...item, isDisconnected: false } : item,
       ),
     },
     updatedAt: Date.now(),

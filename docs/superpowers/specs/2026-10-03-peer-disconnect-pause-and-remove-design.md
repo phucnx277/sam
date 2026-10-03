@@ -58,10 +58,12 @@ We want explicit, host-controlled recovery instead:
 
 ### Reconnect
 
-- `applyRejoin`: a player may resume an active seat **only when the table state
-  is `waiting`**. During `playing`, `handChecking`, or `ended`, the rejoin sets
-  `isAway: true`, `isDisconnected: false`, and clears cards — they watch until
-  the game ends and the table returns to `waiting`.
+- A player who disconnects (including a page refresh) is only flagged
+  `isDisconnected`; their seat is otherwise untouched. If the host has **not**
+  removed them, a rejoin resumes the same seat: `applyRejoin` clears
+  `isDisconnected` and keeps `isAway`/cards as-is, so they can keep playing.
+- A player the host **did** remove (`isAway: true`) stays a spectator on rejoin
+  and can only mark Ready once the table is `waiting` again.
 
 ## Data model
 
@@ -74,7 +76,8 @@ Adds one `PlayerAction`: `"removeDisconnected"` (also to `PlayerActionSet` in
 - `src/hooks/usePeerData.ts` — remove presence timers; mark disconnected
   immediately on drop and heartbeat timeout.
 - `src/logic/table.ts` — `markPlayerDisconnected` no longer sets `isAway` or
-  advances the turn; `applyRejoin` only resumes in `waiting`.
+  advances the turn; `applyRejoin` only clears `isDisconnected` (resume) and
+  preserves `isAway` (removed spectators stay spectators).
 - `src/logic/game.ts` — add `removeDisconnected` action.
 - `src/logic/peer.ts` — register the new action in `PlayerActionSet`.
 - `src/components/GamePlayer/Actions.tsx` — skip auto-play for a disconnected
@@ -84,8 +87,8 @@ Adds one `PlayerAction`: `"removeDisconnected"` (also to `PlayerActionSet` in
 
 ## Edge cases
 
-- Refresh mid-game now: old connection drop marks the seat disconnected, the
-  rejoin resolves to a spectator for the rest of the game (explicitly desired).
+- Refresh mid-game: the old connection drop briefly flags the seat disconnected,
+  then the rejoin clears it and the player resumes their seat and hand.
 - Removing a seat excludes it from chip settlement (`calcGameChipCount` filters
   `!isAway`), so no chip bookkeeping is broken.
 - If the host removes a non-current disconnected player, the turn is unchanged.

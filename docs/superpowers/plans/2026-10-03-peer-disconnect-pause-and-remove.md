@@ -58,7 +58,7 @@ const dropClientConn = (conn: DataConnection): void => {
 
 ---
 
-## Task 2: Pure logic — no auto-pass, spectator-only rejoin
+## Task 2: Pure logic — no auto-pass, resume-on-rejoin
 
 **File:** `src/logic/table.ts`
 
@@ -66,10 +66,9 @@ const dropClientConn = (conn: DataConnection): void => {
    `inProgress` / `currentPlayerId` / `updateTurnWindow` turn advance and drop
    `findNextActivePlayerId` usage there (still used by `promoteHost`).
 2. Remove the now-unused `updateTurnWindow` local helper.
-3. `applyRejoin`:
-   - `const canResume = table.game.state === "waiting";`
-   - `nextAway = !canResume`
-   - never adopt cards; `cards: canResume ? gp.cards : []`.
+3. `applyRejoin`: clear `isDisconnected` and preserve everything else
+   (`isAway`, cards), so a player the host did not remove resumes their seat.
+   A player the host removed (`isAway`) stays a spectator.
 4. Ensure `findNextActivePlayerId` import is still required (it is, for
    `promoteHost`).
 
@@ -163,5 +162,6 @@ removeDisconnected: {
 2. `npm run lint` — PASS.
 3. Manual (peer, 3 browsers): disconnect a non-current player → badge appears
    immediately, game continues; disconnect the current player → game pauses (no
-   auto-play), host button appears → removing passes the turn; reconnect →
+   auto-play), host button appears → removing passes the turn; reconnect without
+   host removal → resumes the same seat and hand; reconnect after host removal →
    spectator "Watching" until the game ends, then "Join next game".
