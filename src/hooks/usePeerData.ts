@@ -42,6 +42,15 @@ let electionTimer: number | null = null;
 let electionConns: Map<string, DataConnection> = new Map();
 let heartbeatTimer: number | null = null;
 let connLastSeen: Map<DataConnection, number> = new Map();
+let hostWatchdogTimer: number | null = null;
+let lastHostPing = 0;
+
+const clearHostWatchdog = (): void => {
+  if (hostWatchdogTimer !== null) {
+    window.clearInterval(hostWatchdogTimer);
+    hostWatchdogTimer = null;
+  }
+};
 
 const clearConnectTimer = (): void => {
   if (connectTimer !== null) {
@@ -52,6 +61,8 @@ const clearConnectTimer = (): void => {
 
 const clearTimers = (): void => {
   clearConnectTimer();
+  clearHostWatchdog();
+  lastHostPing = 0;
   if (heartbeatTimer !== null) {
     window.clearTimeout(heartbeatTimer);
     heartbeatTimer = null;
@@ -286,22 +297,22 @@ const usePeerData = create<PeerDataState>((set, get) => {
         (gp) => gp.id === msg.playerId && !gp.isAway && gp.id !== el.hostId,
       );
       if (!known) return;
-      if (!el.participants.includes(msg.playerId)) {
-        set((state) =>
-          state.election
-            ? {
-                election: {
-                  ...state.election,
-                  participants: [...state.election.participants, msg.playerId],
-                },
-              }
-            : {},
-        );
+      const cur = get().election;
+      if (!cur) return;
+      const round = Math.max(cur.round, msg.round);
+      const alreadyIn = cur.participants.includes(msg.playerId);
+      const participants = alreadyIn
+        ? cur.participants
+        : [...cur.participants, msg.playerId];
+      if (round !== cur.round || participants !== cur.participants) {
+        set({ election: { ...cur, round, participants } });
+      }
+      if (!alreadyIn) {
         safeSend(conn, {
           type: "present",
           playerId: el.playerId,
           epoch: el.epoch,
-          round: el.round,
+          round,
         });
       }
       if (el.selfVote) {
@@ -310,7 +321,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
           voterId: el.playerId,
           candidateId: el.selfVote,
           epoch: el.epoch,
-          round: el.round,
+          round,
         });
       }
       evaluateElection();
@@ -699,6 +710,8 @@ const usePeerData = create<PeerDataState>((set, get) => {
         if (mySession !== session) return;
         if (get().hostConn?.open) return;
         clearConnectTimer();
+        clearHostWatchdog();
+        lastHostPing = 0;
         const conn = peer.connect(tablePeerId(tableId), { reliable: true });
         set({ hostConn: conn });
 
@@ -721,6 +734,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
           clearGraceTimer();
           endElection();
           setFallback(false, cb);
+          lastHostPing = Date.now();
           const latest = get().latestTable;
           const self = latest?.game.players.find(
             (item) => item.id === player.id,
@@ -748,6 +762,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
           const msg = parsePeerMsg(data);
           if (!msg) return;
           if (msg.type === "ping") {
+            lastHostPing = Date.now();
             safeSend(conn, { type: "pong", playerId: player.id });
             return;
           }
@@ -774,6 +789,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
 
         const onDrop = () => {
           if (mySession !== session) return;
+          clearHostWatchdog();
           clearConnectTimer();
           set({ hostConn: null });
           startGraceTimer();
@@ -784,6 +800,18 @@ const usePeerData = create<PeerDataState>((set, get) => {
 
         conn.on("close", onDrop);
         conn.on("error", onDrop);
+
+        hostWatchdogTimer = window.setInterval(() => {
+          if (mySession !== session) return;
+          if (get().hostConn !== conn) {
+            clearHostWatchdog();
+            return;
+          }
+          if (!lastHostPing) return;
+          if (Date.now() - lastHostPing > HEARTBEAT_TIMEOUT_MS) {
+            onDrop();
+          }
+        }, HEARTBEAT_INTERVAL_MS);
       };
 
       connectTimer = window.setTimeout(() => {
