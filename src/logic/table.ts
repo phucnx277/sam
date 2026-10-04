@@ -226,6 +226,15 @@ export const resetSession = (table: Table): Table => {
   };
 };
 
+export const hostCandidates = (table: Table): string[] => {
+  const active = table.game.players.filter(
+    (gp) => !gp.isAway && !gp.isRemoved,
+  );
+  const i = active.findIndex((gp) => gp.id === table.hostId);
+  if (i === -1) return active.map((gp) => gp.id);
+  return [...active.slice(i + 1), ...active.slice(0, i)].map((gp) => gp.id);
+};
+
 export const promoteHost = (table: Table, winnerId: string): Table => {
   const oldHostId = table.hostId;
   const game: Game = {
