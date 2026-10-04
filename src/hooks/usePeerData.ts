@@ -38,6 +38,7 @@ let hostClaimAttempt = 0;
 let clientIdRetried = false;
 let clientIdSuffix = "";
 let takeoverTimer: number | null = null;
+let claimPeer: Peer | null = null;
 let heartbeatTimer: number | null = null;
 let connLastSeen: Map<DataConnection, number> = new Map();
 let hostWatchdogTimer: number | null = null;
@@ -57,6 +58,22 @@ const clearConnectTimer = (): void => {
   }
 };
 
+const clearTakeover = (): void => {
+  if (takeoverTimer !== null) {
+    window.clearTimeout(takeoverTimer);
+    takeoverTimer = null;
+  }
+  if (claimPeer !== null) {
+    const peer = claimPeer;
+    claimPeer = null;
+    try {
+      peer.destroy();
+    } catch {
+      /* noop */
+    }
+  }
+};
+
 const clearTimers = (): void => {
   clearConnectTimer();
   clearHostWatchdog();
@@ -70,17 +87,7 @@ const clearTimers = (): void => {
     window.clearTimeout(hostRetryTimer);
     hostRetryTimer = null;
   }
-  if (takeoverTimer !== null) {
-    window.clearTimeout(takeoverTimer);
-    takeoverTimer = null;
-  }
-};
-
-const clearTakeover = (): void => {
-  if (takeoverTimer !== null) {
-    window.clearTimeout(takeoverTimer);
-    takeoverTimer = null;
-  }
+  clearTakeover();
 };
 
 export type PeerCallbacks = {
@@ -232,29 +239,32 @@ const usePeerData = create<PeerDataState>((set, get) => {
   };
 
   const claimHost = (table: Table): void => {
+    if (claimPeer !== null) return;
     const claimSession = session;
     const claim = new Peer(tablePeerId(table.id), peerOptions());
+    claimPeer = claim;
     let settled = false;
+    const dropClaim = (): void => {
+      if (claimPeer === claim) claimPeer = null;
+      try {
+        claim.destroy();
+      } catch {
+        /* noop */
+      }
+    };
     claim.on("open", () => {
       settled = true;
+      if (claimPeer === claim) claimPeer = null;
       const s = get();
       if (claimSession !== session || s.role !== "client") {
-        try {
-          claim.destroy();
-        } catch {
-          /* noop */
-        }
+        dropClaim();
         return;
       }
       const t = s.latestTable;
       const me = s.selfPlayer;
       const cb = s.callbacks;
       if (!t || !me || !cb) {
-        try {
-          claim.destroy();
-        } catch {
-          /* noop */
-        }
+        dropClaim();
         return;
       }
       const promoted = promoteHost(t, me.id);
@@ -266,11 +276,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
     claim.on("error", () => {
       if (settled) return;
       settled = true;
-      try {
-        claim.destroy();
-      } catch {
-        /* noop */
-      }
+      dropClaim();
     });
   };
 
