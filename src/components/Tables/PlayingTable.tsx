@@ -9,7 +9,6 @@ import GamePlayer from "../GamePlayer/GamePlayer";
 import Cards from "../Cards/Cards";
 import AutoFadeout from "../common/AutoFadeout";
 import Actions from "../GamePlayer/Actions";
-import HostElection from "../GamePlayer/HostElection";
 
 const PlayingTable = () => {
   const { t } = useI18n();
@@ -134,8 +133,6 @@ const PlayingTable = () => {
       <div className="w-full flex flex-4 lg:flex-5 justify-center">
         <GamePlayer key={localGamePlayer.id} gamePlayer={localGamePlayer} />
       </div>
-
-      <HostElection />
     </div>
   );
 };

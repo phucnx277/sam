@@ -412,10 +412,6 @@ const useAppData = () => {
     unsetPlayingTable,
   } = useAblyStore();
 
-  const election = usePeerData((s) => s.election);
-  const castVote = usePeerData((s) => s.castVote);
-  const restartElection = usePeerData((s) => s.restartElection);
-
   const [isUpdatingTable, setIsUpdatingTable] = useState(false);
 
   const createTable = useCallback(
@@ -553,9 +549,6 @@ const useAppData = () => {
     tables,
     playingTable,
     isPeerFallback,
-    election,
-    castVote,
-    restartElection,
     createTable,
     enterTable,
     updateTable,
