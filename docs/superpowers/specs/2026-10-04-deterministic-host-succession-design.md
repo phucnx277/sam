@@ -38,15 +38,21 @@ table snapshot.
     3000ms — longer than the parallel reconnect's `HOST_RETRY_MS`) gives the
     reconnect a chance to rediscover a host that only blipped, which cancels
     the pending claim. At its slot, if it is still a client, has no open host
-    connection, and `latestTable.hostId` is not itself, it promotes itself via
-    `promoteHost(latestTable, self.id)` (bumps `hostEpoch`, marks the old host
-    `isDisconnected`) and then `startHost`.
-- Only one client can hold the shared host peer id `sam-<tableId>`; the
-  signaling server arbitrates. A candidate whose claim fails (`unavailable-id`
-  because another candidate won, or any other host-peer error while the claim
-  is pending) rolls back `latestTable` to the pre-promotion snapshot stored in
-  `takeoverBaseTable` and reverts to a client via `joinHost`, so losers
-  converge without keeping an inflated `hostEpoch`.
+    connection, and `latestTable.hostId` is not itself, it calls `claimHost()`.
+- **Claim-then-promote (no optimistic split-brain).** `claimHost()` creates a
+  `Peer` with the shared host id `sam-<tableId>` but does **not** change the
+  local role. Only when that peer fires `open` (the signaling server confirmed
+  this client owns the id) does it run `promoteHost(latestTable, self.id)`
+  (bumps `hostEpoch`, marks the old host `isDisconnected`) and `startHost(...,
+  claimPeer)`, adopting the already-open peer. If the peer instead fires
+  `error` before opening (e.g. `unavailable-id` because another candidate won),
+  the claim peer is destroyed and the client stays a client — its `role` and
+  `latestTable` never changed, so there is no transient second host and no
+  rollback to undo.
+- Because the signaling server enforces a single owner of `sam-<tableId>`,
+  only the candidate whose claim peer opens ever reaches `role: "host"`. At
+  most one host exists at any instant, even while the cascade attempts run in
+  parallel.
 - The immediate successor (rank 0) claims after one `HOST_GRACE_MS`. If it is
   offline it never claims, so rank 1 claims after one more step, and so on.
   Each step is `TAKEOVER_STEP_MS` (1500ms).

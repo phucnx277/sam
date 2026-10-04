@@ -38,8 +38,6 @@ let hostClaimAttempt = 0;
 let clientIdRetried = false;
 let clientIdSuffix = "";
 let takeoverTimer: number | null = null;
-let takeoverClaim = false;
-let takeoverBaseTable: Table | null = null;
 let heartbeatTimer: number | null = null;
 let connLastSeen: Map<DataConnection, number> = new Map();
 let hostWatchdogTimer: number | null = null;
@@ -110,7 +108,12 @@ type PeerDataState = {
   callbacks: PeerCallbacks | null;
   selfPlayer: Player | null;
   hostPassword: string;
-  startHost: (table: Table, player: Player, cb: PeerCallbacks) => void;
+  startHost: (
+    table: Table,
+    player: Player,
+    cb: PeerCallbacks,
+    existingPeer?: Peer,
+  ) => void;
   joinHost: (
     tableId: string,
     player: Player,
@@ -228,6 +231,49 @@ const usePeerData = create<PeerDataState>((set, get) => {
     state.callbacks?.onUpdate(next, rev);
   };
 
+  const claimHost = (table: Table): void => {
+    const claimSession = session;
+    const claim = new Peer(tablePeerId(table.id), peerOptions());
+    let settled = false;
+    claim.on("open", () => {
+      settled = true;
+      const s = get();
+      if (claimSession !== session || s.role !== "client") {
+        try {
+          claim.destroy();
+        } catch {
+          /* noop */
+        }
+        return;
+      }
+      const t = s.latestTable;
+      const me = s.selfPlayer;
+      const cb = s.callbacks;
+      if (!t || !me || !cb) {
+        try {
+          claim.destroy();
+        } catch {
+          /* noop */
+        }
+        return;
+      }
+      const promoted = promoteHost(t, me.id);
+      set({ latestTable: promoted });
+      s.startHost(promoted, me, cb, claim);
+      wasConnected = true;
+      cb.onSnapshot(promoted, get().rev);
+    });
+    claim.on("error", () => {
+      if (settled) return;
+      settled = true;
+      try {
+        claim.destroy();
+      } catch {
+        /* noop */
+      }
+    });
+  };
+
   const beginTakeover = (): void => {
     if (!wasConnected) return;
     const state = get();
@@ -252,13 +298,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         const cb = s.callbacks;
         if (!t || !me || !cb) return;
         if (t.hostId === me.id) return;
-        const promoted = promoteHost(t, me.id);
-        set({ latestTable: promoted });
-        s.startHost(promoted, me, cb);
-        wasConnected = true;
-        takeoverClaim = true;
-        takeoverBaseTable = t;
-        cb.onSnapshot(promoted, get().rev);
+        claimHost(t);
       },
       HOST_GRACE_MS + rank * TAKEOVER_STEP_MS,
     );
@@ -278,9 +318,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
     selfPlayer: null,
     hostPassword: "",
 
-    startHost: (table, player, cb) => {
-      takeoverClaim = false;
-      takeoverBaseTable = null;
+    startHost: (table, player, cb, existingPeer) => {
       const prev = get();
       if (prev.tableId !== table.id) hostClaimAttempt = 0;
       session += 1;
@@ -295,7 +333,8 @@ const usePeerData = create<PeerDataState>((set, get) => {
         prev.tableId === table.id ? (prev.latestTable ?? table) : table;
       const baseRev = Math.max(prev.rev, prev.lastRev, Date.now());
 
-      const peer = new Peer(tablePeerId(table.id), peerOptions());
+      const peer =
+        existingPeer ?? new Peer(tablePeerId(table.id), peerOptions());
       set({
         peer,
         role: "host",
@@ -311,14 +350,19 @@ const usePeerData = create<PeerDataState>((set, get) => {
         hostPassword: table.password,
       });
 
-      peer.on("open", () => {
-        if (mySession !== session) return;
+      const onPeerOpen = (): void => {
         hostClaimAttempt = 0;
         clearTakeover();
-        takeoverClaim = false;
-        takeoverBaseTable = null;
         setFallback(false, cb);
-      });
+      };
+      if (existingPeer) {
+        onPeerOpen();
+      } else {
+        peer.on("open", () => {
+          if (mySession !== session) return;
+          onPeerOpen();
+        });
+      }
 
       const dropClientConn = (conn: DataConnection): void => {
         if (mySession !== session) return;
@@ -445,27 +489,10 @@ const usePeerData = create<PeerDataState>((set, get) => {
         }
       });
 
-      const revertTakeover = (): void => {
-        takeoverClaim = false;
-        const base = takeoverBaseTable;
-        takeoverBaseTable = null;
-        if (base) {
-          set({ latestTable: base });
-        }
-        get().joinHost(table.id, player, table.password, cb, base ?? table);
-      };
-
       peer.on("error", (err) => {
         if (mySession !== session) return;
         const type = (err as { type?: string }).type;
-        if (type !== "unavailable-id") {
-          if (takeoverClaim) revertTakeover();
-          return;
-        }
-        if (takeoverClaim) {
-          revertTakeover();
-          return;
-        }
+        if (type !== "unavailable-id") return;
         hostClaimAttempt += 1;
         if (hostClaimAttempt > MAX_PEER_RETRIES) {
           get().joinHost(
@@ -497,8 +524,6 @@ const usePeerData = create<PeerDataState>((set, get) => {
       reportedFallback = null;
       destroyState(prev);
       connectAttempt = 0;
-      takeoverClaim = false;
-      takeoverBaseTable = null;
       if (prev.tableId !== tableId) {
         wasConnected = false;
         signalingAttempt = 0;
@@ -770,8 +795,6 @@ const usePeerData = create<PeerDataState>((set, get) => {
       clearTakeover();
       wasConnected = false;
       signalingAttempt = 0;
-      takeoverClaim = false;
-      takeoverBaseTable = null;
       hostClaimAttempt = 0;
       clientIdRetried = false;
       clientIdSuffix = "";
