@@ -330,7 +330,6 @@ const usePeerData = create<PeerDataState>((set, get) => {
       session += 1;
       const mySession = session;
       clearTimers();
-      clearTakeover();
       wasConnected = false;
       reportedFallback = null;
       connectAttempt = 0;
@@ -526,7 +525,6 @@ const usePeerData = create<PeerDataState>((set, get) => {
       session += 1;
       const mySession = session;
       clearTimers();
-      clearTakeover();
       reportedFallback = null;
       destroyState(prev);
       connectAttempt = 0;
@@ -798,7 +796,6 @@ const usePeerData = create<PeerDataState>((set, get) => {
     stop: () => {
       session += 1;
       clearTimers();
-      clearTakeover();
       wasConnected = false;
       signalingAttempt = 0;
       hostClaimAttempt = 0;
