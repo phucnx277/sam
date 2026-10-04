@@ -30,15 +30,7 @@ export type PeerMsg =
     }
   | { type: "reject"; reason: JoinRejectReason }
   | { type: "ping"; playerId: string }
-  | { type: "pong"; playerId: string }
-  | { type: "present"; playerId: string; epoch: number; round: number }
-  | {
-      type: "vote";
-      voterId: string;
-      candidateId: string;
-      epoch: number;
-      round: number;
-    };
+  | { type: "pong"; playerId: string };
 
 const PlayerActionSet = new Set<string>([
   "startGame",
@@ -122,44 +114,10 @@ export const parsePeerMsg = (data: unknown): PeerMsg | null => {
         return null;
       }
       return { type: "reject", reason: msg.reason };
-    case "present":
-      if (
-        typeof msg.playerId !== "string" ||
-        typeof msg.epoch !== "number" ||
-        !Number.isFinite(msg.epoch) ||
-        typeof msg.round !== "number" ||
-        !Number.isFinite(msg.round)
-      ) {
-        return null;
-      }
-      return {
-        type: "present",
-        playerId: msg.playerId,
-        epoch: msg.epoch,
-        round: msg.round,
-      };
     case "ping":
     case "pong":
       if (typeof msg.playerId !== "string") return null;
       return { type: msg.type, playerId: msg.playerId };
-    case "vote":
-      if (
-        typeof msg.voterId !== "string" ||
-        typeof msg.candidateId !== "string" ||
-        typeof msg.epoch !== "number" ||
-        !Number.isFinite(msg.epoch) ||
-        typeof msg.round !== "number" ||
-        !Number.isFinite(msg.round)
-      ) {
-        return null;
-      }
-      return {
-        type: "vote",
-        voterId: msg.voterId,
-        candidateId: msg.candidateId,
-        epoch: msg.epoch,
-        round: msg.round,
-      };
     default:
       return null;
   }
