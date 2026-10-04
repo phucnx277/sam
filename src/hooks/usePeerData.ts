@@ -255,6 +255,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         const promoted = promoteHost(t, me.id);
         set({ latestTable: promoted });
         s.startHost(promoted, me, cb);
+        wasConnected = true;
         takeoverClaim = true;
         takeoverBaseTable = t;
         cb.onSnapshot(promoted, get().rev);
