@@ -23,6 +23,7 @@ const HOST_RETRY_MS = 1500;
 const CONNECT_TIMEOUT_MS = 8000;
 const MAX_PEER_RETRIES = 4;
 const TAKEOVER_STEP_MS = 1500;
+const HOST_GRACE_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 4000;
 const HEARTBEAT_TIMEOUT_MS = 10000;
 
@@ -38,6 +39,7 @@ let clientIdRetried = false;
 let clientIdSuffix = "";
 let takeoverTimer: number | null = null;
 let takeoverClaim = false;
+let takeoverBaseTable: Table | null = null;
 let heartbeatTimer: number | null = null;
 let connLastSeen: Map<DataConnection, number> = new Map();
 let hostWatchdogTimer: number | null = null;
@@ -237,22 +239,28 @@ const usePeerData = create<PeerDataState>((set, get) => {
     if (!table || !self || !callbacks) return;
     const rank = hostCandidates(table).indexOf(self.id);
     if (rank === -1) return;
-    takeoverTimer = window.setTimeout(() => {
-      takeoverTimer = null;
-      const s = get();
-      if (s.role !== "client") return;
-      if (s.hostConn?.open) return;
-      const t = s.latestTable;
-      const me = s.selfPlayer;
-      const cb = s.callbacks;
-      if (!t || !me || !cb) return;
-      if (t.hostId === me.id) return;
-      const promoted = promoteHost(t, me.id);
-      set({ latestTable: promoted });
-      takeoverClaim = true;
-      s.startHost(promoted, me, cb);
-      cb.onSnapshot(promoted, get().rev);
-    }, rank * TAKEOVER_STEP_MS);
+    const mySession = session;
+    takeoverTimer = window.setTimeout(
+      () => {
+        takeoverTimer = null;
+        if (mySession !== session) return;
+        const s = get();
+        if (s.role !== "client") return;
+        if (s.hostConn?.open) return;
+        const t = s.latestTable;
+        const me = s.selfPlayer;
+        const cb = s.callbacks;
+        if (!t || !me || !cb) return;
+        if (t.hostId === me.id) return;
+        const promoted = promoteHost(t, me.id);
+        takeoverBaseTable = t;
+        set({ latestTable: promoted });
+        s.startHost(promoted, me, cb);
+        takeoverClaim = true;
+        cb.onSnapshot(promoted, get().rev);
+      },
+      HOST_GRACE_MS + rank * TAKEOVER_STEP_MS,
+    );
   };
 
   return {
@@ -270,6 +278,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
     hostPassword: "",
 
     startHost: (table, player, cb) => {
+      takeoverClaim = false;
       const prev = get();
       if (prev.tableId !== table.id) hostClaimAttempt = 0;
       session += 1;
@@ -305,6 +314,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         hostClaimAttempt = 0;
         clearTakeover();
         takeoverClaim = false;
+        takeoverBaseTable = null;
         setFallback(false, cb);
       });
 
@@ -439,13 +449,12 @@ const usePeerData = create<PeerDataState>((set, get) => {
         if (type !== "unavailable-id") return;
         if (takeoverClaim) {
           takeoverClaim = false;
-          get().joinHost(
-            table.id,
-            player,
-            table.password,
-            cb,
-            get().latestTable ?? table,
-          );
+          const base = takeoverBaseTable;
+          takeoverBaseTable = null;
+          if (base) {
+            set({ latestTable: base });
+          }
+          get().joinHost(table.id, player, table.password, cb, base ?? table);
           return;
         }
         hostClaimAttempt += 1;
@@ -480,6 +489,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
       destroyState(prev);
       connectAttempt = 0;
       takeoverClaim = false;
+      takeoverBaseTable = null;
       if (prev.tableId !== tableId) {
         wasConnected = false;
         signalingAttempt = 0;
@@ -752,6 +762,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
       wasConnected = false;
       signalingAttempt = 0;
       takeoverClaim = false;
+      takeoverBaseTable = null;
       hostClaimAttempt = 0;
       clientIdRetried = false;
       clientIdSuffix = "";
