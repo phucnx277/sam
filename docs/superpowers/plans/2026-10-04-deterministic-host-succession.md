@@ -22,24 +22,29 @@
   `electionTimer`, `electionConns`, `HostElectionState`, `election`,
   `castVote`, `restartElection`, `beginElection`, `evaluateElection`,
   `handleElectionMsg`, `endElection`.
-- Add `TAKEOVER_STEP_MS = 1500`, module-level `takeoverTimer` and
-  `takeoverClaim` flag; clear `takeoverTimer` in `clearTimers`.
+- Add `TAKEOVER_STEP_MS = 1500` and `HOST_GRACE_MS = 3000`; module-level
+  `takeoverTimer`, `takeoverClaim`, and `takeoverBaseTable`; clear
+  `takeoverTimer` in `clearTimers`.
 - Add `beginTakeover()`:
   - guards: `wasConnected`, `role === "client"`, no pending `takeoverTimer`,
     have `latestTable`/`selfPlayer`/`callbacks`.
   - `rank = hostCandidates(latestTable).indexOf(self.id)`; return if `-1`.
-  - schedule claim at `rank * TAKEOVER_STEP_MS`; inside, re-check role client,
-    no open `hostConn`, `latestTable.hostId !== self.id`; then
-    `set({ latestTable: promoteHost(t, me.id) })`, set `takeoverClaim = true`,
-    `startHost(promoted, me, cb)`, `cb.onSnapshot(promoted, get().rev)`.
+  - schedule claim at `HOST_GRACE_MS + rank * TAKEOVER_STEP_MS` with a captured
+    `mySession`; inside, re-check session/role, no open `hostConn`,
+    `latestTable.hostId !== self.id`; then `set({ latestTable: promoted })`,
+    `startHost(promoted, me, cb)`, then `takeoverClaim = true` and
+    `takeoverBaseTable = t`, then `cb.onSnapshot(promoted, get().rev)`.
 - Replace every `startHostElection()` call (connect timeout, `onDrop`,
   `peer-unavailable`) with `beginTakeover()`; delete `startHostElection`.
 - Clear the pending takeover on a successful host connection open
   (where `endElection()` was called).
-- In `startHost`'s `unavailable-id` error handler: if `takeoverClaim` is set,
-  reset it and immediately `joinHost(...)` (loser converges); otherwise keep the
-  existing retry-then-join behavior.
-- Reset `takeoverClaim` in `startHost` open, `joinHost`, and `stop`.
+- Add `revertTakeover()` in `startHost`: clears the claim/base and, if
+  `takeoverBaseTable` was set, restores `latestTable` to it before
+  `joinHost(...)`. Call it on every host-peer error while a takeover claim is
+  pending (both `unavailable-id` and generic errors); keep the existing
+  retry-then-join behavior for non-takeover `unavailable-id`.
+- Reset `takeoverClaim`/`takeoverBaseTable` at `startHost` entry and on
+  `startHost` peer open, `joinHost`, and `stop`.
 - Remove the client-side `peer.on("connection")` election handler in
   `joinHost` (no longer used) and the `handleElectionMsg` call in `joinHost`.
 

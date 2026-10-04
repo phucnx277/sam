@@ -33,18 +33,23 @@ table snapshot.
   `hostCandidates(latestTable)`.
   - Not in the list (spectator / away / removed): it never claims; it only
     keeps retrying to reach the host peer id.
-  - Candidate at rank `r`: it schedules a claim at `r * TAKEOVER_STEP_MS`. At
-    its slot, if it is still a client, has no open host connection, and
-    `latestTable.hostId` is not itself, it promotes itself via
+  - Candidate at rank `r`: it schedules a claim at
+    `HOST_GRACE_MS + r * TAKEOVER_STEP_MS`. The grace period (`HOST_GRACE_MS`,
+    3000ms — longer than the parallel reconnect's `HOST_RETRY_MS`) gives the
+    reconnect a chance to rediscover a host that only blipped, which cancels
+    the pending claim. At its slot, if it is still a client, has no open host
+    connection, and `latestTable.hostId` is not itself, it promotes itself via
     `promoteHost(latestTable, self.id)` (bumps `hostEpoch`, marks the old host
     `isDisconnected`) and then `startHost`.
 - Only one client can hold the shared host peer id `sam-<tableId>`; the
-  signaling server arbitrates. A candidate whose claim loses the id race
-  (`unavailable-id` while a takeover claim is pending) immediately reverts to a
-  client via `joinHost` instead of retrying, so losers converge quickly.
-- The immediate successor (rank 0) claims with no delay. If it is offline it
-  never claims, so rank 1 claims after one step, and so on. Each step is
-  `TAKEOVER_STEP_MS` (1500ms).
+  signaling server arbitrates. A candidate whose claim fails (`unavailable-id`
+  because another candidate won, or any other host-peer error while the claim
+  is pending) rolls back `latestTable` to the pre-promotion snapshot stored in
+  `takeoverBaseTable` and reverts to a client via `joinHost`, so losers
+  converge without keeping an inflated `hostEpoch`.
+- The immediate successor (rank 0) claims after one `HOST_GRACE_MS`. If it is
+  offline it never claims, so rank 1 claims after one more step, and so on.
+  Each step is `TAKEOVER_STEP_MS` (1500ms).
 
 ### Removals
 
