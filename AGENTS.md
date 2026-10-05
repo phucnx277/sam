@@ -28,11 +28,20 @@ React 19 + Vite 7 PWA for playing "Sam", a Vietnamese card game. Multiplayer has
   table host runs a peer with id `sam-<tableId>`; other players connect to it
   and updates are broadcast host -> clients (optimistic full-table snapshots
   tagged with a host-local `rev`). Ably LiveObjects on channel `sam.lobby` (root
-  LiveMap key `tables`) is now **write-through fallback only**: every update is
-  written there, but nothing subscribes. The lobby/table snapshot is read once
-  at load (`parseTables`/`parseTable` in `logic/util.ts`). If a client cannot
-  reach the host it polls the table from Ably (~3s). Peer protocol helpers live
-  in `logic/peer.ts`; the lifecycle store is `hooks/usePeerData.ts`.
+  LiveMap keys `tables` and `transports`) is **write-through plus subscribed
+  fallback**: every update is written to `tables[tableId]`; the lobby `tables`
+  map is subscribed for live add/remove, and the `transports` map is a control
+  channel subscribed by every device in Ably mode. When any device cannot use PeerJS
+  it writes `transports[tableId] = "ably"`; every device on that table then
+  switches to Ably (stops PeerJS, sets `isPeerFallback`, subscribes the table's
+  LiveMap for data). The switch is sticky until the table is removed, except
+  that the `resetSession` action writes `transports[tableId] = "peer"` to retry
+  PeerJS for everyone (falling back to Ably again if any device still cannot
+  connect). When set, `transports[tableId]` is `"ably"` or `"peer"` (absent
+  means attempt PeerJS on entry). The
+  lobby/table snapshot is read once at load (`parseTables`/`parseTable` in
+  `logic/util.ts`). Peer protocol helpers live in `logic/peer.ts`; the lifecycle
+  store is `hooks/usePeerData.ts`.
 - `src/components/*` — grouped by flow: `Credentials` (player + Ably API key setup) → `Tables` → `GamePlayer`. `Lobby.tsx` switches between them based on init state.
 - Playing cards render through the vendored custom elements `<card-item>` / `<card-list>` from `src/lib/elements.cardmeister.min.js` (loaded once in `src/main.tsx`); don't reintroduce it elsewhere.
 

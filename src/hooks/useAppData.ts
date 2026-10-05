@@ -26,8 +26,8 @@ const LS_API_KEY = "sam.apiKey";
 const CHANNEL_ID = "sam.lobby";
 const Keys = {
   Tables: "tables",
+  Transports: "transports",
 };
-const POLL_INTERVAL_MS = 3000;
 
 const LS_MODE = "sam.mode";
 const LS_PEER_TABLES = "sam.tables";
@@ -63,13 +63,17 @@ const savePeerTables = (tables: Table[]): void => {
   localStorage.setItem(LS_PEER_TABLES, JSON.stringify(tables));
 };
 
-let pollTimer: number | null = null;
 let initGeneration = 0;
+let lobbySub: Ably.SubscribeResponse | null = null;
+let transportsSub: Ably.SubscribeResponse | null = null;
+let tableSub: Ably.SubscribeResponse | null = null;
+let tableSubTableId: string | null = null;
 
 const useAblyStore = create<{
   client: Ably.Realtime | null;
   channel: Ably.RealtimeChannel | null;
   tablesMap: Ably.LiveMap<Ably.LiveMapType> | null;
+  transportsMap: Ably.LiveMap<Ably.LiveMapType> | null;
   tables: Table[];
   playingTable: Table | null;
   isPeerFallback: boolean;
@@ -86,6 +90,7 @@ const useAblyStore = create<{
   client: null,
   channel: null,
   tablesMap: null,
+  transportsMap: null,
   tables: getStoredMode() === "peer" ? getPeerTables() : [],
   playingTable: null,
   isPeerFallback: false,
@@ -98,7 +103,7 @@ const useAblyStore = create<{
     let client: Ably.Realtime | null = null;
     try {
       usePeerData.getState().stop();
-      stopPolling();
+      clearTableSubscription();
 
       client = new Ably.Realtime({
         key: normalizedApiKey,
@@ -119,6 +124,13 @@ const useAblyStore = create<{
         tablesMap = await channel.objects.createMap();
         await root.set(Keys.Tables, tablesMap);
       }
+      let transportsMap = root.get(
+        Keys.Transports,
+      ) as Ably.LiveMap<Ably.LiveMapType>;
+      if (!transportsMap) {
+        transportsMap = await channel.objects.createMap();
+        await root.set(Keys.Transports, transportsMap);
+      }
 
       if (generation !== initGeneration) {
         client.close();
@@ -126,6 +138,8 @@ const useAblyStore = create<{
       }
 
       const { client: oldClient } = get();
+      clearLobbySubscription();
+      clearTransportsSubscription();
       if (oldClient) {
         oldClient.close();
       }
@@ -134,12 +148,15 @@ const useAblyStore = create<{
         client,
         channel,
         tablesMap,
+        transportsMap,
         tables: parseTables(tablesMap.entries()),
         playingTable: null,
         isPeerFallback: false,
         mode: "ably",
         peerError: null,
       });
+      subscribeLobby(tablesMap);
+      subscribeTransports(transportsMap);
       storeApiKey(normalizedApiKey);
       storeMode("ably");
     } catch (err) {
@@ -179,13 +196,16 @@ const useAblyStore = create<{
       oldClient.close();
     }
     usePeerData.getState().stop();
-    stopPolling();
+    clearTableSubscription();
+    clearLobbySubscription();
+    clearTransportsSubscription();
     storeMode("peer");
     set({
       mode: "peer",
       client: null,
       channel: null,
       tablesMap: null,
+      transportsMap: null,
       tables: getPeerTables(),
       playingTable: null,
       isPeerFallback: false,
@@ -199,13 +219,16 @@ const useAblyStore = create<{
       oldClient.close();
     }
     usePeerData.getState().stop();
-    stopPolling();
+    clearTableSubscription();
+    clearLobbySubscription();
+    clearTransportsSubscription();
     clearStoredMode();
     set({
       mode: null,
       client: null,
       channel: null,
       tablesMap: null,
+      transportsMap: null,
       tables: [],
       playingTable: null,
       isPeerFallback: false,
@@ -226,11 +249,186 @@ const useAblyStore = create<{
   },
 }));
 
-function stopPolling(): void {
-  if (pollTimer !== null) {
-    window.clearInterval(pollTimer);
-    pollTimer = null;
+function clearLobbySubscription(): void {
+  if (lobbySub) {
+    lobbySub.unsubscribe();
+    lobbySub = null;
   }
+}
+
+function clearTableSubscription(): void {
+  if (tableSub) {
+    tableSub.unsubscribe();
+    tableSub = null;
+  }
+  tableSubTableId = null;
+}
+
+function subscribeLobby(tablesMap: Ably.LiveMap<Ably.LiveMapType>): void {
+  clearLobbySubscription();
+  lobbySub = tablesMap.subscribe(({ update }) => {
+    if (useAblyStore.getState().mode === "peer") return;
+    const changed = Object.keys(update);
+    if (changed.length === 0) return;
+    useAblyStore.setState((state) => {
+      let tables = state.tables;
+      for (const id of changed) {
+        if (update[id] === "removed") {
+          tables = tables.filter((item) => item.id !== id);
+          continue;
+        }
+        const tableMap = tablesMap.get(id) as
+          | Ably.LiveMap<Ably.LiveMapType>
+          | undefined;
+        const parsed = tableMap ? parseTable(tableMap.entries()) : null;
+        if (!parsed || !parsed.id) continue;
+        tables = tables.some((item) => item.id === id)
+          ? tables.map((item) => (item.id === id ? parsed : item))
+          : [...tables, parsed];
+      }
+      return tables === state.tables ? state : { tables };
+    });
+  });
+}
+
+function subscribeTableFallback(tableId: string): void {
+  const state = useAblyStore.getState();
+  if (state.mode === "peer") return;
+  if (
+    state.playingTable?.id !== tableId &&
+    usePeerData.getState().tableId !== tableId
+  ) {
+    if (tableSubTableId === tableId) {
+      clearTableSubscription();
+    }
+    return;
+  }
+  if (tableSubTableId === tableId && tableSub) return;
+  clearTableSubscription();
+  const { tablesMap } = useAblyStore.getState();
+  if (!tablesMap) return;
+  const tableMap = tablesMap.get(tableId) as
+    | Ably.LiveMap<Ably.LiveMapType>
+    | undefined;
+  if (!tableMap) return;
+  tableSubTableId = tableId;
+  tableSub = tableMap.subscribe(() => {
+    if (useAblyStore.getState().mode === "peer") return;
+    const table = parseTable(tableMap.entries());
+    if (table) applyRemoteTable(table);
+  });
+  const table = parseTable(tableMap.entries());
+  if (table) applyRemoteTable(table);
+}
+
+function clearTransportsSubscription(): void {
+  if (transportsSub) {
+    transportsSub.unsubscribe();
+    transportsSub = null;
+  }
+}
+
+function subscribeTransports(
+  transportsMap: Ably.LiveMap<Ably.LiveMapType>,
+): void {
+  clearTransportsSubscription();
+  transportsSub = transportsMap.subscribe(({ update }) => {
+    if (useAblyStore.getState().mode === "peer") return;
+    for (const tableId of Object.keys(update)) {
+      const mode = transportsMap.get(tableId);
+      if (mode === "ably") {
+        switchTableToAbly(tableId);
+      } else if (mode === "peer") {
+        switchToPeerTransport(tableId);
+      }
+    }
+  });
+}
+
+function readTableFromAbly(tableId: string): Table | null {
+  const { tablesMap } = useAblyStore.getState();
+  if (!tablesMap) return null;
+  const tableMap = tablesMap.get(tableId) as
+    | Ably.LiveMap<Ably.LiveMapType>
+    | undefined;
+  if (!tableMap) return null;
+  return parseTable(tableMap.entries());
+}
+
+function isTableOnAbly(tableId: string): boolean {
+  const { transportsMap } = useAblyStore.getState();
+  return transportsMap?.get(tableId) === "ably";
+}
+
+function markTableAbly(tableId: string): void {
+  const { transportsMap } = useAblyStore.getState();
+  if (!transportsMap) return;
+  if (transportsMap.get(tableId) === "ably") return;
+  transportsMap.set(tableId, "ably").catch((err) => {
+    console.error("[ably] failed to mark table as ably", tableId, err);
+  });
+}
+
+function switchTableToAbly(tableId: string): void {
+  const state = useAblyStore.getState();
+  if (state.mode === "peer") return;
+  const peer = usePeerData.getState();
+  if (state.playingTable?.id !== tableId && peer.tableId !== tableId) return;
+
+  if (!state.isPeerFallback) {
+    useAblyStore.setState({ isPeerFallback: true });
+  }
+  if (peer.role) peer.stop();
+
+  const table = useAblyStore.getState().playingTable;
+  const localPlayer = useLocalPlayer.getState().localPlayer;
+  const ablyTable = readTableFromAbly(tableId);
+  const alreadyMember =
+    !!localPlayer &&
+    (ablyTable?.game?.players?.some((p) => p.id === localPlayer.id) ?? false);
+  if (table && table.id === tableId && localPlayer && !alreadyMember) {
+    const merged = addTablePlayer(ablyTable ?? table, localPlayer);
+    void persistTableToAbly(merged).then(() =>
+      subscribeTableFallback(tableId),
+    );
+    return;
+  }
+  subscribeTableFallback(tableId);
+}
+
+function switchToPeerTransport(tableId: string): void {
+  const state = useAblyStore.getState();
+  if (state.mode === "peer") return;
+  const table = state.playingTable;
+  if (!table || table.id !== tableId) return;
+  const localPlayer = useLocalPlayer.getState().localPlayer;
+  if (!localPlayer) return;
+
+  const peer = usePeerData.getState();
+  if (peer.tableId === tableId && peer.role && !state.isPeerFallback) return;
+
+  clearTableSubscription();
+  useAblyStore.setState({ isPeerFallback: false });
+  if (table.hostId === localPlayer.id) {
+    peer.startHost(table, localPlayer, bridge);
+  } else {
+    peer.joinHost(table.id, localPlayer, table.password, bridge, table);
+  }
+}
+
+function retryPeerTransport(): void {
+  const state = useAblyStore.getState();
+  if (state.mode === "peer") return;
+  const tableId = state.playingTable?.id ?? usePeerData.getState().tableId;
+  if (!tableId || !isTableOnAbly(tableId)) return;
+  const { transportsMap } = state;
+  if (!transportsMap) return;
+  transportsMap
+    .set(tableId, "peer")
+    .then(() => switchToPeerTransport(tableId))
+    .catch((err) => {
+      console.error("[ably] failed to mark table as peer", tableId, err);
+    });
 }
 
 async function persistTableToAbly(data: Table): Promise<Error | null> {
@@ -302,12 +500,14 @@ const bridge: PeerCallbacks = {
       }
       return;
     }
-    useAblyStore.setState({ isPeerFallback: fallback });
     const tableId = usePeerData.getState().tableId;
     if (fallback && tableId) {
-      startPolling(tableId);
-    } else {
-      stopPolling();
+      markTableAbly(tableId);
+      switchTableToAbly(tableId);
+    } else if (!fallback) {
+      if (tableId && isTableOnAbly(tableId)) return;
+      clearTableSubscription();
+      useAblyStore.setState({ isPeerFallback: false });
     }
   },
   onReject: (reason) => {
@@ -317,6 +517,7 @@ const bridge: PeerCallbacks = {
 
 function reconcilePeerRole(table: Table): void {
   if (useAblyStore.getState().mode === "peer") return;
+  if (isTableOnAbly(table.id)) return;
 
   const localPlayer = useLocalPlayer.getState().localPlayer;
   if (!localPlayer) return;
@@ -325,10 +526,10 @@ function reconcilePeerRole(table: Table): void {
   if (peer.tableId !== table.id) return;
 
   if (table.hostId === localPlayer.id && peer.role !== "host") {
-    stopPolling();
+    clearTableSubscription();
     peer.startHost(table, localPlayer, bridge);
   } else if (table.hostId !== localPlayer.id && peer.role === "host") {
-    stopPolling();
+    clearTableSubscription();
     peer.joinHost(table.id, localPlayer, table.password, bridge, table);
   }
 }
@@ -365,31 +566,17 @@ function startPeerSession(
   player: Player,
   password: string,
 ): void {
-  stopPolling();
+  clearTableSubscription();
+  if (isTableOnAbly(table.id)) {
+    switchTableToAbly(table.id);
+    return;
+  }
   const peer = usePeerData.getState();
   if (table.hostId === player.id) {
     peer.startHost(table, player, bridge);
   } else {
     peer.joinHost(table.id, player, password, bridge, table);
   }
-}
-
-async function refreshTableFromAbly(tableId: string): Promise<void> {
-  const state = useAblyStore.getState();
-  if (!state.tablesMap) return;
-  const tableMap = state.tablesMap.get(tableId) as Ably.LiveMap<Ably.LiveMapType>;
-  if (!tableMap) return;
-  const table = parseTable(tableMap.entries());
-  if (!table) return;
-  applyRemoteTable(table);
-}
-
-function startPolling(tableId: string): void {
-  if (useAblyStore.getState().mode === "peer") return;
-  stopPolling();
-  pollTimer = window.setInterval(() => {
-    void refreshTableFromAbly(tableId);
-  }, POLL_INTERVAL_MS);
 }
 
 const useAppData = () => {
@@ -470,7 +657,7 @@ const useAppData = () => {
 
   const leaveTable = useCallback(() => {
     usePeerData.getState().stop();
-    stopPolling();
+    clearTableSubscription();
     useAblyStore.setState({ isPeerFallback: false });
     unsetPlayingTable();
   }, [unsetPlayingTable]);
@@ -488,7 +675,7 @@ const useAppData = () => {
           useAblyStore.getState().playingTable?.id === tableId
         ) {
           usePeerData.getState().stop();
-          stopPolling();
+          clearTableSubscription();
           unsetPlayingTable();
         }
         return null;
@@ -497,9 +684,22 @@ const useAppData = () => {
       let error: Error | null = null;
       try {
         tablesMap!.remove(tableId);
-        if (usePeerData.getState().tableId === tableId) {
+        const transportsMap = useAblyStore.getState().transportsMap;
+        if (transportsMap) {
+          transportsMap.remove(tableId).catch((err) => {
+            console.error(
+              "[ably] failed to clear transport marker",
+              tableId,
+              err,
+            );
+          });
+        }
+        if (
+          usePeerData.getState().tableId === tableId ||
+          useAblyStore.getState().playingTable?.id === tableId
+        ) {
           usePeerData.getState().stop();
-          stopPolling();
+          clearTableSubscription();
           useAblyStore.setState({ isPeerFallback: false });
           unsetPlayingTable();
         }
@@ -530,6 +730,7 @@ const useAppData = () => {
     isUpdatingTable,
     removeTable,
     leaveTable,
+    retryPeerTransport,
     getApiKey,
   };
 };

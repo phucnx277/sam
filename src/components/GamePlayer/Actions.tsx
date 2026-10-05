@@ -25,7 +25,7 @@ const Actions = memo(
     onAction: (table: Table) => Promise<void>;
   }) => {
     const { t } = useI18n();
-    const { playingTable } = useAppData();
+    const { playingTable, retryPeerTransport } = useAppData();
     const { localPlayer } = useLocalPlayer();
     const ds = useCountDown(playingTable!.game.turnEndTs);
 
@@ -132,9 +132,14 @@ const Actions = memo(
               disabled={disabled}
               value={value}
               label={renderLabel(action)}
-              onAction={() =>
-                onAction(def.handleAction(playingTable!, gamePlayer))
-              }
+              onAction={() => {
+                const next = def.handleAction(playingTable!, gamePlayer);
+                const pending = onAction(next);
+                if (action === "resetSession" && next !== playingTable) {
+                  retryPeerTransport();
+                }
+                return pending;
+              }}
             />
           );
         })

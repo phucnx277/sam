@@ -8,8 +8,14 @@ import ShareTable from "./ShareTable";
 
 const TableInfo = ({ onClose }: { onClose: () => void }) => {
   const { t } = useI18n();
-  const { playingTable, getApiKey, updateTable, isUpdatingTable, mode } =
-    useAppData();
+  const {
+    playingTable,
+    getApiKey,
+    updateTable,
+    isUpdatingTable,
+    isPeerFallback,
+    mode,
+  } = useAppData();
   const { localPlayer } = useLocalPlayer();
   const apiKey = getApiKey("original");
 
@@ -136,6 +142,11 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
           </button>
           <LanguageSwitcher />
         </div>
+        {isPeerFallback && (
+          <div className="self-start px-2 py-0.5 text-xs rounded-sm bg-amber-200 text-amber-900">
+            {t("game.fallbackMode")}
+          </div>
+        )}
         <div>
           <span>{t("table.hostLabel")}</span>
           {isReadOnly && (
