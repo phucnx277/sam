@@ -33,6 +33,7 @@ export const vi = {
   "lobby.createTable": "Tạo bàn",
   "lobby.connectWithAbly": "Kết nối Ably",
   "lobby.switchToPeer": "Chuyển sang PeerJS",
+  "lobby.connecting": "Đang kết nối…",
 
   "table.newTitle": "Bàn mới",
   "table.namePlaceholder": "Tên(*)",

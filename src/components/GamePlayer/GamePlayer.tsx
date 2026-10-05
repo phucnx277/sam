@@ -12,6 +12,7 @@ import useOrientation from "@hooks/useOrientation";
 import Cards from "../Cards/Cards";
 import PlayerInfo from "./PlayerInfo";
 import TableInfo from "../Tables/TableInfo";
+import ShareTable from "../Tables/ShareTable";
 import HowToPlay from "./HowToPlay";
 
 const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
@@ -24,6 +25,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
 
   const [shouldShowTableInfo, setShouldShowTableInfo] = useState(false);
   const [shouldShowHowToPlay, setShouldShowHowToPlay] = useState(false);
+  const [shouldShowShareTable, setShouldShowShareTable] = useState(false);
   const [{ tiger, tigerKiller }, setTigers] = useState<{
     tiger?: GamePlayer | null;
     tigerKiller?: GamePlayer | null;
@@ -210,6 +212,20 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
               </button>
               {shouldShowTableInfo && (
                 <TableInfo onClose={() => setShouldShowTableInfo(false)} />
+              )}
+              <button
+                className="!p-0"
+                title={t("table.share")}
+                aria-label={t("table.share")}
+                onClick={() => setShouldShowShareTable(true)}
+              >
+                📤
+              </button>
+              {shouldShowShareTable && (
+                <ShareTable
+                  table={playingTable!}
+                  onClose={() => setShouldShowShareTable(false)}
+                />
               )}
               <button
                 className="!p-0"

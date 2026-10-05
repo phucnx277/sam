@@ -4,7 +4,6 @@ import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { ActionDef, isGameInProgress } from "@logic/game";
 import LanguageSwitcher from "../common/LanguageSwitcher";
-import ShareTable from "./ShareTable";
 
 const TableInfo = ({ onClose }: { onClose: () => void }) => {
   const { t } = useI18n();
@@ -23,7 +22,6 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
     playingTable!.hostId !== localPlayer!.id ||
     isGameInProgress(playingTable!.game);
 
-  const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState({
     key: false,
     result: false,
@@ -134,12 +132,6 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
             {t("table.nameLabel")}
             <span className="font-semibold">{playingTable!.name}</span>
           </div>
-          <button
-            className="!py-1 !px-2 text-xs border border-cyan-300 hover:bg-cyan-300 active:bg-cyan-300 focus:bg-cyan-300"
-            onClick={() => setIsSharing(true)}
-          >
-            {t("table.share")}
-          </button>
           <LanguageSwitcher />
         </div>
         {isPeerFallback && (
@@ -247,9 +239,6 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
           )}
         </div>
       </div>
-      {isSharing && (
-        <ShareTable table={playingTable!} onClose={() => setIsSharing(false)} />
-      )}
     </div>
   );
 };

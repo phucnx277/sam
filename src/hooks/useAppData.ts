@@ -600,24 +600,26 @@ const useAppData = () => {
   const [isUpdatingTable, setIsUpdatingTable] = useState(false);
 
   const createTable = useCallback(
-    async (params: NewTableParams): Promise<{ error: Error | null }> => {
-      let error: Error | null = null;
+    async (
+      params: NewTableParams,
+    ): Promise<{ error: Error | null; table: Table | null }> => {
+      let table: Table | null = null;
       try {
-        const table = newTable(params);
+        table = newTable(params);
         if (useAblyStore.getState().mode === "peer") {
           useAblyStore.setState({ peerError: null });
           setPlayingTable(table);
           startPeerSession(table, params.player, params.password);
-          return { error: null };
+          return { error: null, table };
         }
         const tm = await channel!.objects.createMap(stringifyValues(table));
         await tablesMap!.set(table.id, tm);
         setPlayingTable(table);
         startPeerSession(table, params.player, params.password);
       } catch (err) {
-        error = err as Error;
+        return { error: err as Error, table: null };
       }
-      return { error };
+      return { error: null, table };
     },
     [channel, tablesMap, setPlayingTable],
   );

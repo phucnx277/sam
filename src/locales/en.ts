@@ -36,6 +36,7 @@ export const en = {
   "lobby.createTable": "Create table",
   "lobby.connectWithAbly": "Connect with Ably",
   "lobby.switchToPeer": "Switch to PeerJS",
+  "lobby.connecting": "Connecting…",
 
   "table.newTitle": "New Table",
   "table.namePlaceholder": "Name(*)",

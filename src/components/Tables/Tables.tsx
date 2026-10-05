@@ -10,6 +10,8 @@ import EnterTable from "./EnterTable";
 import PlayingTable from "./PlayingTable";
 import TopRightBar from "../common/TopRightBar";
 import WelcomePlayer from "../Credentials/WelcomePlayer";
+import ShareTable from "./ShareTable";
+import LoadingOverlay from "../common/LoadingOverlay";
 
 const ScanTable = lazy(() => import("./ScanTable"));
 
@@ -24,6 +26,7 @@ const Tables = () => {
     joinPeerTable,
     switchToAbly,
     mode,
+    peerError,
     getApiKey,
   } = useAppData();
   const { localPlayer } = useLocalPlayer();
@@ -35,7 +38,28 @@ const Tables = () => {
   const [enteringPeerTableId, setEnteringPeerTableId] = useState<string | null>(
     null,
   );
-  const autoLinkedRef = useRef(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [sharingTable, setSharingTable] = useState<Table | null>(null);
+  const [rejoinHandled, setRejoinHandled] = useState(false);
+
+  // Capture the reload-rejoin intent at first render, before any effect can
+  // strip `tblId` from the URL.
+  const rejoinIntentRef = useRef<{
+    tableId: string;
+    password: string | null;
+  } | null>(null);
+  const rejoinInitRef = useRef(false);
+  if (!rejoinInitRef.current) {
+    rejoinInitRef.current = true;
+    const url = new URL(window.location.href);
+    const tableId = url.searchParams.get("tblId");
+    if (tableId) {
+      rejoinIntentRef.current = {
+        tableId,
+        password: url.searchParams.get("tblPw"),
+      };
+    }
+  }
 
   const confirmRemoveTable = async (e: React.MouseEvent, table: Table) => {
     e.preventDefault();
@@ -112,56 +136,77 @@ const Tables = () => {
         alert(t("table.linkInvalid"));
         return;
       }
+      setIsJoining(true);
       if (!(await applyLink(clipboardText))) {
+        setIsJoining(false);
         alert(t("table.linkInvalid"));
       }
     } catch {
+      setIsJoining(false);
       /* empty */
     }
   };
 
   const handleScan = async (payload: string) => {
     setIsScanning(false);
-    if (!(await applyLink(payload))) {
-      alert(t("table.linkInvalid"));
+    setIsJoining(true);
+    try {
+      if (!(await applyLink(payload))) {
+        setIsJoining(false);
+        alert(t("table.linkInvalid"));
+      }
+    } catch {
+      setIsJoining(false);
     }
   };
 
-  // Peer links: rejoin once, even before any local tables exist.
-  // InitAppData strips `mode` from the URL before this mounts, so read
-  // tblId/tblPw directly instead of requiring `mode=peer`.
+  // Reload rejoin / deep link: resume the table referenced by the URL once the
+  // transport is ready and (for Ably) the table list has loaded.
   useEffect(() => {
-    if (mode !== "peer" || autoLinkedRef.current) return;
-    autoLinkedRef.current = true;
-    const url = new URL(window.location.href);
-    const tableId = url.searchParams.get("tblId");
-    if (!tableId) return;
-    const localTable = getTables().find((item) => item.id === tableId);
-    if (localTable) {
-      setEnteringTable(localTable);
+    const intent = rejoinIntentRef.current;
+    if (!intent || rejoinHandled || !localPlayer) return;
+
+    if (mode === "peer") {
+      const localTable = getTables().find((item) => item.id === intent.tableId);
+      if (localTable) {
+        setRejoinHandled(true);
+        setEnteringTable(localTable);
+        return;
+      }
+      setRejoinHandled(true);
+      if (intent.password !== null) {
+        setIsJoining(true);
+        joinPeerTable(intent.tableId, intent.password);
+        return;
+      }
+      setEnteringPeerTableId(intent.tableId);
       return;
     }
-    const password = url.searchParams.get("tblPw");
-    if (password !== null) {
-      joinPeerTable(tableId, password);
-      return;
-    }
-    setEnteringPeerTableId(tableId);
+
+    if (mode !== "ably") return;
+    const table = tables.find((item) => item.id === intent.tableId);
+    if (!table) return;
+    setRejoinHandled(true);
+    setEnteringTable(table);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, tables, localPlayer, rejoinHandled]);
 
-  // Ably deep links: resolve once the table list has loaded.
+  // If the table never shows up (e.g. it was deleted), stop holding the URL.
   useEffect(() => {
-    if (mode === "peer") return;
-    const parsed = parseTableLink(window.location.href);
-    if (parsed?.mode !== "ably") return;
-    const table = tables.find((item) => item.id === parsed.tableId);
-    if (table) {
-      setEnteringTable(table);
+    if (!rejoinIntentRef.current) return;
+    const timer = window.setTimeout(() => setRejoinHandled(true), 4000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  // Clear the join overlay as soon as there is something else to show.
+  useEffect(() => {
+    if (isJoining && (enteringTable || enteringPeerTableId || playingTable || peerError)) {
+      setIsJoining(false);
     }
-  }, [tables, mode]);
+  }, [isJoining, enteringTable, enteringPeerTableId, playingTable, peerError]);
 
   useEffect(() => {
+    if (rejoinIntentRef.current && (!rejoinHandled || isJoining)) return;
     let tableId = playingTable?.id || null;
     if (
       tableId &&
@@ -176,6 +221,7 @@ const Tables = () => {
 
     if (!tableId) {
       url.searchParams.delete("tblId");
+      url.searchParams.delete("tblPw");
       // player gets removed
       if (playingTable) {
         url.searchParams.delete("tblPw");
@@ -204,7 +250,7 @@ const Tables = () => {
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playingTable]);
+  }, [playingTable, rejoinHandled, isJoining]);
 
   return (
     <>
@@ -288,6 +334,7 @@ const Tables = () => {
             <NewTable
               close={() => setIsCreatingTable(false)}
               limit={TABLE_LIMIT}
+              onCreated={setSharingTable}
             />
           )}
           {isScanning && (
@@ -314,6 +361,13 @@ const Tables = () => {
         </>
       )}
       {!!playingTable && <PlayingTable />}
+      {!!sharingTable && (
+        <ShareTable
+          table={sharingTable}
+          onClose={() => setSharingTable(null)}
+        />
+      )}
+      {isJoining && <LoadingOverlay />}
     </>
   );
 };

@@ -30,7 +30,11 @@ const normalizedFormValues = (
   return formData;
 };
 
-const NewTable = (props: { close: () => void; limit: number }) => {
+const NewTable = (props: {
+  close: () => void;
+  limit: number;
+  onCreated?: (table: Table) => void;
+}) => {
   const { t } = useI18n();
   const { localPlayer } = useLocalPlayer();
   const { createTable, tables } = useAppData();
@@ -71,11 +75,14 @@ const NewTable = (props: { close: () => void; limit: number }) => {
       player: localPlayer!,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
-    const { error } = await createTable(payload);
+    const { error, table } = await createTable(payload);
     setIsSubmitting(false);
     if (error) {
       alert(error.message);
       return;
+    }
+    if (table) {
+      props.onCreated?.(table);
     }
     props.close();
   };
