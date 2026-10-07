@@ -131,6 +131,9 @@ const InitAppData = () => {
       >
         {isInitializing ? t("credentials.checking") : t("common.next")}
       </button>
+      <p className="text-xs text-gray-500 mt-1 text-center max-w-[525px]">
+        {t("connection.compatibleBenefit")}
+      </p>
       <button
         type="button"
         className="mt-4 text-sm text-cyan-600 underline"
@@ -139,6 +142,9 @@ const InitAppData = () => {
       >
         {t("credentials.playWithoutAbly")}
       </button>
+      <p className="text-xs text-gray-500 mt-1 text-center max-w-[525px]">
+        {t("connection.fastBenefit")}
+      </p>
     </form>
   );
 };

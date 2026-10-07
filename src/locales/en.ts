@@ -12,12 +12,12 @@ export const en = {
   "common.installApp": "Install App",
   "common.appInstalled": "App installed",
 
-  "credentials.apiKeyLabel": "Your Ably API Key",
+  "credentials.apiKeyLabel": "Your connection key",
   "credentials.paste": "Paste",
-  "credentials.apiKeyPlaceholder": "Ably API key",
-  "credentials.getKey": "Get a new key here: ",
+  "credentials.apiKeyPlaceholder": "Paste your connection key",
+  "credentials.getKey": "Get a free key at ",
   "credentials.checking": "Checking",
-  "credentials.playWithoutAbly": "Play without Ably (PeerJS only)",
+  "credentials.playWithoutAbly": "Play with fast connection",
 
   "player.enterName": "Enter your name",
   "player.namePlaceholder": "Input your name",
@@ -34,9 +34,14 @@ export const en = {
   "lobby.scanError":
     "Could not open the camera. Choose an image with a QR code instead.",
   "lobby.createTable": "Create table",
-  "lobby.connectWithAbly": "Connect with Ably",
-  "lobby.switchToPeer": "Switch to PeerJS",
+  "lobby.connectWithAbly": "Switch to compatible connection",
+  "lobby.switchToPeer": "Switch to fast connection",
   "lobby.connecting": "Connecting…",
+
+  "connection.fastBenefit":
+    "Fast connection — no key needed and players connect directly for the lowest lag.",
+  "connection.compatibleBenefit":
+    "Compatible connection — needs a free key and relays through a server, so it works even on restrictive networks.",
 
   "table.newTitle": "New Table",
   "table.namePlaceholder": "Name(*)",
@@ -53,7 +58,7 @@ export const en = {
   "table.hostLabel": "Host:",
   "table.activePlayers": "Active:",
   "table.removedPlayers": "Removed:",
-  "table.apiKeyLabel": "API Key:",
+  "table.apiKeyLabel": "Connection key:",
   "table.share": "Share",
   "table.copyLink": "Copy link",
   "table.linkCopied": "Link copied!",
@@ -67,7 +72,7 @@ export const en = {
   "game.bo": "BO:",
   "game.yourTurn": "Your turn!",
   "game.cardsSorted": "Cards sorted",
-  "game.fallbackMode": "Indirect connection",
+  "game.fallbackMode": "Compatible connection",
 
   "action.ready": "Ready",
   "action.starOfHope": "⭐ Star of hope",

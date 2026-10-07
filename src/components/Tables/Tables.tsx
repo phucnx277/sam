@@ -30,8 +30,7 @@ const Tables = () => {
     getApiKey,
   } = useAppData();
   const { localPlayer } = useLocalPlayer();
-  const visible =
-    mode === "peer" ? tables : visibleTables(tables, localPlayer);
+  const visible = mode === "peer" ? tables : visibleTables(tables, localPlayer);
   const [isCreatingTable, setIsCreatingTable] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [enteringTable, setEnteringTable] = useState<Table | null>(null);
@@ -200,7 +199,10 @@ const Tables = () => {
 
   // Clear the join overlay as soon as there is something else to show.
   useEffect(() => {
-    if (isJoining && (enteringTable || enteringPeerTableId || playingTable || peerError)) {
+    if (
+      isJoining &&
+      (enteringTable || enteringPeerTableId || playingTable || peerError)
+    ) {
       setIsJoining(false);
     }
   }, [isJoining, enteringTable, enteringPeerTableId, playingTable, peerError]);

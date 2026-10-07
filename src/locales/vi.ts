@@ -10,12 +10,12 @@ export const vi = {
   "common.installApp": "Cài ứng dụng",
   "common.appInstalled": "Đã cài ứng dụng",
 
-  "credentials.apiKeyLabel": "Ably API Key của bạn",
+  "credentials.apiKeyLabel": "Khóa kết nối của bạn",
   "credentials.paste": "Dán",
-  "credentials.apiKeyPlaceholder": "Ably API key",
-  "credentials.getKey": "Lấy key mới tại: ",
+  "credentials.apiKeyPlaceholder": "Dán khóa kết nối",
+  "credentials.getKey": "Lấy khóa miễn phí tại ",
   "credentials.checking": "Đang kiểm tra",
-  "credentials.playWithoutAbly": "Chơi không cần Ably (chỉ PeerJS)",
+  "credentials.playWithoutAbly": "Chơi với kết nối nhanh",
 
   "player.enterName": "Nhập tên của bạn",
   "player.namePlaceholder": "Nhập tên",
@@ -31,9 +31,14 @@ export const vi = {
   "lobby.chooseImage": "Chọn ảnh",
   "lobby.scanError": "Không mở được camera. Hãy chọn ảnh chứa mã QR.",
   "lobby.createTable": "Tạo bàn",
-  "lobby.connectWithAbly": "Kết nối Ably",
-  "lobby.switchToPeer": "Chuyển sang PeerJS",
+  "lobby.connectWithAbly": "Chuyển sang kết nối tương thích",
+  "lobby.switchToPeer": "Chuyển sang kết nối nhanh",
   "lobby.connecting": "Đang kết nối…",
+
+  "connection.fastBenefit":
+    "Kết nối nhanh — không cần khóa, các máy nối trực tiếp nên độ trễ thấp nhất.",
+  "connection.compatibleBenefit":
+    "Kết nối tương thích — cần khóa miễn phí, truyền qua máy chủ nên vẫn chơi được trên mạng hạn chế.",
 
   "table.newTitle": "Bàn mới",
   "table.namePlaceholder": "Tên(*)",
@@ -49,7 +54,7 @@ export const vi = {
   "table.hostLabel": "Chủ bàn:",
   "table.activePlayers": "Đang chơi:",
   "table.removedPlayers": "Đã chơi:",
-  "table.apiKeyLabel": "API Key:",
+  "table.apiKeyLabel": "Khóa kết nối:",
   "table.share": "Chia sẻ",
   "table.copyLink": "Sao chép",
   "table.linkCopied": "Đã sao chép!",
@@ -63,7 +68,7 @@ export const vi = {
   "game.bo": "BO:",
   "game.yourTurn": "Đến lượt bạn!",
   "game.cardsSorted": "Xếp bài xong",
-  "game.fallbackMode": "Kết nối gián tiếp",
+  "game.fallbackMode": "Kết nối tương thích",
 
   "action.ready": "Sẵn sàng",
   "action.starOfHope": "⭐ hy vọng",
