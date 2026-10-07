@@ -75,6 +75,12 @@ export const en = {
   "game.cardsUnlocked": "Cards unlocked",
   "game.fallbackMode": "Compatible connection",
 
+  "chat.title": "Chat",
+  "chat.open": "Chat",
+  "chat.placeholder": "Type a message",
+  "chat.send": "Send",
+  "chat.empty": "No messages yet",
+
   "action.ready": "Ready",
   "action.starOfHope": "⭐ Star of hope",
   "action.newGame": "New game",
@@ -181,5 +187,5 @@ export const en = {
     "Press and hold your hand for 1 second to lock or unlock sorting.",
   "howToPlay.gestures.buttons": "Buttons",
   "howToPlay.gestures.buttons1":
-    "⬅️ leave the table, ℹ️ table info, 🔗 share the table, 🙋‍♂️ how to play.",
+    "⬅️ leave the table, ℹ️ table info, 🔗 share the table, 🙋‍♂️ how to play, 💬 chat.",
 } satisfies Record<TranslationKey, string>;

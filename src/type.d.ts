@@ -54,6 +54,14 @@ type PlayHistory = {
   round: number;
 };
 
+type ChatMessage = {
+  id: string;
+  playerId: string;
+  name: string;
+  ts: number;
+  text?: string;
+};
+
 type Game = {
   id: string;
   state: GameState;
@@ -66,6 +74,7 @@ type Game = {
   startPlayerId: string | null;
   lastPlayedCards: Card[];
   playHistory: PlayHistory[];
+  chat: ChatMessage[];
   winnerId: string | null;
   turnTimeout: number;
 };

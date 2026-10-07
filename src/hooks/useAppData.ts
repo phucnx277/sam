@@ -19,6 +19,7 @@ import {
   type NewTableParams,
   type JoinRejectReason,
 } from "@logic/table";
+import { appendChatMessage, makeTextMessage } from "@logic/chat";
 import usePeerData, { type PeerCallbacks } from "@hooks/usePeerData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 
@@ -645,6 +646,21 @@ const useAppData = () => {
     [playingTable, setPlayingTable],
   );
 
+  const sendChat = useCallback(
+    async (text: string): Promise<Error | null> => {
+      const table = useAblyStore.getState().playingTable;
+      const localPlayer = useLocalPlayer.getState().localPlayer;
+      if (!table || !localPlayer) return null;
+      if (!table.game.players.some((item) => item.id === localPlayer.id)) {
+        return null;
+      }
+      const message = makeTextMessage(localPlayer, text);
+      if (!message) return null;
+      return updateTable(appendChatMessage(table, message));
+    },
+    [updateTable],
+  );
+
   const enterTable = useCallback(
     async (params: EnterTableParams): Promise<Error | null> => {
       const { error: err, table } = joinTable(params);
@@ -729,6 +745,7 @@ const useAppData = () => {
     createTable,
     enterTable,
     updateTable,
+    sendChat,
     isUpdatingTable,
     removeTable,
     leaveTable,

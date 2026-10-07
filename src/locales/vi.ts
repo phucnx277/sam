@@ -71,6 +71,12 @@ export const vi = {
   "game.cardsUnlocked": "Bài chưa khóa",
   "game.fallbackMode": "Kết nối tương thích",
 
+  "chat.title": "Trò chuyện",
+  "chat.open": "Trò chuyện",
+  "chat.placeholder": "Nhập tin nhắn",
+  "chat.send": "Gửi",
+  "chat.empty": "Chưa có tin nhắn nào",
+
   "action.ready": "Sẵn sàng",
   "action.starOfHope": "⭐ hy vọng",
   "action.newGame": "Ván mới",
@@ -181,5 +187,5 @@ export const vi = {
     "Nhấn giữ bài của bạn 1 giây để khóa hoặc mở khóa việc xếp bài.",
   "howToPlay.gestures.buttons": "Các nút",
   "howToPlay.gestures.buttons1":
-    "⬅️ rời bàn, ℹ️ thông tin bàn, 🔗 chia sẻ bàn, 🙋‍♂️ hướng dẫn chơi.",
+    "⬅️ rời bàn, ℹ️ thông tin bàn, 🔗 chia sẻ bàn, 🙋‍♂️ hướng dẫn chơi, 💬 trò chuyện.",
 } as const;

@@ -50,6 +50,7 @@ export const newGame = (
       lastAction: null,
     })),
     playHistory: [],
+    chat: [],
     winnerId: null,
     round: -1,
     startedAt: -1,
@@ -214,7 +215,7 @@ export const ActionDef: Record<
     handleAction(playingTable): Table {
       return {
         ...playingTable,
-        lastGame: playingTable.game,
+        lastGame: { ...playingTable.game, chat: [] },
         game: newGame(playingTable.game, playingTable.game.players, {
           turnTimeout: playingTable.turnTimeout,
         }),

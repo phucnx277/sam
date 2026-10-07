@@ -15,6 +15,7 @@ import PlayerInfo from "./PlayerInfo";
 import TableInfo from "../Tables/TableInfo";
 import ShareTable from "../Tables/ShareTable";
 import HowToPlay from "./HowToPlay";
+import TableChat from "./TableChat";
 
 const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const { t } = useI18n();
@@ -250,6 +251,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
               {shouldShowHowToPlay && (
                 <HowToPlay onClose={() => setShouldShowHowToPlay(false)} />
               )}
+              <TableChat />
             </div>
           )}
 
