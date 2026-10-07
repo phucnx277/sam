@@ -9,6 +9,7 @@ import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import useIsMobile from "@hooks/useIsMobile";
 import useOrientation from "@hooks/useOrientation";
+import useLongPress from "@hooks/useLongPress";
 import Cards from "../Cards/Cards";
 import PlayerInfo from "./PlayerInfo";
 import TableInfo from "../Tables/TableInfo";
@@ -30,7 +31,11 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
     tiger?: GamePlayer | null;
     tigerKiller?: GamePlayer | null;
   }>({ tiger: null, tigerKiller: null });
-  const [reoderDisabled, setReorderDisabled] = useState(false);
+  const [sortingLocked, setSortingLocked] = useState(false);
+
+  const { isHolding, handlers: holdHandlers, consumeLongPress } = useLongPress({
+    onLongPress: () => setSortingLocked((prev) => !prev),
+  });
 
   const isMe = localPlayer!.id === gamePlayer.id;
 
@@ -40,7 +45,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   };
 
   const sortLocalCards = (descending: boolean) => {
-    if (!isMe || !localGame || reoderDisabled) return;
+    if (!isMe || !localGame || sortingLocked) return;
     setLocalCards(getSortedCards(localCards, descending));
   };
 
@@ -98,9 +103,9 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
     if (playingTable!.game.state !== "ended") {
       setTigers({ tiger: null, tigerKiller: null });
       if (playingTable!.game.state === "handChecking") {
-        setReorderDisabled(false);
+        setSortingLocked(false);
       } else if (playingTable!.game.state === "playing") {
-        setReorderDisabled(true);
+        setSortingLocked(true);
       }
       return;
     }
@@ -167,8 +172,8 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           gamePlayer={gamePlayer}
           isMe={isMe}
           isWinner={playingTable!.lastGame?.winnerId === gamePlayer.id}
-          reorderDisabled={reoderDisabled}
-          onCardReorderingChange={() => setReorderDisabled((prev) => !prev)}
+          locked={sortingLocked}
+          isHolding={isHolding}
         />
         <div className={`relative flex flex-1 w-full gap-x-2`}>
           {isMe && (
@@ -179,8 +184,17 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
             </div>
           )}
           <div
-            {...(isMe && localCards.length > 0 ? swipeHandlers : {})}
-            className={`flex flex-1 w-full swipeable ${playingTable!.game.state === "ended" ? "opacity-40" : ""}`}
+            {...(isMe && localCards.length > 0
+              ? { ...swipeHandlers, ...holdHandlers }
+              : {})}
+            onContextMenu={(e) => e.preventDefault()}
+            onClickCapture={(e) => {
+              if (consumeLongPress()) {
+                e.stopPropagation();
+                e.preventDefault();
+              }
+            }}
+            className={`flex flex-1 w-full swipeable select-none [-webkit-touch-callout:none] ${playingTable!.game.state === "ended" ? "opacity-40" : ""}`}
           >
             <Cards
               isMe={isMe}
@@ -198,7 +212,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
               }
               onCardSelect={selectCard}
               onReorder={reorderCards}
-              reorderDisabled={!isMe || reoderDisabled}
+              reorderDisabled={!isMe || sortingLocked}
               gamePlayer={gamePlayer}
             />
           </div>
@@ -219,7 +233,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
                 aria-label={t("table.share")}
                 onClick={() => setShouldShowShareTable(true)}
               >
-                📤
+                🔗
               </button>
               {shouldShowShareTable && (
                 <ShareTable

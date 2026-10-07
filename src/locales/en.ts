@@ -71,7 +71,8 @@ export const en = {
   "game.currentTurn": "Current",
   "game.bo": "BO:",
   "game.yourTurn": "Your turn!",
-  "game.cardsSorted": "Cards sorted",
+  "game.cardsLocked": "Cards locked",
+  "game.cardsUnlocked": "Cards unlocked",
   "game.fallbackMode": "Compatible connection",
 
   "action.ready": "Ready",
@@ -174,9 +175,11 @@ export const en = {
   "howToPlay.gestures.reorder": "Reordering cards",
   "howToPlay.gestures.reorder1":
     "Select exactly one card, then tap the green slot where it should go.",
-  "howToPlay.gestures.reorder2":
-    'Toggle reordering with the "Cards sorted" checkbox.',
+  "howToPlay.gestures.reorder2": "Available while cards are unlocked.",
+  "howToPlay.gestures.lock": "Locking cards",
+  "howToPlay.gestures.lock1":
+    "Press and hold your hand for 1 second to lock or unlock sorting.",
   "howToPlay.gestures.buttons": "Buttons",
   "howToPlay.gestures.buttons1":
-    "⬅️ leave the table, ℹ️ table info, 🙋‍♂️ how to play.",
+    "⬅️ leave the table, ℹ️ table info, 🔗 share the table, 🙋‍♂️ how to play.",
 } satisfies Record<TranslationKey, string>;

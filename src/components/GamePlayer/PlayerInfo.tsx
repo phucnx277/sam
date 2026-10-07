@@ -6,32 +6,57 @@ const PlayerInfo = memo(
     isMe,
     gamePlayer,
     isWinner,
-    reorderDisabled,
-    onCardReorderingChange,
+    locked,
+    isHolding,
   }: {
     isMe: boolean;
     gamePlayer: GamePlayer;
     isWinner?: boolean;
-    reorderDisabled: boolean;
-    onCardReorderingChange: () => void;
+    locked: boolean;
+    isHolding: boolean;
   }) => {
     const { t } = useI18n();
+    const lockLabel = locked ? t("game.cardsLocked") : t("game.cardsUnlocked");
     return (
       <div className={`flex items-center`}>
         {isMe && gamePlayer.cards.length > 0 && (
           <div className="flex-1">
-            <button
-              className={`!p-0 flex items-center`}
-              onClick={onCardReorderingChange}
+            <span
+              className="relative inline-flex size-6 items-center justify-center select-none"
+              title={lockLabel}
+              aria-label={lockLabel}
+              role="img"
             >
-              <input
-                name="cardReorderingCheck"
-                type="checkbox"
-                checked={!!reorderDisabled}
-                readOnly={true}
-              />
-              <span className="ml-1 text-sm">{t("game.cardsSorted")}</span>
-            </button>
+              {isHolding && (
+                <svg
+                  className="absolute inset-0 -rotate-90"
+                  viewBox="0 0 30 30"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="15"
+                    cy="15"
+                    r="14"
+                    fill="none"
+                    stroke="#bae6fd"
+                    strokeWidth="2"
+                  />
+                  <circle
+                    className="hold-ring"
+                    cx="15"
+                    cy="15"
+                    r="14"
+                    fill="none"
+                    stroke="#0284c7"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              )}
+              <span className="leading-none">
+                {locked ? "🔒" : "🔓"}
+              </span>
+            </span>
           </div>
         )}
 

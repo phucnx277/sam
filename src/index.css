@@ -18,3 +18,18 @@ body {
   height: 100%;
   width: 100%;
 }
+
+@keyframes hold-ring {
+  from {
+    stroke-dashoffset: 87.96;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.hold-ring {
+  stroke-dasharray: 87.96;
+  stroke-dashoffset: 87.96;
+  animation: hold-ring 1s linear forwards;
+}

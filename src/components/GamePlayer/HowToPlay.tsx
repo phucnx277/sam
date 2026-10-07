@@ -72,6 +72,10 @@ const gestureSections: Section[] = [
     itemKeys: ["howToPlay.gestures.reorder1", "howToPlay.gestures.reorder2"],
   },
   {
+    titleKey: "howToPlay.gestures.lock",
+    itemKeys: ["howToPlay.gestures.lock1"],
+  },
+  {
     titleKey: "howToPlay.gestures.buttons",
     itemKeys: ["howToPlay.gestures.buttons1"],
   },

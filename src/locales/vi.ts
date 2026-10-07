@@ -67,7 +67,8 @@ export const vi = {
   "game.currentTurn": "Lượt hiện tại",
   "game.bo": "BO:",
   "game.yourTurn": "Đến lượt bạn!",
-  "game.cardsSorted": "Xếp bài xong",
+  "game.cardsLocked": "Bài đã khóa",
+  "game.cardsUnlocked": "Bài chưa khóa",
   "game.fallbackMode": "Kết nối tương thích",
 
   "action.ready": "Sẵn sàng",
@@ -174,9 +175,11 @@ export const vi = {
   "howToPlay.gestures.reorder": "Đổi vị trí lá bài",
   "howToPlay.gestures.reorder1":
     "Chọn đúng 1 lá, sau đó chạm vào ô xanh để đưa lá đó tới vị trí mong muốn.",
-  "howToPlay.gestures.reorder2":
-    'Bật/tắt chế độ đổi vị trí bằng ô "Xếp bài xong".',
+  "howToPlay.gestures.reorder2": "Khả dụng khi bài chưa bị khóa.",
+  "howToPlay.gestures.lock": "Khóa bài",
+  "howToPlay.gestures.lock1":
+    "Nhấn giữ bài của bạn 1 giây để khóa hoặc mở khóa việc xếp bài.",
   "howToPlay.gestures.buttons": "Các nút",
   "howToPlay.gestures.buttons1":
-    "⬅️ rời bàn, ℹ️ thông tin bàn, 🙋‍♂️ hướng dẫn chơi.",
+    "⬅️ rời bàn, ℹ️ thông tin bàn, 🔗 chia sẻ bàn, 🙋‍♂️ hướng dẫn chơi.",
 } as const;
