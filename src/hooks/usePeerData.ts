@@ -10,8 +10,8 @@ import {
 import { validateJoin, type JoinRejectReason } from "@logic/table";
 
 const HOST_RETRY_MS = 1500;
-const CONNECT_TIMEOUT_MS = 8000;
-const MAX_PEER_RETRIES = 4;
+const CONNECT_TIMEOUT_MS = 3000;
+const MAX_PEER_RETRIES = 2;
 
 let session = 0;
 let connectTimer: number | null = null;
@@ -62,6 +62,7 @@ type PeerDataState = {
     password: string,
     cb: PeerCallbacks,
     baseTable?: Table,
+    retry?: boolean,
   ) => void;
   sendUpdate: (table: Table) => void;
   stop: () => void;
@@ -268,12 +269,13 @@ const usePeerData = create<PeerDataState>((set, get) => {
       });
     },
 
-    joinHost: (tableId, player, password, cb, baseTable) => {
+    joinHost: (tableId, player, password, cb, baseTable, retry = false) => {
       const prev = get();
       session += 1;
       const mySession = session;
       clearTimers();
       reportedFallback = null;
+      if (!retry) connectAttempt = 0;
       destroyState(prev);
       const seeded =
         prev.tableId === tableId
@@ -309,6 +311,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
             password,
             cb,
             get().latestTable ?? baseTable,
+            true,
           );
         }, HOST_RETRY_MS);
         return true;
