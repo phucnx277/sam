@@ -234,21 +234,28 @@ const Tables = () => {
       return;
     }
 
-    if (tableId && tblIdFromUrl !== tableId) {
-      url.searchParams.set("tblId", tableId);
-      if (mode !== "peer") {
-        url.searchParams.delete("tblPw");
+    if (mode === "peer") {
+      // Peer rejoin reads the table credential from the URL, so keep `tblPw`
+      // in sync; without it a refresh falls back to the password prompt.
+      const password = playingTable?.password ?? "";
+      if (tblIdFromUrl !== tableId || tblPwFromUrl !== password) {
+        url.searchParams.set("tblId", tableId);
+        url.searchParams.set("tblPw", password);
+        window.history.replaceState({}, "", url.toString());
       }
+      return;
+    }
+
+    if (tblIdFromUrl !== tableId) {
+      url.searchParams.set("tblId", tableId);
+      url.searchParams.delete("tblPw");
       window.history.replaceState({}, "", url.toString());
       return;
     }
 
     if (tblPwFromUrl !== null) {
-      if (mode !== "peer") {
-        url.searchParams.delete("tblPw");
-      }
+      url.searchParams.delete("tblPw");
       window.history.replaceState({}, "", url.toString());
-      return;
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps

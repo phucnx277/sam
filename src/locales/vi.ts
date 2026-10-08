@@ -38,9 +38,9 @@ export const vi = {
   "lobby.connecting": "Đang kết nối…",
 
   "connection.fastBenefit":
-    "Người chơi kết nối trực tiếp (WebRTC) nên độ trễ thấp. Có thể bị chặn bởi kết nối internet của bạn.",
+    "Người chơi kết nối trực tiếp (WebRTC) nên độ trễ thấp. Có thể bị chặn bởi mạng của bạn.",
   "connection.compatibleBenefit":
-    "Kết nối tương thích cần API key (miễn phí), truyền qua máy chủ nên vẫn chơi được trên mạng hạn chế.",
+    "Cần Ably API key (miễn phí), đỗ trễ cao hơn nhưng không bị chặn như kết nối trực tiếp.",
 
   "table.newTitle": "Bàn mới",
   "table.namePlaceholder": "Tên(*)",

@@ -43,7 +43,7 @@ export const en = {
   "connection.fastBenefit":
     "Players connect directly (WebRTC) for the lowest lag. It might not work on restrictive networks.",
   "connection.compatibleBenefit":
-    "Compatible connection needs a free API key and relays through a server, so it works even on restrictive networks.",
+    "Players need a free Ably API key, higher latency but it works even on restrictive networks.",
 
   "table.newTitle": "New Table",
   "table.namePlaceholder": "Name(*)",

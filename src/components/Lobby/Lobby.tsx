@@ -27,7 +27,7 @@ const Lobby = () => {
   }, [peerError, clearPeerError]);
 
   return (
-    <div className="h-full w-full max-w-full flex items-center justify-center">
+    <div className="h-full w-full max-w-full flex justify-center">
       {!(isInitialized && localPlayer) && <Credentials />}
       {isInitialized && <Tables />}
       {!!peerError && (

@@ -4,7 +4,7 @@ import Lobby from "./components/Lobby/Lobby";
 
 function App() {
   return (
-    <div className="h-full w-full p-2 bg-cyan-50">
+    <div className="min-h-full min-w-full p-2 bg-cyan-50">
       <Lobby />
       <Analytics />
     </div>
