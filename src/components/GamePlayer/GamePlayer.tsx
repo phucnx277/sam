@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { useSwipeable } from "react-swipeable";
 import { areCardsEqual, getSortedCards } from "@logic/card";
 import { findTigerAndKiller, isPlayerPassedTurn } from "@logic/game";
+import { chatMessageText } from "@logic/chat";
 import useLocalGame from "@hooks/useLocalGame";
+import useChat from "@hooks/useChat";
 import useI18n from "@hooks/useI18n";
 import useAppData from "@hooks/useAppData";
 import useLocalPlayer from "@hooks/useLocalPlayer";
@@ -19,6 +21,8 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const { localPlayer } = useLocalPlayer();
   const { localGame, setLocalGame, localCards, setLocalCards } = useLocalGame();
   const { playingTable } = useAppData();
+  const bubble = useChat((s) => s.bubbles[gamePlayer.id]);
+  const openChat = useChat((s) => s.open);
   const isMobile = useIsMobile();
   const orientation = useOrientation();
 
@@ -259,6 +263,23 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
               gamePlayer={gamePlayer}
             />
           </div>
+          {!isMe && bubble && (
+            <button
+              type="button"
+              onClick={openChat}
+              className="absolute inset-0 z-20 flex items-center justify-center"
+            >
+              <span className="chat-bubble flex flex-col gap-y-0.5 max-w-[16rem] bg-gray-800/90 text-white text-sm px-3 py-1.5 rounded-lg shadow-lg text-left">
+                {bubble.messages.map((message) => (
+                  <span key={message.id} className="break-words line-clamp-3">
+                    <span className="font-semibold">{message.name}</span>
+                    {": "}
+                    {chatMessageText(message)}
+                  </span>
+                ))}
+              </span>
+            </button>
+          )}
           {isMe && <PlayerMenu />}
 
           {playingTable!.game.state === "ended" && (

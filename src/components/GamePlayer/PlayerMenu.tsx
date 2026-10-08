@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import useAppData from "@hooks/useAppData";
+import useChat from "@hooks/useChat";
 import useI18n from "@hooks/useI18n";
 import TableInfo from "../Tables/TableInfo";
 import ShareTable from "../Tables/ShareTable";
@@ -12,12 +13,12 @@ type MenuActionKey = "info" | "share" | "howToPlay" | "chat" | "settings";
 const PlayerMenu = () => {
   const { t } = useI18n();
   const { playingTable } = useAppData();
+  const openChat = useChat((s) => s.open);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [shouldShowTableInfo, setShouldShowTableInfo] = useState(false);
   const [shouldShowShareTable, setShouldShowShareTable] = useState(false);
   const [shouldShowHowToPlay, setShouldShowHowToPlay] = useState(false);
-  const [shouldShowChat, setShouldShowChat] = useState(false);
   const [shouldShowSettings, setShouldShowSettings] = useState(false);
 
   useEffect(() => {
@@ -50,7 +51,7 @@ const PlayerMenu = () => {
         setShouldShowHowToPlay(true);
         break;
       case "chat":
-        setShouldShowChat(true);
+        openChat();
         break;
       case "settings":
         setShouldShowSettings(true);
@@ -114,11 +115,7 @@ const PlayerMenu = () => {
       {shouldShowSettings && (
         <Settings onClose={() => setShouldShowSettings(false)} />
       )}
-      <TableChat
-        isOpen={shouldShowChat}
-        onOpen={() => setShouldShowChat(true)}
-        onClose={() => setShouldShowChat(false)}
-      />
+      <TableChat />
     </div>
   );
 };

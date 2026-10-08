@@ -33,3 +33,18 @@ body {
   stroke-dashoffset: 87.96;
   animation: hold-ring 1s linear forwards;
 }
+
+@keyframes chat-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.chat-bubble {
+  animation: chat-bubble-in 150ms ease-out;
+}

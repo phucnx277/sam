@@ -1,23 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import useAppData from "@hooks/useAppData";
+import useChat from "@hooks/useChat";
 import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { chatMessageText, MAX_CHAT_LENGTH } from "@logic/chat";
 
-const TableChat = ({
-  isOpen,
-  onOpen,
-  onClose,
-}: {
-  isOpen: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-}) => {
+const TableChat = () => {
   const { t } = useI18n();
   const { localPlayer } = useLocalPlayer();
   const { playingTable, sendChat } = useAppData();
+  const isOpen = useChat((s) => s.isOpen);
+  const open = useChat((s) => s.open);
+  const close = useChat((s) => s.close);
+  const bubbles = useChat((s) => s.bubbles);
+  const pushBubble = useChat((s) => s.pushBubble);
+  const clearBubbles = useChat((s) => s.clearBubbles);
   const [draft, setDraft] = useState("");
-  const [toast, setToast] = useState<ChatMessage | null>(null);
   const notifiedIdRef = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -37,20 +35,32 @@ const TableChat = ({
     }
     notifiedIdRef.current = lastMessage.id;
     if (lastMessage.playerId === localPlayer?.id) return;
-    setToast(lastMessage);
-  }, [lastMessage, isOpen, localPlayer?.id]);
+    pushBubble(lastMessage);
+  }, [lastMessage, isOpen, localPlayer?.id, pushBubble]);
 
   useEffect(() => {
-    if (!toast) return;
-    const id = window.setTimeout(() => setToast(null), 4000);
-    return () => window.clearTimeout(id);
-  }, [toast]);
+    if (isOpen) clearBubbles();
+  }, [isOpen, clearBubbles]);
 
   useEffect(() => {
     if (!isOpen) return;
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [isOpen, lastMessage?.id]);
+
+  const visibleIds = new Set(
+    (playingTable?.game.players ?? [])
+      .filter(
+        (player) =>
+          player.id === localPlayer?.id ||
+          playingTable?.game.state !== "waiting" ||
+          player.isReady,
+      )
+      .map((player) => player.id),
+  );
+  const fallbackToasts = Object.entries(bubbles).filter(
+    ([senderId]) => !visibleIds.has(senderId),
+  );
 
   const submitText = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +80,7 @@ const TableChat = ({
             </div>
             <span
               className="absolute text-2xl right-4 top-2 font-normal cursor-pointer text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
-              onClick={onClose}
+              onClick={close}
             >
               {"×"}
             </span>
@@ -122,17 +132,24 @@ const TableChat = ({
         </div>
       )}
 
-      {!isOpen && toast && (
-        <div
-          className="fixed z-20 top-4 left-1/2 -translate-x-1/2 max-w-[90%] bg-gray-800/90 text-white text-sm px-4 py-2 rounded-lg shadow-lg cursor-pointer"
-            onClick={() => {
-              setToast(null);
-              onOpen();
-            }}
-        >
-          <span className="font-semibold">{toast.name}</span>
-          {": "}
-          <span>{chatMessageText(toast)}</span>
+      {!isOpen && fallbackToasts.length > 0 && (
+        <div className="fixed z-20 top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-y-2 max-w-[90%] pointer-events-none">
+          {fallbackToasts.map(([senderId, bubble]) => (
+            <button
+              key={senderId}
+              type="button"
+              className="chat-bubble pointer-events-auto max-w-[90vw] bg-gray-800/90 text-white text-sm px-4 py-2 rounded-lg shadow-lg text-left"
+              onClick={open}
+            >
+              {bubble.messages.map((message) => (
+                <div key={message.id} className="break-words">
+                  <span className="font-semibold">{message.name}</span>
+                  {": "}
+                  <span>{chatMessageText(message)}</span>
+                </div>
+              ))}
+            </button>
+          ))}
         </div>
       )}
     </>
