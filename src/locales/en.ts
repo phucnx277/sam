@@ -12,12 +12,14 @@ export const en = {
   "common.installApp": "Install App",
   "common.appInstalled": "App installed",
 
-  "credentials.apiKeyLabel": "Your connection key",
+  "settings.title": "Settings",
+
+  "credentials.apiKeyLabel": "Ably API key",
   "credentials.paste": "Paste",
-  "credentials.apiKeyPlaceholder": "Paste your connection key",
-  "credentials.getKey": "Get a free key at ",
+  "credentials.apiKeyPlaceholder": "Paste your API key",
+  "credentials.getKey": "Get a free API key at ",
   "credentials.checking": "Checking",
-  "credentials.playWithoutAbly": "Play with fast connection",
+  "credentials.playWithoutAbly": "Play without API key",
 
   "player.enterName": "Enter your name",
   "player.namePlaceholder": "Input your name",
@@ -35,13 +37,13 @@ export const en = {
     "Could not open the camera. Choose an image with a QR code instead.",
   "lobby.createTable": "Create table",
   "lobby.connectWithAbly": "Switch to compatible connection",
-  "lobby.switchToPeer": "Switch to fast connection",
+  "lobby.switchToPeer": "Play without API key",
   "lobby.connecting": "Connecting…",
 
   "connection.fastBenefit":
-    "Fast connection — no key needed and players connect directly for the lowest lag.",
+    "Players connect directly (WebRTC) for the lowest lag. It might not work on restrictive networks.",
   "connection.compatibleBenefit":
-    "Compatible connection — needs a free key and relays through a server, so it works even on restrictive networks.",
+    "Compatible connection needs a free API key and relays through a server, so it works even on restrictive networks.",
 
   "table.newTitle": "New Table",
   "table.namePlaceholder": "Name(*)",
@@ -58,7 +60,7 @@ export const en = {
   "table.hostLabel": "Host:",
   "table.activePlayers": "Active:",
   "table.removedPlayers": "Removed:",
-  "table.apiKeyLabel": "Connection key:",
+  "table.apiKeyLabel": "Ably API key:",
   "table.share": "Share",
   "table.copyLink": "Copy link",
   "table.linkCopied": "Link copied!",
@@ -71,9 +73,13 @@ export const en = {
   "game.currentTurn": "Current",
   "game.bo": "BO:",
   "game.yourTurn": "Your turn!",
+  "game.turnPassed": "Turn passed",
   "game.cardsLocked": "Cards locked",
   "game.cardsUnlocked": "Cards unlocked",
-  "game.fallbackMode": "Compatible connection",
+  "game.directMode": "Direct connection (WebRTC)",
+  "game.fallbackMode": "Compatible connection (Ably)",
+  "game.menu": "Options",
+  "game.tableInfo": "Table info",
 
   "chat.title": "Chat",
   "chat.open": "Chat",
@@ -184,8 +190,8 @@ export const en = {
   "howToPlay.gestures.reorder2": "Available while cards are unlocked.",
   "howToPlay.gestures.lock": "Locking cards",
   "howToPlay.gestures.lock1":
-    "Press and hold your hand for 1 second to lock or unlock sorting.",
+    "Press and hold your hand for 1 second, or tap the 🔒/🔓 icon below the 🔙 button, to lock or unlock sorting.",
   "howToPlay.gestures.buttons": "Buttons",
   "howToPlay.gestures.buttons1":
-    "⬅️ leave the table, ℹ️ table info, 🔗 share the table, 🙋‍♂️ how to play, 💬 chat.",
+    "🔙 leave the table. The ☰ button opens a menu: ℹ️ table info, 🔗 share the table, 💬 chat, 🙋‍♂️ how to play, ⚙️ settings.",
 } satisfies Record<TranslationKey, string>;

@@ -12,10 +12,7 @@ import useOrientation from "@hooks/useOrientation";
 import useLongPress from "@hooks/useLongPress";
 import Cards from "../Cards/Cards";
 import PlayerInfo from "./PlayerInfo";
-import TableInfo from "../Tables/TableInfo";
-import ShareTable from "../Tables/ShareTable";
-import HowToPlay from "./HowToPlay";
-import TableChat from "./TableChat";
+import PlayerMenu from "./PlayerMenu";
 
 const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const { t } = useI18n();
@@ -25,20 +22,24 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   const isMobile = useIsMobile();
   const orientation = useOrientation();
 
-  const [shouldShowTableInfo, setShouldShowTableInfo] = useState(false);
-  const [shouldShowHowToPlay, setShouldShowHowToPlay] = useState(false);
-  const [shouldShowShareTable, setShouldShowShareTable] = useState(false);
   const [{ tiger, tigerKiller }, setTigers] = useState<{
     tiger?: GamePlayer | null;
     tigerKiller?: GamePlayer | null;
   }>({ tiger: null, tigerKiller: null });
   const [sortingLocked, setSortingLocked] = useState(false);
 
-  const { isHolding, handlers: holdHandlers, consumeLongPress } = useLongPress({
+  const {
+    isHolding,
+    handlers: holdHandlers,
+    consumeLongPress,
+  } = useLongPress({
     onLongPress: () => setSortingLocked((prev) => !prev),
   });
 
   const isMe = localPlayer!.id === gamePlayer.id;
+  const lockLabel = sortingLocked
+    ? t("game.cardsLocked")
+    : t("game.cardsUnlocked");
 
   const selectCard = (card: Card) => {
     if (!isMe) return;
@@ -161,8 +162,13 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
       {!isMe &&
         playingTable!.game.state == "playing" &&
         isPlayerPassedTurn(playingTable!.game, gamePlayer) && (
-          <div className="flex items-center justify-center rounded-sm absolute z-10 top-0 left-0 bottom-0 right-0 text-4xl lg:text-7xl bg-gray-300/30">
-            🚫
+          <div className="absolute z-10 inset-0 flex items-center justify-center">
+            <div className="flex items-center gap-x-1 rounded-sm border-2 border-red-500 bg-red-50/60 px-2 py-0.5 mt-6 font-semibold text-red-600">
+              <span className="text-2xl lg:text-4xl">🚫</span>
+              <span className="text-base lg:text-2xl">
+                {t("game.turnPassed")}
+              </span>
+            </div>
           </div>
         )}
 
@@ -173,15 +179,51 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           gamePlayer={gamePlayer}
           isMe={isMe}
           isWinner={playingTable!.lastGame?.winnerId === gamePlayer.id}
-          locked={sortingLocked}
-          isHolding={isHolding}
         />
-        <div className={`relative flex flex-1 w-full gap-x-2`}>
+        <div className="relative flex flex-1 w-full gap-x-2">
           {isMe && (
-            <div>
-              <button className="!p-0" onClick={backToLobby}>
-                ⬅️
+            <div className="flex w-8 shrink-0 flex-col items-center justify-between">
+              <button className="!p-0 text-xl" onClick={backToLobby}>
+                🔙
               </button>
+              {gamePlayer.cards.length > 0 && (
+                <button
+                  className="!p-0 relative inline-flex size-7 items-center justify-center select-none text-xl"
+                  title={lockLabel}
+                  aria-label={lockLabel}
+                  onClick={() => setSortingLocked((v) => !v)}
+                >
+                  {isHolding && (
+                    <svg
+                      className="absolute -inset-1 -rotate-90"
+                      viewBox="0 0 30 30"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        cx="15"
+                        cy="15"
+                        r="14"
+                        fill="none"
+                        stroke="#bae6fd"
+                        strokeWidth="2"
+                      />
+                      <circle
+                        className="hold-ring"
+                        cx="15"
+                        cy="15"
+                        r="14"
+                        fill="none"
+                        stroke="#0284c7"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  )}
+                  <span className="leading-none text-2xl">
+                    {sortingLocked ? "🔒" : "🔓"}
+                  </span>
+                </button>
+              )}
             </div>
           )}
           <div
@@ -217,43 +259,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
               gamePlayer={gamePlayer}
             />
           </div>
-          {isMe && (
-            <div className="flex flex-col">
-              <button
-                className="!p-0"
-                onClick={() => setShouldShowTableInfo(true)}
-              >
-                ℹ️
-              </button>
-              {shouldShowTableInfo && (
-                <TableInfo onClose={() => setShouldShowTableInfo(false)} />
-              )}
-              <button
-                className="!p-0"
-                title={t("table.share")}
-                aria-label={t("table.share")}
-                onClick={() => setShouldShowShareTable(true)}
-              >
-                🔗
-              </button>
-              {shouldShowShareTable && (
-                <ShareTable
-                  table={playingTable!}
-                  onClose={() => setShouldShowShareTable(false)}
-                />
-              )}
-              <button
-                className="!p-0"
-                onClick={() => setShouldShowHowToPlay(true)}
-              >
-                🙋‍♂️
-              </button>
-              {shouldShowHowToPlay && (
-                <HowToPlay onClose={() => setShouldShowHowToPlay(false)} />
-              )}
-              <TableChat />
-            </div>
-          )}
+          {isMe && <PlayerMenu />}
 
           {playingTable!.game.state === "ended" && (
             <div className="absolute top-0 right-10 bottom-0 left-10 flex flex-1 items-center justify-center gap-x-1 text-3xl lg:text-6xl">

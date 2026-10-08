@@ -485,28 +485,28 @@ In `src/locales/vi.ts`, change:
 
 ```ts
   "howToPlay.gestures.buttons1":
-    "⬅️ rời bàn, ℹ️ thông tin bàn, 🔗 chia sẻ bàn, 🙋‍♂️ hướng dẫn chơi.",
+    "🔙 rời bàn, ℹ️ thông tin bàn, 🔗 chia sẻ bàn, 🙋‍♂️ hướng dẫn chơi.",
 ```
 
 to:
 
 ```ts
   "howToPlay.gestures.buttons1":
-    "⬅️ rời bàn, ℹ️ thông tin bàn, 🔗 chia sẻ bàn, 🙋‍♂️ hướng dẫn chơi, 💬 trò chuyện.",
+    "🔙 rời bàn, ℹ️ thông tin bàn, 🔗 chia sẻ bàn, 🙋‍♂️ hướng dẫn chơi, 💬 trò chuyện.",
 ```
 
 In `src/locales/en.ts`, change:
 
 ```ts
   "howToPlay.gestures.buttons1":
-    "⬅️ leave the table, ℹ️ table info, 🔗 share the table, 🙋‍♂️ how to play.",
+    "🔙 leave the table, ℹ️ table info, 🔗 share the table, 🙋‍♂️ how to play.",
 ```
 
 to:
 
 ```ts
   "howToPlay.gestures.buttons1":
-    "⬅️ leave the table, ℹ️ table info, 🔗 share the table, 🙋‍♂️ how to play, 💬 chat.",
+    "🔙 leave the table, ℹ️ table info, 🔗 share the table, 🙋‍♂️ how to play, 💬 chat.",
 ```
 
 - [ ] **Step 4: Verify build and lint**

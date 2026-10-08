@@ -4,11 +4,18 @@ import useI18n from "@hooks/useI18n";
 import useLocalPlayer from "@hooks/useLocalPlayer";
 import { chatMessageText, MAX_CHAT_LENGTH } from "@logic/chat";
 
-const TableChat = () => {
+const TableChat = ({
+  isOpen,
+  onOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}) => {
   const { t } = useI18n();
   const { localPlayer } = useLocalPlayer();
   const { playingTable, sendChat } = useAppData();
-  const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [toast, setToast] = useState<ChatMessage | null>(null);
   const notifiedIdRef = useRef<string | null>(null);
@@ -55,15 +62,6 @@ const TableChat = () => {
 
   return (
     <>
-      <button
-        className="!p-0"
-        title={t("chat.open")}
-        aria-label={t("chat.open")}
-        onClick={() => setIsOpen(true)}
-      >
-        💬
-      </button>
-
       {isOpen && (
         <div className="fixed z-10 top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">
           <div className="relative bg-white flex flex-col p-3 lg:p-4 rounded-lg shadow-2xl shadow-gray-400 w-[26rem] max-w-[92%] max-h-[85%]">
@@ -72,7 +70,7 @@ const TableChat = () => {
             </div>
             <span
               className="absolute text-2xl right-4 top-2 font-normal cursor-pointer text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
-              onClick={() => setIsOpen(false)}
+              onClick={onClose}
             >
               {"×"}
             </span>
@@ -127,10 +125,10 @@ const TableChat = () => {
       {!isOpen && toast && (
         <div
           className="fixed z-20 top-4 left-1/2 -translate-x-1/2 max-w-[90%] bg-gray-800/90 text-white text-sm px-4 py-2 rounded-lg shadow-lg cursor-pointer"
-          onClick={() => {
-            setToast(null);
-            setIsOpen(true);
-          }}
+            onClick={() => {
+              setToast(null);
+              onOpen();
+            }}
         >
           <span className="font-semibold">{toast.name}</span>
           {": "}

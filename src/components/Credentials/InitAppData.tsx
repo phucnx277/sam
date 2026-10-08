@@ -126,17 +126,14 @@ const InitAppData = () => {
       </p>
       <button
         type="submit"
-        className={`bg-green-600 mt-6`}
+        className={`bg-green-600 mt-6 w-full`}
         disabled={!apiKey || isInitializing}
       >
         {isInitializing ? t("credentials.checking") : t("common.next")}
       </button>
-      <p className="text-xs text-gray-500 mt-1 text-center max-w-[525px]">
-        {t("connection.compatibleBenefit")}
-      </p>
       <button
         type="button"
-        className="mt-4 text-sm text-cyan-600 underline"
+        className="mt-4 text-sm text-cyan-600"
         disabled={isInitializing}
         onClick={() => initPeer()}
       >

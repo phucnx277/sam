@@ -313,22 +313,28 @@ const Tables = () => {
               <div className="mt-2 text-center">
                 <button
                   type="button"
-                  className="text-sm text-cyan-600 underline"
+                  className="text-sm text-cyan-600"
                   onClick={switchToAbly}
                 >
                   {t("lobby.connectWithAbly")}
                 </button>
+                <p className="text-xs text-gray-500 mt-1 text-center max-w-[525px]">
+                  {t("connection.compatibleBenefit")}
+                </p>
               </div>
             )}
             {mode === "ably" && (
               <div className="mt-2 text-center">
                 <button
                   type="button"
-                  className="text-sm text-cyan-600 underline"
+                  className="text-sm text-cyan-600"
                   onClick={initPeer}
                 >
                   {t("lobby.switchToPeer")}
                 </button>
+                <p className="text-xs text-gray-500 mt-1 text-center max-w-[525px]">
+                  {t("connection.fastBenefit")}
+                </p>
               </div>
             )}
           </div>

@@ -21,10 +21,14 @@ Replace the checkbox with a **long-press gesture on the local hand** plus a
 **state indicator**:
 
 1. Remove the "Cards sorted" checkbox (`PlayerInfo`).
-2. Show a lock/unlock emoji in the same slot: 🔒 when locked, 🔓 when unlocked.
+2. Show a lock/unlock emoji next to the back-to-lobby (🔙) button in the local
+   player's `GamePlayer`: 🔒 when locked, 🔓 when unlocked.
 3. While the hand is held, show a **progress ring** around the emoji that fills
    over 1 second; on completion, toggle the lock.
-4. Suppress the browser's default long-press / right-click behavior on the hand
+4. The lock emoji is also a **tap target**: tapping it toggles the lock directly
+   (a quicker alternative to the 1-second long-press, and the only way to toggle
+   on a device where the hand gesture is awkward).
+5. Suppress the browser's default long-press / right-click behavior on the hand
    (context menu, text selection, iOS callout, image drag).
 
 The lock keeps its current meaning: **locked = drag-reorder disabled AND swipe
@@ -33,7 +37,8 @@ stays:
 
 - entering `handChecking` -> unlocked,
 - entering `playing` -> locked,
-- long-press toggles the lock within the current phase.
+- long-press **or tapping the lock emoji** toggles the lock within the current
+  phase.
 
 ## Approaches considered
 
@@ -105,28 +110,36 @@ Behavior:
   `stopPropagation()` + `preventDefault()` to swallow the post-hold click.
 - Add `select-none` and `[-webkit-touch-callout:none]` classes to the hand
   container.
-- Pass `locked={sortingLocked}` and `isHolding={isHolding}` to `PlayerInfo`.
-
-### `PlayerInfo.tsx`
-
-- Remove the checkbox button, `reorderDisabled`, and `onCardReorderingChange`
-  props; add `locked: boolean` and `isHolding: boolean`.
-- Render, in the former checkbox slot:
+- Render the lock indicator as a button directly below the 🔙 back-to-lobby
+  button, in the same left-hand column, only when `isMe` and cards exist:
 
   ```tsx
-  <span className="relative inline-flex size-6 items-center justify-center select-none"
-        title={locked ? t("game.cardsLocked") : t("game.cardsUnlocked")}
-        aria-label={...} role="img">
+  <button
+    className="!p-0 relative inline-flex size-6 items-center justify-center select-none"
+    title={lockLabel}
+    aria-label={lockLabel}
+    onClick={() => setSortingLocked((v) => !v)}
+  >
     {isHolding && (
-      <svg className="absolute inset-0 -rotate-90" viewBox="0 0 30 30" aria-hidden="true">
+      <svg className="absolute -inset-1 -rotate-90" viewBox="0 0 30 30" aria-hidden="true">
         <circle cx="15" cy="15" r="14" fill="none" stroke="#bae6fd" strokeWidth="2" />
         <circle className="hold-ring" cx="15" cy="15" r="14" fill="none"
                 stroke="#0284c7" strokeWidth="2" strokeLinecap="round" />
       </svg>
     )}
-    <span className="leading-none">{locked ? "🔒" : "🔓"}</span>
-  </span>
+    <span className="leading-none">{sortingLocked ? "🔒" : "🔓"}</span>
+  </button>
   ```
+
+  with `lockLabel` = `sortingLocked ? t("game.cardsLocked") :
+  t("game.cardsUnlocked")`.
+
+### `PlayerInfo.tsx`
+
+- Remove the checkbox button, `reorderDisabled`, `onCardReorderingChange`,
+  `locked`, `toggleLock`, and `isHolding` props. The lock indicator now lives in
+  `GamePlayer`; `PlayerInfo` keeps only the centred name/chips row (the former
+  lock slot becomes an empty `flex-1` spacer so the row stays centred).
 
 ### CSS (`src/index.css`)
 
@@ -153,9 +166,10 @@ Behavior:
   - en: "Available while cards are unlocked."
 - Add a gesture section:
   - `howToPlay.gestures.lock`: vi "Khóa bài" / en "Locking cards"
-  - `howToPlay.gestures.lock1`: vi "Nhấn giữ bài của bạn 1 giây để khóa hoặc
-    mở khóa việc xếp bài." / en "Press and hold your hand for 1 second to
-    lock or unlock sorting."
+  - `howToPlay.gestures.lock1`: vi "Nhấn giữ bài của bạn 1 giây, hoặc chạm vào
+    biểu tượng 🔒/🔓 cạnh tên bạn, để khóa hoặc mở khóa việc xếp bài." / en
+    "Press and hold your hand for 1 second, or tap the 🔒/🔓 icon next to your
+    name, to lock or unlock sorting."
 
 ### `HowToPlay.tsx`
 
@@ -173,6 +187,7 @@ Add a section `{ titleKey: "howToPlay.gestures.lock", itemKeys:
 
 - `npm run build` passes (type-checks en/vi key parity and TS).
 - `npm run lint` passes.
-- Manual: long-press own hand 1s -> ring fills and lock toggles; swipe still
+- Manual: long-press own hand 1s -> ring fills under the 🔙 button and the lock
+  toggles; tapping the 🔒/🔓 button there also toggles the lock; swipe still
   sorts while unlocked; right-click / long-press shows no context menu or text
   selection; a hold does not also select/deselect the pressed card.

@@ -10,12 +10,14 @@ export const vi = {
   "common.installApp": "Cài ứng dụng",
   "common.appInstalled": "Đã cài ứng dụng",
 
-  "credentials.apiKeyLabel": "Khóa kết nối của bạn",
+  "settings.title": "Cài đặt",
+
+  "credentials.apiKeyLabel": "Ably API key",
   "credentials.paste": "Dán",
-  "credentials.apiKeyPlaceholder": "Dán khóa kết nối",
-  "credentials.getKey": "Lấy khóa miễn phí tại ",
+  "credentials.apiKeyPlaceholder": "Dán API key của bạn",
+  "credentials.getKey": "Lấy API key miễn phí tại ",
   "credentials.checking": "Đang kiểm tra",
-  "credentials.playWithoutAbly": "Chơi với kết nối nhanh",
+  "credentials.playWithoutAbly": "Chơi không cần API key",
 
   "player.enterName": "Nhập tên của bạn",
   "player.namePlaceholder": "Nhập tên",
@@ -32,20 +34,21 @@ export const vi = {
   "lobby.scanError": "Không mở được camera. Hãy chọn ảnh chứa mã QR.",
   "lobby.createTable": "Tạo bàn",
   "lobby.connectWithAbly": "Chuyển sang kết nối tương thích",
-  "lobby.switchToPeer": "Chuyển sang kết nối nhanh",
+  "lobby.switchToPeer": "Chuyển sang kết nối trực tiếp",
   "lobby.connecting": "Đang kết nối…",
 
   "connection.fastBenefit":
-    "Kết nối nhanh — không cần khóa, các máy nối trực tiếp nên độ trễ thấp nhất.",
+    "Người chơi kết nối trực tiếp (WebRTC) nên độ trễ thấp. Có thể bị chặn bởi kết nối internet của bạn.",
   "connection.compatibleBenefit":
-    "Kết nối tương thích — cần khóa miễn phí, truyền qua máy chủ nên vẫn chơi được trên mạng hạn chế.",
+    "Kết nối tương thích cần API key (miễn phí), truyền qua máy chủ nên vẫn chơi được trên mạng hạn chế.",
 
   "table.newTitle": "Bàn mới",
   "table.namePlaceholder": "Tên(*)",
   "table.passwordPlaceholder": "Mật khẩu",
   "table.boPlaceholder": "Best Of X. Mặc định = Không giới hạn",
   "table.playerLimitPlaceholder": "Giới hạn người chơi. Mặc định = 5",
-  "table.turnTimeoutPlaceholder": "Thời gian mỗi lượt (giây). Mặc định = 0 = Tắt",
+  "table.turnTimeoutPlaceholder":
+    "Thời gian mỗi lượt (giây). Mặc định = 0 = Tắt",
   "table.tableLabel": "Bàn: ",
   "table.idLabel": "Mã bàn: ",
   "table.enterPassword": "Nhập mật khẩu",
@@ -54,7 +57,7 @@ export const vi = {
   "table.hostLabel": "Chủ bàn:",
   "table.activePlayers": "Đang chơi:",
   "table.removedPlayers": "Đã chơi:",
-  "table.apiKeyLabel": "Khóa kết nối:",
+  "table.apiKeyLabel": "Ably API key:",
   "table.share": "Chia sẻ",
   "table.copyLink": "Sao chép",
   "table.linkCopied": "Đã sao chép!",
@@ -67,9 +70,13 @@ export const vi = {
   "game.currentTurn": "Lượt hiện tại",
   "game.bo": "BO:",
   "game.yourTurn": "Đến lượt bạn!",
+  "game.turnPassed": "Mất lượt",
   "game.cardsLocked": "Bài đã khóa",
   "game.cardsUnlocked": "Bài chưa khóa",
-  "game.fallbackMode": "Kết nối tương thích",
+  "game.directMode": "Kết nối trực tiếp (WebRTC)",
+  "game.fallbackMode": "Kết nối tương thích (Ably)",
+  "game.menu": "Tùy chọn",
+  "game.tableInfo": "Thông tin bàn",
 
   "chat.title": "Trò chuyện",
   "chat.open": "Trò chuyện",
@@ -125,25 +132,22 @@ export const vi = {
   "howToPlay.rules.plays1":
     "Đánh lẻ (1 lá), đôi/sám (các lá cùng số) hoặc sảnh (từ 3 lá liên tiếp trở lên).",
   "howToPlay.rules.plays2": "Sảnh cho phép Q-K-A và A-2-3.",
-  "howToPlay.rules.plays3":
-    "Lá 2 là lá lẻ lớn nhất, chỉ bị chặn bởi tứ quý.",
-  "howToPlay.rules.plays4":
-    "Không được để lá 2 lại làm lá cuối cùng.",
+  "howToPlay.rules.plays3": "Lá 2 là lá lẻ lớn nhất, chỉ bị chặn bởi tứ quý.",
+  "howToPlay.rules.plays4": "Không được để lá 2 lại làm lá cuối cùng.",
 
   "howToPlay.rules.turns": "Diễn biến lượt",
-  "howToPlay.rules.turns1":
-    "Đến lượt, bạn phải đánh bài lớn hơn hoặc bỏ lượt.",
+  "howToPlay.rules.turns1": "Đến lượt, bạn phải đánh bài lớn hơn hoặc bỏ lượt.",
   "howToPlay.rules.turns2":
     "Khi mọi người khác đều bỏ lượt, người vừa đánh sẽ mở vòng mới.",
   "howToPlay.rules.turns3": "Ai hết bài trước thì thắng ván.",
 
   "howToPlay.rules.calls": "Báo",
   "howToPlay.rules.calls1":
-  "Trước khi đánh, bạn có thể Báo nếu đang giữ bộ bài Ăn trắng hoặc tin mình bài mạnh đánh một lượt mà không ai chặt được.",
+    "Trước khi đánh, bạn có thể Báo nếu đang giữ bộ bài Ăn trắng hoặc tin mình bài mạnh đánh một lượt mà không ai chặt được.",
   "howToPlay.rules.calls2":
     "Thứ tự bộ Ăn trắng: Sảnh rồng > Tứ 2 > Ba sám > Năm đôi > Đồng màu > Nghèo.",
   "howToPlay.rules.calls3":
-  "Báo đúng bộ Ăn trắng thì thắng ngay và những người còn lại trả chip cho bạn.",
+    "Báo đúng bộ Ăn trắng thì thắng ngay và những người còn lại trả chip cho bạn.",
   "howToPlay.rules.calls4":
     "Sau khi Báo, bạn phải đánh trước. Nếu bị người khác chặt, bạn trả chip cho người chặt.",
 
@@ -171,11 +175,9 @@ export const vi = {
   "howToPlay.gestures.flip2":
     "Vuốt trái / phải để lật úp / lật mở toàn bộ bài.",
   "howToPlay.gestures.select": "Chọn bài",
-  "howToPlay.gestures.select1":
-    "Chạm vào lá đang mở để chọn hoặc bỏ chọn.",
+  "howToPlay.gestures.select1": "Chạm vào lá đang mở để chọn hoặc bỏ chọn.",
   "howToPlay.gestures.sort": "Xếp bài",
-  "howToPlay.gestures.sort1":
-    "Vuốt lên / xuống để xếp tăng dần / giảm dần.",
+  "howToPlay.gestures.sort1": "Vuốt lên / xuống để xếp tăng dần / giảm dần.",
   "howToPlay.gestures.sort2":
     "Trên điện thoại xoay dọc, thao tác đổi trục: vuốt lên/xuống để lật, trái/phải để xếp bài.",
   "howToPlay.gestures.reorder": "Đổi vị trí lá bài",
@@ -184,8 +186,8 @@ export const vi = {
   "howToPlay.gestures.reorder2": "Khả dụng khi bài chưa bị khóa.",
   "howToPlay.gestures.lock": "Khóa bài",
   "howToPlay.gestures.lock1":
-    "Nhấn giữ bài của bạn 1 giây để khóa hoặc mở khóa việc xếp bài.",
+    "Nhấn giữ bài của bạn 1 giây, hoặc chạm vào biểu tượng 🔒/🔓 dưới nút 🔙, để khóa hoặc mở khóa việc xếp bài.",
   "howToPlay.gestures.buttons": "Các nút",
   "howToPlay.gestures.buttons1":
-    "⬅️ rời bàn, ℹ️ thông tin bàn, 🔗 chia sẻ bàn, 🙋‍♂️ hướng dẫn chơi, 💬 trò chuyện.",
+    "🔙 rời bàn. Nút ☰ mở menu: ℹ️ thông tin bàn, 🔗 chia sẻ bàn, 💬 trò chuyện, 🙋‍♂️ hướng dẫn chơi, ⚙️ cài đặt.",
 } as const;

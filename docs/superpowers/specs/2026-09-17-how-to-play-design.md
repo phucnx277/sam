@@ -53,7 +53,7 @@ Add a "How to play" modal to the game screen containing two tabs: **Game rules**
 - Swipe up / down → sort ascending / descending.
 - Mobile portrait swaps the axes: up/down flips, left/right sorts.
 - Reorder: select exactly one card, then tap the green slot where it should go.
-- Buttons: ⬅️ leave table, ℹ️ table info, 🙋‍♂️ how to play.
+- Buttons: 🔙 leave table, ℹ️ table info, 🙋‍♂️ how to play.
 
 ## Verification
 
