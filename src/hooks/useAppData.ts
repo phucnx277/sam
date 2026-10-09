@@ -245,7 +245,9 @@ const useAblyStore = create<{
       get().initPeer();
     }
     set({ peerError: null });
-    usePeerData.getState().joinHost(tableId, localPlayer, password, bridge);
+    usePeerData
+      .getState()
+      .joinHost(tableId, localPlayer, password, bridge, undefined, false, false);
   },
   clearPeerError: () => {
     set({ peerError: null });
@@ -415,7 +417,15 @@ function switchToPeerTransport(tableId: string): void {
   if (table.hostId === localPlayer.id) {
     peer.startHost(table, localPlayer, bridge);
   } else {
-    peer.joinHost(table.id, localPlayer, table.password, bridge, table);
+    peer.joinHost(
+      table.id,
+      localPlayer,
+      table.password,
+      bridge,
+      table,
+      false,
+      true,
+    );
   }
 }
 
@@ -533,7 +543,15 @@ function reconcilePeerRole(table: Table): void {
     peer.startHost(table, localPlayer, bridge);
   } else if (table.hostId !== localPlayer.id && peer.role === "host") {
     clearTableSubscription();
-    peer.joinHost(table.id, localPlayer, table.password, bridge, table);
+    peer.joinHost(
+      table.id,
+      localPlayer,
+      table.password,
+      bridge,
+      table,
+      false,
+      true,
+    );
   }
 }
 
@@ -578,7 +596,15 @@ function startPeerSession(
   if (table.hostId === player.id) {
     peer.startHost(table, player, bridge);
   } else {
-    peer.joinHost(table.id, player, password, bridge, table);
+    peer.joinHost(
+      table.id,
+      player,
+      password,
+      bridge,
+      table,
+      false,
+      useAblyStore.getState().mode !== "peer",
+    );
   }
 }
 

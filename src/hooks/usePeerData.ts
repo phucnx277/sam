@@ -10,8 +10,10 @@ import {
 import { validateJoin, type JoinRejectReason } from "@logic/table";
 
 const HOST_RETRY_MS = 1500;
-const CONNECT_TIMEOUT_MS = 3000;
-const MAX_PEER_RETRIES = 2;
+const ABLY_FALLBACK_TIMEOUT_MS = 3000;
+const ABLY_FALLBACK_MAX_RETRIES = 0;
+const PEER_ONLY_TIMEOUT_MS = 5000;
+const PEER_ONLY_MAX_RETRIES = 3;
 
 let session = 0;
 let connectTimer: number | null = null;
@@ -63,6 +65,7 @@ type PeerDataState = {
     cb: PeerCallbacks,
     baseTable?: Table,
     retry?: boolean,
+    hasAblyFallback?: boolean,
   ) => void;
   sendUpdate: (table: Table) => void;
   stop: () => void;
@@ -269,13 +272,27 @@ const usePeerData = create<PeerDataState>((set, get) => {
       });
     },
 
-    joinHost: (tableId, player, password, cb, baseTable, retry = false) => {
+    joinHost: (
+      tableId,
+      player,
+      password,
+      cb,
+      baseTable,
+      retry = false,
+      hasAblyFallback = false,
+    ) => {
       const prev = get();
       session += 1;
       const mySession = session;
       clearTimers();
       reportedFallback = null;
       if (!retry) connectAttempt = 0;
+      const maxRetries = hasAblyFallback
+        ? ABLY_FALLBACK_MAX_RETRIES
+        : PEER_ONLY_MAX_RETRIES;
+      const connectTimeoutMs = hasAblyFallback
+        ? ABLY_FALLBACK_TIMEOUT_MS
+        : PEER_ONLY_TIMEOUT_MS;
       destroyState(prev);
       const seeded =
         prev.tableId === tableId
@@ -297,7 +314,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
       });
 
       const scheduleReconnect = (): boolean => {
-        if (connectAttempt >= MAX_PEER_RETRIES) return false;
+        if (connectAttempt >= maxRetries) return false;
         connectAttempt += 1;
         if (hostRetryTimer !== null) {
           window.clearTimeout(hostRetryTimer);
@@ -312,6 +329,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
             cb,
             get().latestTable ?? baseTable,
             true,
+            hasAblyFallback,
           );
         }, HOST_RETRY_MS);
         return true;
@@ -324,7 +342,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         if (!scheduleReconnect()) {
           setFallback(true, cb);
         }
-      }, CONNECT_TIMEOUT_MS);
+      }, connectTimeoutMs);
 
       peer.on("open", () => {
         if (mySession !== session) return;
