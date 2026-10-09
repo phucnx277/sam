@@ -15,6 +15,7 @@ import {
   newTable,
   enterTable as joinTable,
   addTablePlayer,
+  isTableMember,
   type EnterTableParams,
   type NewTableParams,
   type JoinRejectReason,
@@ -172,9 +173,10 @@ const useAblyStore = create<{
   setPlayingTable: (data: Table) => {
     set((state) => {
       const localPlayer = useLocalPlayer.getState().localPlayer;
-      const isHosted =
-        state.mode !== "peer" || data.hostId === localPlayer?.id;
-      if (!isHosted) {
+      const isMember =
+        state.mode !== "peer" ||
+        (!!localPlayer && isTableMember(data, localPlayer));
+      if (!isMember) {
         return { playingTable: data };
       }
       const tables = state.tables.some((item) => item.id === data.id)
