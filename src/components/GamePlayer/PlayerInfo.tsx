@@ -1,4 +1,5 @@
 import { memo, useEffect, useState } from "react";
+import useCurrency from "@hooks/useCurrency";
 
 const PlayerInfo = memo(
   ({
@@ -45,6 +46,7 @@ const PlayerInfo = memo(
 );
 
 const ChipCount = memo(({ chipCount }: { chipCount: number }) => {
+  const { currency } = useCurrency();
   const [chip, setChip] = useState(chipCount);
 
   useEffect(() => {
@@ -66,7 +68,7 @@ const ChipCount = memo(({ chipCount }: { chipCount: number }) => {
     <div
       className={`flex items-center gap-x-1 font-semibold ${chipCount >= 0 ? `text-green-500` : "text-red-500"}`}
     >
-      <span className="text-2xl leading-5">⛁</span>
+      {currency && <span className="text-lg leading-5">{currency}</span>}
       <span>{chip}</span>
     </div>
   );

@@ -13,6 +13,7 @@ export const en = {
   "common.appInstalled": "App installed",
 
   "settings.title": "Settings",
+  "settings.currency": "Currency symbol",
 
   "credentials.apiKeyLabel": "Ably API key",
   "credentials.paste": "Paste",

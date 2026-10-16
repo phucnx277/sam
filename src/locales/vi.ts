@@ -11,6 +11,7 @@ export const vi = {
   "common.appInstalled": "Đã cài ứng dụng",
 
   "settings.title": "Cài đặt",
+  "settings.currency": "Ký hiệu tiền tệ",
 
   "credentials.apiKeyLabel": "Ably API key",
   "credentials.paste": "Dán",
