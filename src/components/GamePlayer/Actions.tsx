@@ -196,7 +196,7 @@ const Actions = memo(
         {!isGameInProgress(playingTable!.game) && (
           <div className="w-full flex items-center justify-center gap-8 bg-cyan-50/60">
             {playingTable!.game.state === "waiting" && (
-              <div className="flex flex-col gap-4 min-w-[8rem]">
+              <div className="flex flex-col gap-2 min-w-[8rem]">
                 <div className="flex justify-between items-center gap-4">
                   {renderActions(["ready", "star"])}
                 </div>

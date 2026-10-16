@@ -34,8 +34,8 @@ const PlayerMenu = () => {
     { key: "info", emoji: "ℹ️", label: t("game.tableInfo") },
     { key: "share", emoji: "🔗", label: t("table.share") },
     { key: "chat", emoji: "💬", label: t("chat.open") },
-    { key: "howToPlay", emoji: "🙋‍♂️", label: t("howToPlay.title") },
     { key: "settings", emoji: "⚙️", label: t("settings.title") },
+    { key: "howToPlay", emoji: "🙋‍♂️", label: t("howToPlay.title") },
   ];
 
   const selectAction = (key: MenuActionKey) => {

@@ -192,14 +192,14 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
               </button>
               {gamePlayer.cards.length > 0 && (
                 <button
-                  className="!p-0 relative inline-flex size-7 items-center justify-center select-none text-xl"
+                  className="!p-0 relative inline-flex size-7 items-center justify-center select-none text-sky-700"
                   title={lockLabel}
                   aria-label={lockLabel}
                   onClick={() => setSortingLocked((v) => !v)}
                 >
                   {isHolding && (
                     <svg
-                      className="absolute -inset-1 -rotate-90"
+                      className="absolute -top-1 -left-1 size-9 -rotate-90"
                       viewBox="0 0 30 30"
                       aria-hidden="true"
                     >
@@ -223,9 +223,23 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
                       />
                     </svg>
                   )}
-                  <span className="leading-none text-2xl">
-                    {sortingLocked ? "🔒" : "🔓"}
-                  </span>
+                  <svg
+                    className="size-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    {sortingLocked ? (
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    ) : (
+                      <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+                    )}
+                  </svg>
                 </button>
               )}
             </div>

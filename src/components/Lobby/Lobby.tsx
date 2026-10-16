@@ -6,6 +6,7 @@ import useLocalPlayer from "@hooks/useLocalPlayer";
 import Credentials from "../Credentials/Credentials";
 import Tables from "../Tables/Tables";
 import AutoFadeout from "../common/AutoFadeout";
+import useOrientation from "@hooks/useOrientation";
 
 const peerErrorKey = (reason: PeerError): TranslationKey => {
   if (reason === "password") return "error.passwordIncorrect";
@@ -17,6 +18,7 @@ const Lobby = () => {
   const { isInitialized, peerError, clearPeerError } = useAppData();
   const { localPlayer } = useLocalPlayer();
   const { t } = useI18n();
+  const orientation = useOrientation();
   const [errorTs, setErrorTs] = useState(0);
 
   useEffect(() => {
@@ -27,7 +29,9 @@ const Lobby = () => {
   }, [peerError, clearPeerError]);
 
   return (
-    <div className="h-full w-full max-w-full flex justify-center">
+    <div
+      className={`h-full w-full max-w-full flex justify-center ${orientation === "portrait" ? "mt-20" : ""}`}
+    >
       {!(isInitialized && localPlayer) && <Credentials />}
       {isInitialized && <Tables />}
       {!!peerError && (
