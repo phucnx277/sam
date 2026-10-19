@@ -44,10 +44,16 @@ export const vi = {
     "Cần Ably API key (miễn phí), đỗ trễ cao hơn nhưng không bị chặn như kết nối trực tiếp.",
 
   "table.newTitle": "Bàn mới",
+  "table.gameType": "Trò chơi",
+  "table.gameSam": "Sâm",
+  "table.gamePhom": "Phỏm",
   "table.namePlaceholder": "Tên(*)",
   "table.passwordPlaceholder": "Mật khẩu",
   "table.boPlaceholder": "Best Of X. Mặc định = Không giới hạn",
+  "table.multiplierPlaceholder": "Hệ số. Mặc định = 10",
   "table.playerLimitPlaceholder": "Giới hạn người chơi. Mặc định = 5",
+  "table.phomPlayerLimitPlaceholder":
+    "Giới hạn người chơi (2-4). Mặc định = 4",
   "table.turnTimeoutPlaceholder":
     "Thời gian mỗi lượt (giây). Mặc định = 0 = Tắt",
   "table.tableLabel": "Bàn: ",
@@ -70,6 +76,18 @@ export const vi = {
   "game.prevTurn": "Lượt trước",
   "game.currentTurn": "Lượt hiện tại",
   "game.bo": "BO:",
+  "game.multiplier": "Hệ số:",
+  "game.noc": "Nọc:",
+  "game.melds": "Phỏm",
+  "game.discards": "Rác",
+  "game.eaten": "Ăn",
+  "game.points": "{points}đ",
+  "game.mom": "Móm",
+  "game.u": "Ù!",
+  "game.uTron": "Ù tròn!",
+  "game.uKhan": "Ù khan!",
+  "game.uDen": "Ù đền!",
+  "game.chot": "Chốt",
   "game.yourTurn": "Đến lượt bạn!",
   "game.turnPassed": "Mất lượt",
   "game.cardsLocked": "Bài đã khóa",
@@ -93,6 +111,11 @@ export const vi = {
   "action.tiger": "Báo",
   "action.play": "Đánh",
   "action.pass": "Bỏ",
+  "action.draw": "Bốc",
+  "action.eat": "Ăn",
+  "action.meld": "Hạ phỏm",
+  "action.send": "Gửi",
+  "action.u": "Ù",
   "action.resetSession": "Đặt lại phiên",
   "action.removePlayers": "Xóa người chơi",
   "action.transferHost": "Đổi chủ bàn",
@@ -170,6 +193,29 @@ export const vi = {
   "howToPlay.rules.star1": "Chỉ bật được khi BO không giới hạn.",
   "howToPlay.rules.star2":
     "Khi cả hai bên đều bật ⭐, mọi mức chip được nhân đôi (2 thay vì 1, 20 thay vì 15, 30 thay vì 20).",
+
+  "howToPlay.phom.setup": "Chuẩn bị (Phỏm)",
+  "howToPlay.phom.setup1":
+    "Bàn chơi từ 2 đến 4 người. Người đi đầu nhận 10 lá, những người còn lại nhận 9 lá, phần còn lại đặt vào Nọc.",
+  "howToPlay.phom.setup2":
+    "Điểm các lá: A=1, 2..10 tương ứng, J=11, Q=12, K=13. Nếu chia bài không có cạ nào thì thắng Ù khan ngay.",
+  "howToPlay.phom.melds": "Phỏm & Cạ",
+  "howToPlay.phom.melds1":
+    "Phỏm ngang: 3 hoặc 4 lá cùng số. Phỏm dọc: từ 3 lá liên tiếp trở lên cùng chất (A nhỏ nhất, K lớn nhất).",
+  "howToPlay.phom.turns": "Diễn biến lượt",
+  "howToPlay.phom.turns1":
+    "Đến lượt, bạn Ăn lá bài người trước vừa đánh (nếu tạo được phỏm) hoặc Bốc 1 lá từ Nọc, sau đó Đánh ra 1 lá rác.",
+  "howToPlay.phom.turns2":
+    "Khi có người ăn bài, bài rác được tời để giữ đúng số vòng (có thể dẫn đến né hạ hoặc thêm vòng).",
+  "howToPlay.phom.turns3":
+    "Ở vòng cuối (khi đã có 3 lá rác), trước khi đánh lá thứ 4 bạn phải Hạ phỏm và có thể Gửi bài vào phỏm của người đã hạ trước.",
+  "howToPlay.phom.chips": "Tính điểm & Chip (nhân với Hệ số)",
+  "howToPlay.phom.chips1":
+    "Hết 4 vòng không ai ù: ai ít điểm bài lẻ nhất về Nhất (bằng điểm thì ai hạ trước thắng). Nhì trả 1, Ba trả 2, Bét trả 3, Móm (không có phỏm) trả 4 cho Nhất.",
+  "howToPlay.phom.chips2":
+    "Ù (0 điểm / 3 phỏm / ù gửi / ù tròn / ù khan): mỗi người thua trả 5 cho người Ù.",
+  "howToPlay.phom.chips3":
+    "Ăn cây thứ 1 được 1, cây thứ 2 được 2, ăn cây chốt được 4 từ người đánh. Ai bị ăn cả 3 cây phải Đền 15 cho người Ù.",
 
   "howToPlay.gestures.flip": "Lật bài",
   "howToPlay.gestures.flip1": "Chạm vào lá bài đang úp để lật mở.",

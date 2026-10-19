@@ -11,6 +11,8 @@ export type NewTableParams = {
   playerLimit: number;
   bo: number;
   turnTimeout: number;
+  gameType?: GameType;
+  multiplier?: number;
 };
 
 export type EnterTableParams = {
@@ -28,6 +30,8 @@ export const newTable = (params: NewTableParams): Table => {
     password: params.password,
     bo: params.bo,
     playerLimit: params.playerLimit,
+    gameType: params.gameType || "sam",
+    multiplier: params.multiplier || 10,
     createdAt: now,
     updatedAt: now,
     lastGame: null,

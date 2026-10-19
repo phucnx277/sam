@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSwipeable } from "react-swipeable";
 import { areCardsEqual, getSortedCards } from "@logic/card";
 import { findTigerAndKiller, isPlayerPassedTurn } from "@logic/game";
+import { getSortedPhomCards } from "@logic/phom";
 import { chatMessageText } from "@logic/chat";
 import useLocalGame from "@hooks/useLocalGame";
 import useChat from "@hooks/useChat";
@@ -52,7 +53,11 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
 
   const sortLocalCards = (descending: boolean) => {
     if (!isMe || !localGame || sortingLocked) return;
-    setLocalCards(getSortedCards(localCards, descending));
+    const sorted =
+      playingTable?.gameType === "phom"
+        ? getSortedPhomCards(localCards, descending)
+        : getSortedCards(localCards, descending);
+    setLocalCards(sorted);
   };
 
   const unfoldLocalCards = (folded: boolean) => {
@@ -98,11 +103,17 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
       return;
     }
 
-    setLocalCards(
-      localGame.cards.filter((item) =>
-        gamePlayer.cards.some((gpc) => areCardsEqual(item, gpc)),
-      ),
+    const kept = localGame.cards.filter((item) =>
+      gamePlayer.cards.some((gpc) => areCardsEqual(item, gpc)),
     );
+    const added = gamePlayer.cards
+      .filter((gpc) => !kept.some((item) => areCardsEqual(item, gpc)))
+      .map((c) => ({
+        ...c,
+        folded: false,
+        selected: false,
+      }));
+    setLocalCards([...kept, ...added]);
   }, [gamePlayer.cards]);
 
   useEffect(() => {
@@ -111,7 +122,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
       if (playingTable!.game.state === "handChecking") {
         setSortingLocked(false);
       } else if (playingTable!.game.state === "playing") {
-        setSortingLocked(true);
+        setSortingLocked(playingTable!.gameType !== "phom");
       }
       return;
     }
@@ -184,6 +195,56 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           isMe={isMe}
           isWinner={playingTable!.lastGame?.winnerId === gamePlayer.id}
         />
+        {playingTable!.gameType === "phom" &&
+          ((gamePlayer.discards?.length ?? 0) > 0 ||
+            (gamePlayer.eatenCards?.length ?? 0) > 0 ||
+            (gamePlayer.melds?.length ?? 0) > 0) && (
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs">
+              {(gamePlayer.discards?.length ?? 0) > 0 && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-600 font-medium">
+                    {t("game.discards")}:
+                  </span>
+                  <div className="flex items-center gap-0.5">
+                    {gamePlayer.discards!.map((c, idx) =>
+                      renderMiniCard(c, idx, "border-gray-300"),
+                    )}
+                  </div>
+                </div>
+              )}
+              {(gamePlayer.eatenCards?.length ?? 0) > 0 && (
+                <div className="flex items-center gap-1">
+                  <span className="text-amber-700 font-medium">
+                    {t("game.eaten")}:
+                  </span>
+                  <div className="flex items-center gap-0.5">
+                    {gamePlayer.eatenCards!.map((c, idx) =>
+                      renderMiniCard(c, idx, "border-amber-500 bg-amber-50"),
+                    )}
+                  </div>
+                </div>
+              )}
+              {(gamePlayer.melds?.length ?? 0) > 0 && (
+                <div className="flex items-center gap-1">
+                  <span className="text-green-700 font-medium">
+                    {t("game.melds")}:
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {gamePlayer.melds!.map((meld, mIdx) => (
+                      <div
+                        key={mIdx}
+                        className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-green-50 border border-green-500"
+                      >
+                        {meld.map((c, cIdx) =>
+                          renderMiniCard(c, cIdx, "border-green-300"),
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         <div className="relative flex flex-1 w-full gap-x-2">
           {isMe && (
             <div className="flex w-8 shrink-0 flex-col items-center justify-between">
@@ -265,16 +326,23 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
                   : gamePlayer.cards.map((c) => ({
                       ...c,
                       folded:
-                        c.folded === undefined || c.folded === null
-                          ? true
-                          : c.folded,
+                        playingTable!.gameType === "phom" &&
+                        (gamePlayer.eatenCards ?? []).some((ec) =>
+                          areCardsEqual(ec, c),
+                        )
+                          ? false
+                          : c.folded === undefined || c.folded === null
+                            ? true
+                            : c.folded,
                       selected: false,
                     }))
               }
               onCardSelect={selectCard}
               onReorder={reorderCards}
               reorderDisabled={!isMe || sortingLocked}
-              gamePlayer={gamePlayer}
+              gamePlayer={
+                playingTable!.gameType === "phom" ? undefined : gamePlayer
+              }
             />
           </div>
           {!isMe && bubble && (
@@ -333,6 +401,40 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
         </div>
       </div>
     </div>
+  );
+};
+
+const RankLabel: Record<number, string> = {
+  1: "A",
+  11: "J",
+  12: "Q",
+  13: "K",
+};
+
+const SuitSymbol: Record<Suit, string> = {
+  S: "♠",
+  C: "♣",
+  D: "♦",
+  H: "♥",
+};
+
+const renderMiniCard = (
+  card: Card,
+  key: number | string,
+  extraClass = "",
+) => {
+  const rankText = RankLabel[card.rank] ?? String(card.rank);
+  const suitText = SuitSymbol[card.suit];
+  const colorClass =
+    card.suit === "H" || card.suit === "D" ? "text-red-600" : "text-gray-900";
+  return (
+    <span
+      key={key}
+      className={`inline-flex items-center px-1 py-0.5 text-xs font-semibold leading-none rounded bg-white border ${colorClass} ${extraClass}`}
+    >
+      {rankText}
+      {suitText}
+    </span>
   );
 };
 

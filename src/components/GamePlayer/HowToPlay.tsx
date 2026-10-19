@@ -1,8 +1,36 @@
 import { useState } from "react";
+import useAppData from "@hooks/useAppData";
 import useI18n from "@hooks/useI18n";
 import type { TranslationKey } from "@logic/i18n";
 
 type Section = { titleKey: TranslationKey; itemKeys: TranslationKey[] };
+
+const phomRulesSections: Section[] = [
+  {
+    titleKey: "howToPlay.phom.setup",
+    itemKeys: ["howToPlay.phom.setup1", "howToPlay.phom.setup2"],
+  },
+  {
+    titleKey: "howToPlay.phom.melds",
+    itemKeys: ["howToPlay.phom.melds1"],
+  },
+  {
+    titleKey: "howToPlay.phom.turns",
+    itemKeys: [
+      "howToPlay.phom.turns1",
+      "howToPlay.phom.turns2",
+      "howToPlay.phom.turns3",
+    ],
+  },
+  {
+    titleKey: "howToPlay.phom.chips",
+    itemKeys: [
+      "howToPlay.phom.chips1",
+      "howToPlay.phom.chips2",
+      "howToPlay.phom.chips3",
+    ],
+  },
+];
 
 const rulesSections: Section[] = [
   {
@@ -83,8 +111,14 @@ const gestureSections: Section[] = [
 
 const HowToPlay = ({ onClose }: { onClose: () => void }) => {
   const { t } = useI18n();
+  const { playingTable } = useAppData();
   const [tab, setTab] = useState<"rules" | "gestures">("rules");
-  const sections = tab === "rules" ? rulesSections : gestureSections;
+  const sections =
+    tab === "rules"
+      ? playingTable?.gameType === "phom"
+        ? phomRulesSections
+        : rulesSections
+      : gestureSections;
 
   return (
     <div className="fixed z-10 top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">

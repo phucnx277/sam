@@ -53,37 +53,77 @@ const PlayingTable = () => {
           <div className="w-full gap-x-1 flex justify-between px-1 py-1 lg:py-2 rounded-sm border-1 border-gray-400">
             <div className="flex flex-col w-[6rem] lg:w-[8rem] border-r border-r-gray-400">
               <div
-                className={`flex flex-1 flex-col ${playingTable!.bo <= 0 ? "justify-center" : ""} items-center pt-1 gap-1`}
+                className={`flex flex-1 flex-col ${playingTable!.gameType === "phom" || playingTable!.bo > 0 ? "" : "justify-center"} items-center pt-1 gap-1`}
               >
                 <div className="text-sm">{t("game.prevTurn")}</div>
                 <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
                   {prevPlayer?.name || "--"}
                 </div>
               </div>
-              {playingTable!.bo > 0 && (
-                <div className="flex items-center justify-center gap-x-1">
-                  <span>{t("game.bo")}</span>
-                  <strong className="text-green-600">{playingTable!.bo}</strong>
+              {playingTable!.gameType === "phom" ? (
+                <div className="flex items-center justify-center gap-x-1 text-xs lg:text-sm">
+                  <span>{t("game.multiplier")}</span>
+                  <strong className="text-green-600">
+                    {playingTable!.multiplier ?? 10}
+                  </strong>
                 </div>
+              ) : (
+                playingTable!.bo > 0 && (
+                  <div className="flex items-center justify-center gap-x-1">
+                    <span>{t("game.bo")}</span>
+                    <strong className="text-green-600">
+                      {playingTable!.bo}
+                    </strong>
+                  </div>
+                )
               )}
             </div>
 
             <div className="flex-1 relative">
-              {playingTable!.game.playHistory.slice(-2).map((play, idx) => (
-                <div
-                  className="absolute z-1 flex top-0 left-0 bottom-0 right-0 bg-cyan-50/90"
-                  key={idx}
-                >
-                  <Cards
-                    cards={play.cards.map((item) => ({
-                      ...item,
-                      folded: false,
-                      selected: false,
-                    }))}
-                    isMe={false}
-                  />
-                </div>
-              ))}
+              {playingTable!.gameType === "phom" &&
+                isGameInProgress(playingTable!.game) && (
+                  <div className="absolute z-2 top-1 left-1/2 -translate-x-1/2 flex items-center gap-x-2 pointer-events-none">
+                    <span className="px-2 py-0.5 text-xs lg:text-sm font-semibold rounded-sm bg-cyan-800/80 text-white shadow">
+                      {t("game.noc")} {playingTable!.game.deck?.length ?? 0}
+                    </span>
+                    {playingTable!.game.lastDiscardIsChot &&
+                      playingTable!.game.lastPlayedCards.length > 0 && (
+                        <span className="px-2 py-0.5 text-xs lg:text-sm font-semibold rounded-sm bg-red-600 text-white shadow">
+                          {t("game.chot")}
+                        </span>
+                      )}
+                  </div>
+                )}
+              {playingTable!.gameType === "phom"
+                ? playingTable!.game.lastPlayedCards.length > 0 && (
+                    <div className="absolute z-1 flex top-0 left-0 bottom-0 right-0 bg-cyan-50/90">
+                      <Cards
+                        cards={playingTable!.game.lastPlayedCards.map(
+                          (item) => ({
+                            ...item,
+                            folded: false,
+                            selected: false,
+                          }),
+                        )}
+                        isMe={false}
+                      />
+                    </div>
+                  )
+                : playingTable!.game.playHistory.slice(-2).map((play, idx) => (
+                    <div
+                      className="absolute z-1 flex top-0 left-0 bottom-0 right-0 bg-cyan-50/90"
+                      key={idx}
+                    >
+                      <Cards
+                        cards={play.cards.map((item) => ({
+                          ...item,
+                          folded: false,
+                          selected: false,
+                        }))}
+                        isMe={false}
+                      />
+                    </div>
+                  ))}
               {playingTable!.game.currentPlayerId === localPlayer?.id &&
                 isGameInProgress(playingTable!.game) && (
                   <AutoFadeout ts={playingTable!.game.turnStartTs}>

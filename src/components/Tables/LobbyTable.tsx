@@ -1,11 +1,14 @@
 import { memo } from "react";
+import useI18n from "@hooks/useI18n";
 
 const LobbyTable = memo(({ data }: { data: Table }) => {
+  const { t } = useI18n();
   return (
     <div
       className={`h-full w-full flex flex-col justify-center items-center border rounded-sm ${data.game.state === "waiting" ? "bg-green-300 border-green-700" : data.game.state !== "ended" ? "bg-red-300 border-red-700" : "bg-gray-300 border-gray-700"}`}
     >
       <div className="font-semibold text-center text-ellipsis overflow-hidden whitespace-nowrap">
+        {data.gameType === "phom" ? `[${t("table.gamePhom")}] ` : ""}
         {data.name}
       </div>
       <div className="mt-2 flex justify-between items-center gap-x-1 lg:gap-x-1.5">

@@ -47,10 +47,15 @@ export const en = {
     "Players need a free Ably API key, higher latency but it works even on restrictive networks.",
 
   "table.newTitle": "New Table",
+  "table.gameType": "Game",
+  "table.gameSam": "Sâm",
+  "table.gamePhom": "Phỏm",
   "table.namePlaceholder": "Name(*)",
   "table.passwordPlaceholder": "Password",
   "table.boPlaceholder": "Best Of X. Default = No Limit",
+  "table.multiplierPlaceholder": "Multiplier. Default = 10",
   "table.playerLimitPlaceholder": "Player limit. Default = 5",
+  "table.phomPlayerLimitPlaceholder": "Player limit (2-4). Default = 4",
   "table.turnTimeoutPlaceholder":
     "Turn timeout (seconds). Default = 0 = Disabled",
   "table.tableLabel": "Table: ",
@@ -73,6 +78,18 @@ export const en = {
   "game.prevTurn": "Previous",
   "game.currentTurn": "Current",
   "game.bo": "BO:",
+  "game.multiplier": "Multiplier:",
+  "game.noc": "Deck:",
+  "game.melds": "Melds",
+  "game.discards": "Discards",
+  "game.eaten": "Eaten",
+  "game.points": "{points} pts",
+  "game.mom": "Burned (Móm)",
+  "game.u": "Ù!",
+  "game.uTron": "Ù tròn!",
+  "game.uKhan": "Ù khan!",
+  "game.uDen": "Ù đền!",
+  "game.chot": "Last",
   "game.yourTurn": "Your turn!",
   "game.turnPassed": "Turn passed",
   "game.cardsLocked": "Cards locked",
@@ -96,6 +113,11 @@ export const en = {
   "action.tiger": "Tiger",
   "action.play": "Play",
   "action.pass": "Pass",
+  "action.draw": "Draw",
+  "action.eat": "Eat",
+  "action.meld": "Meld",
+  "action.send": "Send",
+  "action.u": "Ù",
   "action.resetSession": "Reset session",
   "action.removePlayers": "Remove players",
   "action.transferHost": "Transfer host",
@@ -174,6 +196,29 @@ export const en = {
   "howToPlay.rules.star1": "Only available when BO is unlimited.",
   "howToPlay.rules.star2":
     "When both sides use ⭐, all chip values are doubled (2 instead of 1, 20 instead of 15, 30 instead of 20).",
+
+  "howToPlay.phom.setup": "Setup (Phỏm)",
+  "howToPlay.phom.setup1":
+    "2 to 4 players. The starter is dealt 10 cards, others receive 9 cards, and the rest form the draw pile (Nọc).",
+  "howToPlay.phom.setup2":
+    "Card points: A=1, 2..10 face value, J=11, Q=12, K=13. A dealt hand with no partial meld (cạ) wins Ù khan immediately.",
+  "howToPlay.phom.melds": "Melds (Phỏm) & Pairs (Cạ)",
+  "howToPlay.phom.melds1":
+    "Set (Phỏm ngang): 3 or 4 cards of the same rank. Run (Phỏm dọc): 3+ consecutive cards of the same suit (A low, K high).",
+  "howToPlay.phom.turns": "Turn flow",
+  "howToPlay.phom.turns1":
+    "On your turn, Eat the previous player's discard (if it forms a meld) or Draw 1 card from the deck, then Discard 1 card.",
+  "howToPlay.phom.turns2":
+    "When a discard is eaten, discards shift to keep round counts aligned (enabling né hạ and extra rounds).",
+  "howToPlay.phom.turns3":
+    "In the final round (with 3 discards), before your 4th discard you must Meld your Phỏms and may Send cards to existing melds.",
+  "howToPlay.phom.chips": "Scoring & Chips (multiplied by Multiplier)",
+  "howToPlay.phom.chips1":
+    "After 4 rounds without Ù: lowest remaining points wins 1st (ties broken by who melded first). 2nd pays 1, 3rd pays 2, 4th pays 3, Burned (no meld) pays 4 to 1st.",
+  "howToPlay.phom.chips2":
+    "Ù (0 points / 3 melds / ù gửi / ù tròn / ù khan): each loser pays 5 to the winner.",
+  "howToPlay.phom.chips3":
+    "1st eaten card pays 1, 2nd pays 2, eating the last-round card (chốt) pays 4 from the discarder. Feeding 3 eaten cards pays 15 (Đền) to the Ù winner.",
 
   "howToPlay.gestures.flip": "Flipping cards",
   "howToPlay.gestures.flip1": "Tap a face-down card to flip it up.",

@@ -8,6 +8,22 @@ import {
 } from "./card";
 import { CardsPerPlayer, createDeck, dealCards, shuffleDeck } from "./deck";
 import { checkWhiteTiger } from "./hand";
+import {
+  startPhomGame,
+  canDraw,
+  handleDraw,
+  canEat,
+  handleEat,
+  canMeld,
+  handleMeld,
+  canSend,
+  handleSend,
+  canDeclareU,
+  handleDeclareU,
+  canDiscard,
+  handleDiscard,
+  getPhomPossibleActions,
+} from "./phom";
 import { resetSession } from "./table";
 import { generateId, randomInt } from "./util";
 import { t, type TranslationKey } from "./i18n";
@@ -48,6 +64,15 @@ export const newGame = (
       selectedCards: [],
       lastPlayedRound: -1,
       lastAction: null,
+      paidVillage: false,
+      eatenCards: [],
+      discards: [],
+      melds: [],
+      hasMelded: false,
+      meldOrder: 0,
+      eatenCount: 0,
+      isMom: false,
+      score: undefined,
     })),
     playHistory: [],
     chat: [],
@@ -57,6 +82,11 @@ export const newGame = (
     turnStartTs: -1,
     turnEndTs: -1,
     turnTimeout: config.turnTimeout,
+    deck: [],
+    phomPhase: undefined,
+    lastDiscardBy: null,
+    lastDiscardIsChot: false,
+    phomWinType: null,
   };
 };
 
@@ -71,6 +101,14 @@ export const newGamePlayer = (player: Player): GamePlayer => {
     lastAction: null,
     starOfHope: false,
     paidVillage: false,
+    eatenCards: [],
+    discards: [],
+    melds: [],
+    hasMelded: false,
+    meldOrder: 0,
+    eatenCount: 0,
+    isMom: false,
+    score: undefined,
   };
 };
 
@@ -171,7 +209,9 @@ export const ActionDef: Record<
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean; value?: unknown } {
       const visible =
-        playingTable.bo < 0 && playingTable.game.state === "waiting";
+        playingTable.gameType !== "phom" &&
+        playingTable.bo < 0 &&
+        playingTable.game.state === "waiting";
       return { visible, disabled: false, value: currentPlayer.starOfHope };
     },
     handleAction(playingTable: Table, currentPlayer?: GamePlayer): Table {
@@ -199,7 +239,7 @@ export const ActionDef: Record<
       playingTable: Table,
       currentPlayer: GamePlayer,
     ): { visible: boolean; disabled: boolean } {
-      const isBO = playingTable.bo > 0;
+      const isBO = playingTable.gameType !== "phom" && playingTable.bo > 0;
       const wins = Math.ceil(playingTable.bo / 2);
       const winnerRemoved = !playingTable.game.players.some(
         (item) => item.id === playingTable.game.winnerId && item.isReady,
@@ -248,7 +288,19 @@ export const ActionDef: Record<
         ...playingTable,
       };
       try {
-        table.game = startGame(table.game, table.playerLimit);
+        if (playingTable.gameType === "phom") {
+          table.game = startPhomGame(
+            table.game,
+            table.playerLimit,
+            table.hostId,
+            table.multiplier ?? 10,
+          );
+          if (table.game.state === "ended") {
+            table.players = syncChipCounts(table.game.players, table.players);
+          }
+        } else {
+          table.game = startGame(table.game, table.playerLimit);
+        }
       } catch (err) {
         alert((err as Error).message);
       }
@@ -363,6 +415,19 @@ export const ActionDef: Record<
       playingTable: Table,
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean } {
+      if (playingTable.gameType === "phom") {
+        const visible =
+          currentPlayer.isReady && playingTable.game.state === "playing";
+        const disabled =
+          isActionTimeouted(playingTable.game) ||
+          !canDiscard(
+            playingTable.game,
+            currentPlayer,
+            currentPlayer.selectedCards,
+          );
+        return { visible, disabled };
+      }
+
       const visible =
         currentPlayer.isReady && playingTable.game.state === "playing";
       const disabled =
@@ -383,6 +448,14 @@ export const ActionDef: Record<
       return { visible, disabled };
     },
     handleAction(playingTable: Table, currentPlayer: GamePlayer) {
+      if (playingTable.gameType === "phom") {
+        return handleDiscard(
+          playingTable,
+          currentPlayer,
+          currentPlayer.selectedCards,
+        );
+      }
+
       const table = { ...playingTable };
       const nextRound =
         playingTable.game.playHistory.length === 0 ||
@@ -445,6 +518,9 @@ export const ActionDef: Record<
       playingTable: Table,
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean } {
+      if (playingTable.gameType === "phom") {
+        return { visible: false, disabled: true };
+      }
       const isTurn = isPlayerTurn(playingTable.game, currentPlayer);
       const visible =
         currentPlayer.isReady &&
@@ -496,6 +572,151 @@ export const ActionDef: Record<
       updateTurnTimes(table.game);
 
       return table;
+    },
+  },
+
+  draw: {
+    label: "action.draw",
+    type: "button",
+    inactiveClassName: "border-sky-600/90 bg-sky-300/40",
+    activeClassName: "border-sky-600/95 bg-sky-600/95 text-white",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "phom" &&
+        currentPlayer.isReady &&
+        playingTable.game.state === "playing" &&
+        playingTable.game.phomPhase === "take";
+      const disabled =
+        isActionTimeouted(playingTable.game) ||
+        !canDraw(playingTable.game, currentPlayer);
+      return { visible, disabled };
+    },
+    handleAction(playingTable: Table, currentPlayer: GamePlayer): Table {
+      return handleDraw(playingTable, currentPlayer);
+    },
+  },
+
+  eat: {
+    label: "action.eat",
+    type: "button",
+    inactiveClassName: "border-amber-600/90 bg-amber-300/40",
+    activeClassName: "border-amber-600/95 bg-amber-600/95 text-white",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "phom" &&
+        currentPlayer.isReady &&
+        playingTable.game.state === "playing" &&
+        playingTable.game.phomPhase === "take";
+      const disabled =
+        isActionTimeouted(playingTable.game) ||
+        !canEat(playingTable.game, currentPlayer);
+      return { visible, disabled };
+    },
+    handleAction(playingTable: Table, currentPlayer: GamePlayer): Table {
+      return handleEat(playingTable, currentPlayer);
+    },
+  },
+
+  meld: {
+    label: "action.meld",
+    type: "button",
+    inactiveClassName: "border-purple-600/90 bg-purple-300/40",
+    activeClassName: "border-purple-600/95 bg-purple-600/95 text-white",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "phom" &&
+        currentPlayer.isReady &&
+        playingTable.game.state === "playing" &&
+        (playingTable.game.phomPhase === "meld" ||
+          playingTable.game.phomPhase === "discard") &&
+        ((currentPlayer.discards?.length ?? 0) >= 3 ||
+          !!currentPlayer.hasMelded);
+      const disabled =
+        isActionTimeouted(playingTable.game) ||
+        !canMeld(
+          playingTable.game,
+          currentPlayer,
+          currentPlayer.selectedCards,
+        );
+      return { visible, disabled };
+    },
+    handleAction(playingTable: Table, currentPlayer: GamePlayer): Table {
+      return handleMeld(
+        playingTable,
+        currentPlayer,
+        currentPlayer.selectedCards,
+      );
+    },
+  },
+
+  send: {
+    label: "action.send",
+    type: "button",
+    inactiveClassName: "border-indigo-600/90 bg-indigo-300/40",
+    activeClassName: "border-indigo-600/95 bg-indigo-600/95 text-white",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "phom" &&
+        currentPlayer.isReady &&
+        playingTable.game.state === "playing" &&
+        (playingTable.game.phomPhase === "meld" ||
+          playingTable.game.phomPhase === "discard") &&
+        ((currentPlayer.discards?.length ?? 0) >= 3 ||
+          !!currentPlayer.hasMelded) &&
+        (currentPlayer.melds?.length ?? 0) > 0;
+      const disabled =
+        isActionTimeouted(playingTable.game) ||
+        !canSend(
+          playingTable.game,
+          currentPlayer,
+          currentPlayer.selectedCards,
+        );
+      return { visible, disabled };
+    },
+    handleAction(playingTable: Table, currentPlayer: GamePlayer): Table {
+      return handleSend(
+        playingTable,
+        currentPlayer,
+        currentPlayer.selectedCards,
+      );
+    },
+  },
+
+  u: {
+    label: "action.u",
+    type: "button",
+    inactiveClassName: "border-rose-600/90 bg-rose-300/40",
+    activeClassName: "border-rose-600/95 bg-rose-600/95 text-white",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "phom" &&
+        currentPlayer.isReady &&
+        playingTable.game.state === "playing" &&
+        (playingTable.game.phomPhase === "meld" ||
+          playingTable.game.phomPhase === "discard") &&
+        canDeclareU(playingTable.game, currentPlayer);
+      const disabled =
+        isActionTimeouted(playingTable.game) ||
+        !canDeclareU(playingTable.game, currentPlayer);
+      return { visible, disabled };
+    },
+    handleAction(playingTable: Table, currentPlayer: GamePlayer): Table {
+      return handleDeclareU(playingTable, currentPlayer);
     },
   },
 
@@ -975,6 +1196,9 @@ export function getCurrentPossibleActions(
   table: Table,
   player: GamePlayer,
 ): PlayerAction[] {
+  if (table.gameType === "phom") {
+    return getPhomPossibleActions(table, player);
+  }
   const game = table.game;
   if (!isPlayerTurn(game, player)) return [];
   switch (game.state) {

@@ -7,6 +7,7 @@ import {
   isGameInProgress,
 } from "@logic/game";
 import { checkWhiteTiger, WhiteTigerRankKey } from "@logic/hand";
+import { handlePhomAutoAction } from "@logic/phom";
 import useI18n from "@hooks/useI18n";
 import useCountDown from "@hooks/useCountDown";
 import { calDurationSec } from "@logic/util";
@@ -36,6 +37,10 @@ const Actions = memo(
       const curPlayer = playingTable!.game.players.find(
         (item) => item.id === playingTable!.game.currentPlayerId,
       );
+      if (playingTable!.gameType === "phom") {
+        onAction(handlePhomAutoAction(playingTable!, curPlayer!));
+        return;
+      }
       const possibleActions = getCurrentPossibleActions(
         playingTable!,
         curPlayer!,
@@ -89,7 +94,7 @@ const Actions = memo(
           return (
             <TwoStepButton
               key={action}
-              className="flex w-1/2 lg:w-1/4 !min-w-[8rem] !max-w[12rem] py-1 border-2 rounded-sm font-semibold"
+              className="flex w-1/2 lg:w-1/4 !min-w-[5.5rem] sm:!min-w-[8rem] !max-w-[12rem] py-1 border-2 rounded-sm font-semibold"
               activeClassName={def.activeClassName}
               inactiveClassName={def.inactiveClassName}
               onConfirm={() =>
@@ -183,12 +188,18 @@ const Actions = memo(
     return (
       <>
         {isGameInProgress(playingTable!.game) && (
-          <div className="w-full flex items-center">
-            <div className="flex-1 flex justify-start">
-              {renderTwoStepButtonActions(["pass", "ask"])}
+          <div className="w-full flex items-center gap-1">
+            <div className="flex-1 flex justify-start gap-1">
+              {renderTwoStepButtonActions([
+                "pass",
+                "ask",
+                "draw",
+                "meld",
+                "send",
+              ])}
             </div>
-            <div className="flex-1 flex justify-end">
-              {renderTwoStepButtonActions(["play", "tiger"])}
+            <div className="flex-1 flex justify-end gap-1">
+              {renderTwoStepButtonActions(["eat", "u", "play", "tiger"])}
             </div>
           </div>
         )}

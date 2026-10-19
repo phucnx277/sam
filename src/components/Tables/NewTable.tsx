@@ -12,8 +12,13 @@ function isBoValid(value: number): boolean {
   return !isNaN(value) && value >= -1 && Math.abs(value % 2) === 1;
 }
 
-function isPlayerLimitValid(value: number): boolean {
-  return !isNaN(value) && value >= 2 && value <= 5;
+function isMultiplierValid(value: number): boolean {
+  return !isNaN(value) && value >= 1 && Number.isInteger(value);
+}
+
+function isPlayerLimitValid(value: number, gameType: GameType): boolean {
+  const max = gameType === "phom" ? 4 : 5;
+  return !isNaN(value) && value >= 2 && value <= max;
 }
 
 function isTurnTimeoutValid(value: number): boolean {
@@ -23,8 +28,13 @@ function isTurnTimeoutValid(value: number): boolean {
 const normalizedFormValues = (
   formData: Partial<NewTableParams>,
 ): Partial<NewTableParams> => {
-  formData.bo = Number(formData.bo || -1);
-  formData.playerLimit = Number(formData.playerLimit || 5);
+  const gameType: GameType = formData.gameType === "phom" ? "phom" : "sam";
+  formData.gameType = gameType;
+  formData.bo = gameType === "phom" ? -1 : Number(formData.bo || -1);
+  formData.multiplier = Number(formData.multiplier || 10);
+  formData.playerLimit = Number(
+    formData.playerLimit || (gameType === "phom" ? 4 : 5),
+  );
   formData.turnTimeout = Number(formData.turnTimeout || 0);
 
   return formData;
@@ -40,9 +50,11 @@ const NewTable = (props: {
   const { createTable, tables } = useAppData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<Partial<NewTableParams>>({
+    gameType: "sam",
     name: "",
     password: "",
     bo: "",
+    multiplier: "",
     playerLimit: "",
     turnTimeout: "",
   } as never);
@@ -53,10 +65,14 @@ const NewTable = (props: {
 
   const isFormValid = useCallback(() => {
     const checkingForm = normalizedFormValues({ ...form });
+    const isSettingValid =
+      checkingForm.gameType === "phom"
+        ? isMultiplierValid(checkingForm.multiplier!)
+        : isBoValid(checkingForm.bo!);
     return (
       isNameValid(checkingForm.name) &&
-      isBoValid(checkingForm.bo!) &&
-      isPlayerLimitValid(checkingForm.playerLimit!) &&
+      isSettingValid &&
+      isPlayerLimitValid(checkingForm.playerLimit!, checkingForm.gameType!) &&
       isTurnTimeoutValid(checkingForm.turnTimeout!)
     );
   }, [form]);
@@ -95,6 +111,30 @@ const NewTable = (props: {
         autoComplete="off"
       >
         <p className="text-center text-lg">{t("table.newTitle")}</p>
+        <div className="flex gap-x-2">
+          <button
+            type="button"
+            className={`flex-1 py-1 border rounded-sm font-semibold ${
+              (form.gameType || "sam") === "sam"
+                ? "border-cyan-600 bg-cyan-300"
+                : "border-gray-300 bg-white"
+            }`}
+            onClick={() => updateFormValue("gameType", "sam")}
+          >
+            {t("table.gameSam")}
+          </button>
+          <button
+            type="button"
+            className={`flex-1 py-1 border rounded-sm font-semibold ${
+              form.gameType === "phom"
+                ? "border-cyan-600 bg-cyan-300"
+                : "border-gray-300 bg-white"
+            }`}
+            onClick={() => updateFormValue("gameType", "phom")}
+          >
+            {t("table.gamePhom")}
+          </button>
+        </div>
         <input
           name="tblName"
           className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
@@ -112,22 +152,38 @@ const NewTable = (props: {
           value={form.password}
           onInput={(e) => updateFormValue("password", e.currentTarget.value)}
         />
-        <input
-          name="tblBo"
-          className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
-          placeholder={t("table.boPlaceholder")}
-          type="number"
-          min={-1}
-          value={form.bo}
-          onInput={(e) => updateFormValue("bo", e.currentTarget.value)}
-        />
+        {form.gameType === "phom" ? (
+          <input
+            name="tblMultiplier"
+            className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
+            placeholder={t("table.multiplierPlaceholder")}
+            type="number"
+            min={1}
+            value={form.multiplier}
+            onInput={(e) => updateFormValue("multiplier", e.currentTarget.value)}
+          />
+        ) : (
+          <input
+            name="tblBo"
+            className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
+            placeholder={t("table.boPlaceholder")}
+            type="number"
+            min={-1}
+            value={form.bo}
+            onInput={(e) => updateFormValue("bo", e.currentTarget.value)}
+          />
+        )}
         <input
           name="tblLimitPlayer"
           className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
-          placeholder={t("table.playerLimitPlaceholder")}
+          placeholder={
+            form.gameType === "phom"
+              ? t("table.phomPlayerLimitPlaceholder")
+              : t("table.playerLimitPlaceholder")
+          }
           type="number"
           min={2}
-          max={5}
+          max={form.gameType === "phom" ? 4 : 5}
           value={form.playerLimit}
           onInput={(e) => updateFormValue("playerLimit", e.currentTarget.value)}
         />

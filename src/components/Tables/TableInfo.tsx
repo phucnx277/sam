@@ -137,6 +137,24 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
             {isPeerFallback ? t("game.fallbackMode") : t("game.directMode")}
           </div>
         </div>
+        <div className="flex gap-x-4 items-center">
+          <div>
+            <span>{t("table.gameType")}:</span>
+            <span className="ml-1 font-semibold">
+              {playingTable!.gameType === "phom"
+                ? t("table.gamePhom")
+                : t("table.gameSam")}
+            </span>
+          </div>
+          {playingTable!.gameType === "phom" && (
+            <div>
+              <span>{t("game.multiplier")}</span>
+              <span className="ml-1 font-semibold">
+                {playingTable!.multiplier ?? 10}
+              </span>
+            </div>
+          )}
+        </div>
         <div>
           <span>{t("table.hostLabel")}</span>
           {isReadOnly && (
