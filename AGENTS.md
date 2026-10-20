@@ -24,21 +24,20 @@ React 19 + Vite 7 PWA for playing "Sam", a Vietnamese card game. Multiplayer has
 - `src/logic/*` — pure, framework-free game rules. Functions take/return `Table`/`Game`; no I/O. Most game behavior (turns, tigers, chip settlement) is here and in `logic/game.ts`'s `ActionDef`.
 - `src/hooks/*` — Zustand stores (module-level singletons via `create()`) that wire logic to React and Ably. `useAppData` is the Ably client; `useLocalGame`/`useLocalPlayer` persist to `localStorage` under `sam.*` keys.
 - i18n: `src/locales/*` holds the `vi`/`en` dictionaries (`vi` is the key source of truth; `en` must satisfy the same key set). `logic/i18n.ts` is framework-free (types, `translate`, `detectLocale`, a module-level `t()` used by the logic layer); `hooks/useI18n.ts` owns the locale, persists it under `sam.locale`, and syncs `<html lang>` + the logic-layer locale.
-- Realtime data model: **PeerJS is the primary transport** between clients. The
-  table host runs a peer with id `sam-<tableId>`; other players connect to it
-  and updates are broadcast host -> clients (optimistic full-table snapshots
+- Realtime data model: **Metered P2P (`@metered-ca/realtime` via `VITE_METERED_PUB_KEY`) is the primary transport** between clients. The
+  table host and clients join channel `sam-<tableId>` with `MeteredPeer` and exchange messages over WebRTC `RTCDataChannel` (`label: "sam"`); updates are broadcast host -> clients (optimistic full-table snapshots
   tagged with a host-local `rev`). Ably LiveObjects on channel `sam.lobby` (root
   LiveMap keys `tables` and `transports`) is **write-through plus subscribed
   fallback**: every update is written to `tables[tableId]`; the lobby `tables`
   map is subscribed for live add/remove, and the `transports` map is a control
-  channel subscribed by every device in Ably mode. When any device cannot use PeerJS
+  channel subscribed by every device in Ably mode. When any device cannot use Metered P2P
   it writes `transports[tableId] = "ably"`; every device on that table then
-  switches to Ably (stops PeerJS, sets `isPeerFallback`, subscribes the table's
+  switches to Ably (stops `MeteredPeer`, sets `isPeerFallback`, subscribes the table's
   LiveMap for data). The switch is sticky until the table is removed, except
   that the `resetSession` action writes `transports[tableId] = "peer"` to retry
-  PeerJS for everyone (falling back to Ably again if any device still cannot
+  Metered P2P for everyone (falling back to Ably again if any device still cannot
   connect). When set, `transports[tableId]` is `"ably"` or `"peer"` (absent
-  means attempt PeerJS on entry). The
+  means attempt Metered P2P on entry). The
   lobby/table snapshot is read once at load (`parseTables`/`parseTable` in
   `logic/util.ts`). Peer protocol helpers live in `logic/peer.ts`; the lifecycle
   store is `hooks/usePeerData.ts`.

@@ -1,7 +1,6 @@
 import type { JoinRejectReason } from "./table";
 
 export const HOST_PEER_PREFIX = "sam";
-export const CLIENT_PEER_PREFIX = "sam-c";
 
 export const tablePeerId = (tableId: string): string =>
   `${HOST_PEER_PREFIX}-${tableId}`;
@@ -21,7 +20,15 @@ const isTableLike = (value: unknown): value is Table => {
   return true;
 };
 
-export const parsePeerMsg = (data: unknown): PeerMsg | null => {
+export const parsePeerMsg = (raw: unknown): PeerMsg | null => {
+  let data: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
   if (typeof data !== "object" || data === null) return null;
   const msg = data as Record<string, unknown>;
   const from = typeof msg.from === "string" ? msg.from : "";

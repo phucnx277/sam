@@ -1,7 +1,6 @@
 import { create } from "zustand";
-import Peer, { type DataConnection } from "peerjs";
+import { MeteredPeer, type RemotePeer } from "@metered-ca/realtime";
 import {
-  CLIENT_PEER_PREFIX,
   parsePeerMsg,
   shouldApplyRevision,
   tablePeerId,
@@ -9,6 +8,7 @@ import {
 } from "@logic/peer";
 import { validateJoin, type JoinRejectReason } from "@logic/table";
 
+const DATA_CHANNEL_LABEL = "sam";
 const HOST_RETRY_MS = 1500;
 const ABLY_FALLBACK_TIMEOUT_MS = 3000;
 const ABLY_FALLBACK_MAX_RETRIES = 0;
@@ -47,11 +47,12 @@ export type PeerCallbacks = {
 type PeerRole = "host" | "client" | null;
 
 type PeerDataState = {
-  peer: Peer | null;
+  peer: MeteredPeer | null;
   role: PeerRole;
   tableId: string | null;
-  hostConn: DataConnection | null;
-  clientConns: DataConnection[];
+  hostPeerId: string | null;
+  hostConn: RTCDataChannel | null;
+  clientConns: RTCDataChannel[];
   latestTable: Table | null;
   rev: number;
   lastRev: number;
@@ -71,54 +72,99 @@ type PeerDataState = {
   stop: () => void;
 };
 
-const peerOptions = (): { host?: string; port?: number; path?: string } => {
-  const options: { host?: string; port?: number; path?: string } = {};
-  if (import.meta.env.VITE_PEER_HOST) {
-    options.host = import.meta.env.VITE_PEER_HOST;
-  }
-  if (import.meta.env.VITE_PEER_PORT) {
-    options.port = Number(import.meta.env.VITE_PEER_PORT);
-  }
-  if (import.meta.env.VITE_PEER_PATH) {
-    options.path = import.meta.env.VITE_PEER_PATH;
-  }
-  return options;
-};
+const getMeteredApiKey = (): string =>
+  (import.meta.env.VITE_METERED_PUB_KEY ?? "").trim();
 
-export const randomClientPeerId = (): string =>
-  `${CLIENT_PEER_PREFIX}-${Math.random().toString(36).slice(2, 10)}`;
-
-const safeSend = (conn: DataConnection, msg: PeerMsg): void => {
-  if (!conn.open) return;
+const safeSend = (conn: RTCDataChannel, msg: PeerMsg): void => {
+  if (conn.readyState !== "open") return;
   try {
-    conn.send(msg);
+    conn.send(JSON.stringify(msg));
   } catch {
     /* connection closed mid-send */
   }
 };
 
-const destroyState = (state: PeerDataState): void => {
-  if (state.hostConn) {
-    try {
-      state.hostConn.close();
-    } catch {
-      /* noop */
-    }
+const safeCloseChannel = (conn: RTCDataChannel | null | undefined): void => {
+  if (!conn) return;
+  try {
+    conn.onopen = null;
+    conn.onmessage = null;
+    conn.onclose = null;
+    conn.onerror = null;
+    conn.close();
+  } catch {
+    /* noop */
   }
-  state.clientConns.forEach((conn) => {
-    try {
-      conn.close();
-    } catch {
-      /* noop */
-    }
-  });
+};
+
+const destroyState = (state: PeerDataState): void => {
+  safeCloseChannel(state.hostConn);
+  state.clientConns.forEach((conn) => safeCloseChannel(conn));
   if (state.peer) {
     try {
-      state.peer.destroy();
+      void state.peer.close();
     } catch {
       /* noop */
     }
   }
+};
+
+const bindPeerDataChannels = (
+  peer: MeteredPeer,
+  isCurrentSession: () => boolean,
+  onChannel: (remote: RemotePeer, dc: RTCDataChannel) => void,
+  onRemoteLeft: (remoteId: string) => void,
+): void => {
+  const peerChannels = new Map<string, RTCDataChannel>();
+
+  const attachChannel = (remote: RemotePeer, raw: RTCDataChannel): void => {
+    if (!isCurrentSession()) {
+      safeCloseChannel(raw);
+      return;
+    }
+    const prev = peerChannels.get(remote.id);
+    if (prev && prev !== raw) {
+      safeCloseChannel(prev);
+    }
+    peerChannels.set(remote.id, raw);
+    onChannel(remote, raw);
+  };
+
+  const maybeCreateChannel = (remote: RemotePeer): void => {
+    if (!isCurrentSession() || remote.polite) return;
+    try {
+      const dc = remote.pc.createDataChannel(DATA_CHANNEL_LABEL);
+      attachChannel(remote, dc);
+    } catch {
+      /* peer connection not ready or closed */
+    }
+  };
+
+  peer.on("peer-joined", ({ peer: remote }) => {
+    if (!isCurrentSession()) return;
+    remote.on("data-channel", ({ channel }) => {
+      attachChannel(remote, channel);
+    });
+    maybeCreateChannel(remote);
+    remote.on("connection-reset", () => {
+      maybeCreateChannel(remote);
+    });
+  });
+
+  peer.on("peer-left", ({ peer: remote }) => {
+    if (!isCurrentSession()) return;
+    const prev = peerChannels.get(remote.id);
+    if (prev) {
+      safeCloseChannel(prev);
+      peerChannels.delete(remote.id);
+    }
+    onRemoteLeft(remote.id);
+  });
+
+  peer.on("left", () => {
+    peerChannels.forEach((dc) => safeCloseChannel(dc));
+    peerChannels.clear();
+  });
 };
 
 const usePeerData = create<PeerDataState>((set, get) => {
@@ -133,6 +179,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
     peer: null,
     role: null,
     tableId: null,
+    hostPeerId: null,
     hostConn: null,
     clientConns: [],
     latestTable: null,
@@ -145,6 +192,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
       const prev = get();
       session += 1;
       const mySession = session;
+      const isCurrentSession = (): boolean => mySession === session;
       clearTimers();
       reportedFallback = null;
       connectAttempt = 0;
@@ -153,11 +201,33 @@ const usePeerData = create<PeerDataState>((set, get) => {
         prev.tableId === table.id ? (prev.latestTable ?? table) : table;
       const baseRev = Math.max(prev.rev, prev.lastRev, Date.now());
 
-      const peer = new Peer(tablePeerId(table.id), peerOptions());
+      const apiKey = getMeteredApiKey();
+      if (!apiKey) {
+        set({
+          peer: null,
+          role: "host",
+          tableId: table.id,
+          hostPeerId: null,
+          latestTable: baseTable,
+          rev: baseRev,
+          lastRev: baseRev,
+          fallback: false,
+          hostConn: null,
+          clientConns: [],
+          callbacks: cb,
+        });
+        setFallback(true, cb);
+        return;
+      }
+
+      const peer = new MeteredPeer({ apiKey });
+      const channelByRemote = new Map<string, RTCDataChannel>();
+
       set({
         peer,
         role: "host",
         tableId: table.id,
+        hostPeerId: null,
         latestTable: baseTable,
         rev: baseRev,
         lastRev: baseRev,
@@ -167,109 +237,123 @@ const usePeerData = create<PeerDataState>((set, get) => {
         callbacks: cb,
       });
 
-      peer.on("open", () => {
-        if (mySession !== session) return;
-        setFallback(false, cb);
-      });
+      const removeClientConn = (conn: RTCDataChannel): void => {
+        if (!isCurrentSession()) return;
+        set({ clientConns: get().clientConns.filter((c) => c !== conn) });
+      };
 
-      peer.on("connection", (conn) => {
-        conn.on("data", (data) => {
-          if (mySession !== session) return;
-          const msg = parsePeerMsg(data);
-          if (!msg) return;
-          if (msg.type === "hello") {
-            const state = get();
-            if (!state.clientConns.includes(conn)) {
-              set({ clientConns: [...state.clientConns, conn] });
-            }
-            const joining: Player = { id: msg.playerId, name: msg.name };
-            let latest = get().latestTable ?? table;
+      bindPeerDataChannels(
+        peer,
+        isCurrentSession,
+        (remote, conn) => {
+          const prevConn = channelByRemote.get(remote.id);
+          if (prevConn && prevConn !== conn) {
+            removeClientConn(prevConn);
+          }
+          channelByRemote.set(remote.id, conn);
 
-            const reason = validateJoin(latest, joining, msg.password);
-            if (reason) {
-              safeSend(conn, { type: "reject", reason });
-              window.setTimeout(() => {
-                try {
-                  conn.close();
-                } catch {
-                  /* noop */
-                }
-              }, 250);
-              set({
-                clientConns: get().clientConns.filter((c) => c !== conn),
+          conn.onmessage = (ev: MessageEvent) => {
+            if (!isCurrentSession()) return;
+            const msg = parsePeerMsg(ev.data);
+            if (!msg) return;
+            if (msg.type === "hello") {
+              const joining: Player = { id: msg.playerId, name: msg.name };
+              let latest = get().latestTable ?? table;
+
+              const reason = validateJoin(latest, joining, msg.password);
+              if (reason) {
+                safeSend(conn, { type: "reject", reason });
+                window.setTimeout(() => {
+                  safeCloseChannel(conn);
+                }, 250);
+                removeClientConn(conn);
+                return;
+              }
+
+              const merged = get().callbacks?.onJoin(joining, latest);
+              if (merged && merged !== latest) {
+                const rev = get().rev + 1;
+                set({ latestTable: merged, rev });
+                latest = merged;
+                const out: PeerMsg = {
+                  type: "update",
+                  table: merged,
+                  rev,
+                  from: joining.id,
+                };
+                get()
+                  .clientConns.filter((c) => c !== conn)
+                  .forEach((c) => safeSend(c, out));
+                get().callbacks?.onUpdate(merged, rev);
+              }
+              const state = get();
+              if (!state.clientConns.includes(conn)) {
+                set({ clientConns: [...state.clientConns, conn] });
+              }
+              safeSend(conn, {
+                type: "snapshot",
+                table: latest,
+                rev: get().rev,
+                from: joining.id,
               });
               return;
             }
-
-            const merged = get().callbacks?.onJoin(joining, latest);
-            if (merged && merged !== latest) {
+            if (msg.type === "update") {
               const rev = get().rev + 1;
-              set({ latestTable: merged, rev });
-              latest = merged;
+              set({ latestTable: msg.table, rev });
               const out: PeerMsg = {
                 type: "update",
-                table: merged,
+                table: msg.table,
                 rev,
-                from: joining.id,
+                from: msg.from,
               };
               get().clientConns.forEach((c) => safeSend(c, out));
-              get().callbacks?.onUpdate(merged, rev);
+              get().callbacks?.onUpdate(msg.table, rev);
             }
-            safeSend(conn, {
-              type: "snapshot",
-              table: latest,
-              rev: get().rev,
-              from: joining.id,
-            });
-            return;
+          };
+
+          conn.onclose = () => {
+            removeClientConn(conn);
+          };
+
+          conn.onerror = () => {
+            removeClientConn(conn);
+          };
+        },
+        (remoteId) => {
+          const prevConn = channelByRemote.get(remoteId);
+          if (prevConn) {
+            channelByRemote.delete(remoteId);
+            removeClientConn(prevConn);
           }
-          if (msg.type === "update") {
-            const rev = get().rev + 1;
-            set({ latestTable: msg.table, rev });
-            const out: PeerMsg = {
-              type: "update",
-              table: msg.table,
-              rev,
-              from: msg.from,
-            };
-            get().clientConns.forEach((c) => safeSend(c, out));
-            get().callbacks?.onUpdate(msg.table, rev);
-          }
-        });
+        },
+      );
 
-        conn.on("close", () => {
-          if (mySession !== session) return;
-          set({ clientConns: get().clientConns.filter((c) => c !== conn) });
-        });
-
-        conn.on("error", () => {
-          if (mySession !== session) return;
-          set({ clientConns: get().clientConns.filter((c) => c !== conn) });
-        });
-      });
-
-      peer.on("disconnected", () => {
-        if (mySession !== session) return;
-        try {
-          peer.reconnect();
-        } catch {
-          /* noop */
-        }
-      });
-
-      peer.on("error", (err) => {
-        if (mySession !== session) return;
-        const type = (err as { type?: string }).type;
-        if (type !== "unavailable-id") return;
+      const scheduleHostRetry = (): void => {
+        if (!isCurrentSession() || hostRetryTimer !== null) return;
         hostRetryTimer = window.setTimeout(() => {
           hostRetryTimer = null;
-          if (mySession !== session) return;
+          if (!isCurrentSession()) return;
           const state = get();
           if (state.role === "host" && state.tableId === table.id) {
             state.startHost(state.latestTable ?? table, player, cb);
           }
         }, HOST_RETRY_MS);
+      };
+
+      peer.on("error", () => {
+        scheduleHostRetry();
       });
+
+      peer
+        .join(tablePeerId(table.id))
+        .then(() => {
+          if (!isCurrentSession()) return;
+          setFallback(false, cb);
+        })
+        .catch(() => {
+          scheduleHostRetry();
+        });
     },
 
     joinHost: (
@@ -284,6 +368,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
       const prev = get();
       session += 1;
       const mySession = session;
+      const isCurrentSession = (): boolean => mySession === session;
       clearTimers();
       reportedFallback = null;
       if (!retry) connectAttempt = 0;
@@ -299,11 +384,31 @@ const usePeerData = create<PeerDataState>((set, get) => {
           ? (prev.latestTable ?? baseTable ?? null)
           : (baseTable ?? null);
 
-      const peer = new Peer(randomClientPeerId(), peerOptions());
+      const apiKey = getMeteredApiKey();
+      if (!apiKey) {
+        set({
+          peer: null,
+          role: "client",
+          tableId,
+          hostPeerId: null,
+          latestTable: seeded,
+          rev: 0,
+          lastRev: 0,
+          fallback: false,
+          hostConn: null,
+          clientConns: [],
+          callbacks: cb,
+        });
+        setFallback(true, cb);
+        return;
+      }
+
+      const peer = new MeteredPeer({ apiKey });
       set({
         peer,
         role: "client",
         tableId,
+        hostPeerId: null,
         latestTable: seeded,
         rev: 0,
         lastRev: 0,
@@ -321,7 +426,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         }
         hostRetryTimer = window.setTimeout(() => {
           hostRetryTimer = null;
-          if (mySession !== session) return;
+          if (!isCurrentSession()) return;
           get().joinHost(
             tableId,
             player,
@@ -335,95 +440,119 @@ const usePeerData = create<PeerDataState>((set, get) => {
         return true;
       };
 
-      connectTimer = window.setTimeout(() => {
-        connectTimer = null;
-        if (mySession !== session) return;
-        if (get().hostConn?.open) return;
+      const startConnectWait = (): void => {
+        clearConnectTimer();
+        connectTimer = window.setTimeout(() => {
+          connectTimer = null;
+          if (!isCurrentSession()) return;
+          if (get().hostConn?.readyState === "open") return;
+          if (!scheduleReconnect()) {
+            setFallback(true, cb);
+          }
+        }, connectTimeoutMs);
+      };
+
+      startConnectWait();
+
+      const handleHostLost = (remoteId: string): void => {
+        if (!isCurrentSession()) return;
+        if (get().hostPeerId !== remoteId) return;
+        set({ hostPeerId: null, hostConn: null });
+        startConnectWait();
+      };
+
+      bindPeerDataChannels(
+        peer,
+        isCurrentSession,
+        (remote, conn) => {
+          if (get().hostPeerId === remote.id && get().hostConn !== conn) {
+            handleHostLost(remote.id);
+          }
+
+          const sendHello = (): void => {
+            if (!isCurrentSession()) return;
+            safeSend(conn, {
+              type: "hello",
+              playerId: player.id,
+              name: player.name,
+              password,
+            });
+          };
+
+          if (conn.readyState === "open") {
+            sendHello();
+          } else {
+            conn.onopen = sendHello;
+          }
+
+          conn.onmessage = (ev: MessageEvent) => {
+            if (!isCurrentSession()) return;
+            const msg = parsePeerMsg(ev.data);
+            if (!msg) return;
+            if (msg.type === "snapshot") {
+              clearConnectTimer();
+              connectAttempt = 0;
+              set({
+                hostPeerId: remote.id,
+                hostConn: conn,
+                latestTable: msg.table,
+                lastRev: msg.rev,
+              });
+              setFallback(false, cb);
+              cb.onSnapshot(msg.table, msg.rev);
+              return;
+            }
+            if (msg.type === "reject") {
+              const callbacks = get().callbacks;
+              get().stop();
+              callbacks?.onReject(msg.reason);
+              return;
+            }
+            if (msg.type === "update") {
+              const currentHostPeerId = get().hostPeerId;
+              if (currentHostPeerId && remote.id !== currentHostPeerId) return;
+              if (msg.from === "client") return;
+              if (!shouldApplyRevision(msg.rev, get().lastRev)) return;
+              if (!currentHostPeerId) {
+                clearConnectTimer();
+                connectAttempt = 0;
+                set({ hostPeerId: remote.id, hostConn: conn });
+                setFallback(false, cb);
+              }
+              set({ latestTable: msg.table, lastRev: msg.rev });
+              cb.onUpdate(msg.table, msg.rev);
+            }
+          };
+
+          conn.onclose = () => {
+            handleHostLost(remote.id);
+          };
+
+          conn.onerror = () => {
+            handleHostLost(remote.id);
+          };
+        },
+        (remoteId) => {
+          handleHostLost(remoteId);
+        },
+      );
+
+      peer.on("error", () => {
+        if (!isCurrentSession()) return;
+        clearConnectTimer();
+        set({ hostPeerId: null, hostConn: null });
         if (!scheduleReconnect()) {
           setFallback(true, cb);
         }
-      }, connectTimeoutMs);
-
-      peer.on("open", () => {
-        if (mySession !== session) return;
-        const conn = peer.connect(tablePeerId(tableId), { reliable: true });
-        set({ hostConn: conn });
-
-        conn.on("open", () => {
-          if (mySession !== session) return;
-          clearConnectTimer();
-          connectAttempt = 0;
-          setFallback(false, cb);
-          safeSend(conn, {
-            type: "hello",
-            playerId: player.id,
-            name: player.name,
-            password,
-          });
-        });
-
-        conn.on("data", (data) => {
-          if (mySession !== session) return;
-          const msg = parsePeerMsg(data);
-          if (!msg) return;
-          if (msg.type === "snapshot") {
-            set({ latestTable: msg.table, lastRev: msg.rev });
-            cb.onSnapshot(msg.table, msg.rev);
-            return;
-          }
-          if (msg.type === "reject") {
-            const callbacks = get().callbacks;
-            get().stop();
-            callbacks?.onReject(msg.reason);
-            return;
-          }
-          if (msg.type === "update") {
-            if (!shouldApplyRevision(msg.rev, get().lastRev)) return;
-            set({ latestTable: msg.table, lastRev: msg.rev });
-            cb.onUpdate(msg.table, msg.rev);
-          }
-        });
-
-        conn.on("close", () => {
-          if (mySession !== session) return;
-          clearConnectTimer();
-          set({ hostConn: null });
-          if (!scheduleReconnect()) {
-            setFallback(true, cb);
-          }
-        });
-
-        conn.on("error", () => {
-          if (mySession !== session) return;
-          clearConnectTimer();
-          set({ hostConn: null });
-          if (!scheduleReconnect()) {
-            setFallback(true, cb);
-          }
-        });
       });
 
-      peer.on("disconnected", () => {
-        if (mySession !== session) return;
-        try {
-          peer.reconnect();
-        } catch {
-          /* noop */
-        }
-      });
-
-      peer.on("error", (err) => {
-        if (mySession !== session) return;
+      peer.join(tablePeerId(tableId)).catch(() => {
+        if (!isCurrentSession()) return;
         clearConnectTimer();
-        set({ hostConn: null });
-        const type = (err as { type?: string }).type;
-        if (type === "unavailable-id" || type === "peer-unavailable") {
-          if (!scheduleReconnect()) {
-            setFallback(true, cb);
-          }
-          return;
+        set({ hostPeerId: null, hostConn: null });
+        if (!scheduleReconnect()) {
+          setFallback(true, cb);
         }
-        setFallback(true, cb);
       });
     },
 
@@ -458,6 +587,7 @@ const usePeerData = create<PeerDataState>((set, get) => {
         peer: null,
         role: null,
         tableId: null,
+        hostPeerId: null,
         hostConn: null,
         clientConns: [],
         latestTable: null,
