@@ -13,6 +13,11 @@ export type NewTableParams = {
   turnTimeout: number;
   gameType?: GameType;
   multiplier?: number;
+  pokerMode?: PokerMode;
+  buyIn?: number;
+  smallBlind?: number;
+  bigBlind?: number;
+  ante?: number;
 };
 
 export type EnterTableParams = {
@@ -23,6 +28,13 @@ export type EnterTableParams = {
 
 export const newTable = (params: NewTableParams): Table => {
   const now = Date.now();
+  const gameType = params.gameType || "sam";
+  const buyIn = params.buyIn || 1000;
+  const isPoker = gameType === "poker";
+  const hostGamePlayer = {
+    ...newGamePlayer(params.player),
+    ...(isPoker ? { stack: buyIn, buyIn, chipCount: 0 } : {}),
+  };
   const table: Table = {
     id: generateId("tbl"),
     hostId: params.player.id,
@@ -30,12 +42,17 @@ export const newTable = (params: NewTableParams): Table => {
     password: params.password,
     bo: params.bo,
     playerLimit: params.playerLimit,
-    gameType: params.gameType || "sam",
+    gameType,
     multiplier: params.multiplier || 10,
+    pokerMode: params.pokerMode || "cash",
+    buyIn,
+    smallBlind: params.smallBlind || 5,
+    bigBlind: params.bigBlind || 10,
+    ante: params.ante ?? 0,
     createdAt: now,
     updatedAt: now,
     lastGame: null,
-    game: newGame(null, [newGamePlayer(params.player)], {
+    game: newGame(null, [hostGamePlayer], {
       turnTimeout: params.turnTimeout,
     }),
     turnTimeout: params.turnTimeout,
@@ -44,6 +61,7 @@ export const newTable = (params: NewTableParams): Table => {
         id: params.player.id,
         name: params.player.name,
         chipCount: 0,
+        ...(isPoker ? { stack: buyIn, buyIn } : {}),
       },
     ],
   };
@@ -94,6 +112,7 @@ export const enterTable = (
     };
   }
 
+  const defaultBuyIn = table.buyIn ?? 1000;
   if (
     table.game.players.findIndex((item) => item.id === params.player.id) === -1
   ) {
@@ -105,6 +124,14 @@ export const enterTable = (
     if (tblPlayer) {
       tblPlayer.isRemoved = false;
       newGp.chipCount = tblPlayer.chipCount;
+      if (table.gameType === "poker") {
+        newGp.stack = tblPlayer.stack ?? defaultBuyIn;
+        newGp.buyIn = tblPlayer.buyIn ?? defaultBuyIn;
+      }
+    } else if (table.gameType === "poker") {
+      newGp.stack = defaultBuyIn;
+      newGp.buyIn = defaultBuyIn;
+      newGp.chipCount = 0;
     }
 
     table.game.players = [...table.game.players, newGp];
@@ -117,6 +144,9 @@ export const enterTable = (
         id: params.player.id,
         name: params.player.name,
         chipCount: 0,
+        ...(table.gameType === "poker"
+          ? { stack: defaultBuyIn, buyIn: defaultBuyIn }
+          : {}),
       },
     ];
   }
@@ -134,6 +164,7 @@ export const addTablePlayer = (table: Table, player: Player): Table => {
     players: [...table.players],
   };
 
+  const defaultBuyIn = table.buyIn ?? 1000;
   if (next.game.players.findIndex((item) => item.id === player.id) === -1) {
     const tblPlayer = next.players.find(
       (item) => item.id === player.id && item.isRemoved,
@@ -141,9 +172,17 @@ export const addTablePlayer = (table: Table, player: Player): Table => {
     const newGp = newGamePlayer(player);
     if (tblPlayer) {
       newGp.chipCount = tblPlayer.chipCount;
+      if (table.gameType === "poker") {
+        newGp.stack = tblPlayer.stack ?? defaultBuyIn;
+        newGp.buyIn = tblPlayer.buyIn ?? defaultBuyIn;
+      }
       next.players = next.players.map((item) =>
         item.id === player.id ? { ...item, isRemoved: false } : item,
       );
+    } else if (table.gameType === "poker") {
+      newGp.stack = defaultBuyIn;
+      newGp.buyIn = defaultBuyIn;
+      newGp.chipCount = 0;
     }
     next.game.players = [...next.game.players, newGp];
   }
@@ -151,7 +190,14 @@ export const addTablePlayer = (table: Table, player: Player): Table => {
   if (next.players.findIndex((item) => item.id === player.id) === -1) {
     next.players = [
       ...next.players,
-      { id: player.id, name: player.name, chipCount: 0 },
+      {
+        id: player.id,
+        name: player.name,
+        chipCount: 0,
+        ...(table.gameType === "poker"
+          ? { stack: defaultBuyIn, buyIn: defaultBuyIn }
+          : {}),
+      },
     ];
   }
 
@@ -177,11 +223,17 @@ export const hostedTables = (
   !player ? [] : tables.filter((table) => table.hostId === player.id);
 
 export const resetSession = (table: Table): Table => {
+  const isPoker = table.gameType === "poker";
+  const defaultBuyIn = table.buyIn ?? 1000;
   return {
     ...table,
     game: newGame(
       null,
-      table.game.players.map((gp) => ({ ...gp, chipCount: 0 })),
+      table.game.players.map((gp) => ({
+        ...gp,
+        chipCount: 0,
+        ...(isPoker ? { stack: defaultBuyIn, buyIn: defaultBuyIn } : {}),
+      })),
       { turnTimeout: table.turnTimeout },
     ),
     lastGame: null,
@@ -189,6 +241,7 @@ export const resetSession = (table: Table): Table => {
       id: item.id,
       name: item.name,
       chipCount: 0,
+      ...(isPoker ? { stack: defaultBuyIn, buyIn: defaultBuyIn } : {}),
     })),
     updatedAt: Date.now(),
   };

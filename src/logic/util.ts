@@ -132,6 +132,7 @@ export type TableLink = {
   tableId: string;
   password: string | null;
   apiKey: string | null;
+  gameType: GameType | null;
 };
 
 export const parseTableLink = (link: string): TableLink | null => {
@@ -148,12 +149,17 @@ export const parseTableLink = (link: string): TableLink | null => {
   const password = url.searchParams.get("tblPw");
   const apiKey = url.searchParams.get("apiKey");
   const mode = url.searchParams.get("mode");
+  const rawGame = url.searchParams.get("game");
+  const gameType: GameType | null =
+    rawGame === "sam" || rawGame === "phom" || rawGame === "poker"
+      ? rawGame
+      : null;
 
   if (mode === "peer" && !apiKey) {
-    return { mode: "peer", tableId, password, apiKey: null };
+    return { mode: "peer", tableId, password, apiKey: null, gameType };
   }
   if (apiKey) {
-    return { mode: "ably", tableId, password, apiKey };
+    return { mode: "ably", tableId, password, apiKey, gameType };
   }
   return null;
 };

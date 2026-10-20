@@ -29,6 +29,21 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
   const [isDirty, setIsDirty] = useState<boolean>(false);
   const [inGamePlayers, setInGamePlayers] = useState<TablePlayer[]>([]);
   const [removedPlayers, setRemovedPlayers] = useState<TablePlayer[]>([]);
+  const [smallBlindInput, setSmallBlindInput] = useState<string>(
+    String(playingTable!.smallBlind ?? 5),
+  );
+  const [bigBlindInput, setBigBlindInput] = useState<string>(
+    String(playingTable!.bigBlind ?? 10),
+  );
+  const [anteInput, setAnteInput] = useState<string>(
+    String(playingTable!.ante ?? 0),
+  );
+  const [addChipPlayerId, setAddChipPlayerId] = useState<string>(
+    playingTable!.game.players[0]?.id ?? "",
+  );
+  const [addChipAmount, setAddChipAmount] = useState<string>(
+    String(playingTable!.buyIn ?? 1000),
+  );
 
   useEffect(() => {
     if (!playingTable) return;
@@ -37,6 +52,14 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
     const removed = playingTable.players.filter((item) => item.isRemoved);
     setInGamePlayers(ingame);
     setRemovedPlayers(removed);
+    setSmallBlindInput(String(playingTable.smallBlind ?? 5));
+    setBigBlindInput(String(playingTable.bigBlind ?? 10));
+    setAnteInput(String(playingTable.ante ?? 0));
+    setAddChipPlayerId((prev) =>
+      playingTable.game.players.some((gp) => gp.id === prev)
+        ? prev
+        : (playingTable.game.players[0]?.id ?? ""),
+    );
   }, [playingTable]);
 
   const copy = useCallback(
@@ -48,7 +71,11 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
       }
       if (type === "result") {
         content = playingTable!.players
-          .map((item) => `${item.name}: ${item.chipCount}`)
+          .map((item) =>
+            playingTable!.gameType === "poker"
+              ? `${item.name}: ${item.stack ?? 0}`
+              : `${item.name}: ${item.chipCount}`,
+          )
           .join("\n");
       }
       navigator.clipboard
@@ -79,6 +106,54 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
+  const updateBlinds = async () => {
+    if (isReadOnly || isUpdatingTable || playingTable!.gameType !== "poker")
+      return;
+    const currentGamePlayer = playingTable!.game.players.find(
+      (item) => item.id === localPlayer!.id,
+    )!;
+    const nextTable = ActionDef.updatePokerConfig.handleAction(
+      playingTable!,
+      currentGamePlayer,
+      {
+        smallBlind: Number(smallBlindInput),
+        bigBlind: Number(bigBlindInput),
+        ante: Number(anteInput),
+      },
+    );
+    const error = await updateTable(nextTable);
+    if (error) {
+      alert(error.message);
+    }
+  };
+
+  const addChips = async () => {
+    if (
+      isReadOnly ||
+      isUpdatingTable ||
+      playingTable!.gameType !== "poker" ||
+      playingTable!.pokerMode === "tournament"
+    )
+      return;
+    const currentGamePlayer = playingTable!.game.players.find(
+      (item) => item.id === localPlayer!.id,
+    )!;
+    const targetPlayerId =
+      addChipPlayerId || playingTable!.game.players[0]?.id || "";
+    const nextTable = ActionDef.addPokerChips.handleAction(
+      playingTable!,
+      currentGamePlayer,
+      {
+        targetPlayerId,
+        amount: Number(addChipAmount),
+      },
+    );
+    const error = await updateTable(nextTable);
+    if (error) {
+      alert(error.message);
+    }
+  };
+
   const saveTable = async () => {
     if (isReadOnly || isUpdatingTable) return;
     if (inGamePlayers.length === 0) {
@@ -94,6 +169,28 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
 
     let newTable = playingTable!;
     let shouldUpdate = false;
+
+    if (playingTable!.gameType === "poker") {
+      const nextSb = Number(smallBlindInput);
+      const nextBb = Number(bigBlindInput);
+      const nextAnte = Number(anteInput);
+      if (
+        nextSb !== (playingTable!.smallBlind ?? 5) ||
+        nextBb !== (playingTable!.bigBlind ?? 10) ||
+        nextAnte !== (playingTable!.ante ?? 0)
+      ) {
+        newTable = ActionDef.updatePokerConfig.handleAction(
+          newTable,
+          currentGamePlayer,
+          {
+            smallBlind: nextSb,
+            bigBlind: nextBb,
+            ante: nextAnte,
+          },
+        );
+        shouldUpdate = true;
+      }
+    }
 
     if (playingTable!.hostId !== hostId) {
       newTable = ActionDef.transferHost.handleAction(
@@ -137,13 +234,15 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
             {isPeerFallback ? t("game.fallbackMode") : t("game.directMode")}
           </div>
         </div>
-        <div className="flex gap-x-4 items-center">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 items-center">
           <div>
             <span>{t("table.gameType")}:</span>
             <span className="ml-1 font-semibold">
               {playingTable!.gameType === "phom"
                 ? t("table.gamePhom")
-                : t("table.gameSam")}
+                : playingTable!.gameType === "poker"
+                  ? `${t("table.gamePoker")} (${playingTable!.pokerMode === "tournament" ? t("table.pokerTournament") : t("table.pokerCash")})`
+                  : t("table.gameSam")}
             </span>
           </div>
           {playingTable!.gameType === "phom" && (
@@ -153,6 +252,28 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
                 {playingTable!.multiplier ?? 10}
               </span>
             </div>
+          )}
+          {playingTable!.gameType === "poker" && (
+            <>
+              <div>
+                <span>{t("table.buyInLabel")}</span>
+                <span className="ml-1 font-semibold">
+                  {playingTable!.buyIn ?? 1000}
+                </span>
+              </div>
+              <div>
+                <span>{t("table.blindsLabel")}</span>
+                <span className="ml-1 font-semibold">
+                  {playingTable!.smallBlind ?? 5}/{playingTable!.bigBlind ?? 10}
+                </span>
+              </div>
+              <div>
+                <span>{t("table.anteLabel")}</span>
+                <span className="ml-1 font-semibold">
+                  {playingTable!.ante ?? 0}
+                </span>
+              </div>
+            </>
           )}
         </div>
         <div>
@@ -181,6 +302,90 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
           )}
         </div>
 
+        {!isReadOnly && playingTable!.gameType === "poker" && (
+          <div className="my-1 p-2 border border-gray-200 rounded-sm flex flex-col gap-y-2 bg-gray-50">
+            <div className="flex flex-wrap items-center gap-1.5 text-sm">
+              <span className="font-medium">{t("table.blindsLabel")}</span>
+              <input
+                type="number"
+                min={
+                  playingTable!.pokerMode === "tournament"
+                    ? (playingTable!.smallBlind ?? 5)
+                    : 1
+                }
+                value={smallBlindInput}
+                onChange={(e) => setSmallBlindInput(e.target.value)}
+                className="w-16 px-1 py-0.5 border border-gray-400 rounded-sm bg-white"
+              />
+              <span>/</span>
+              <input
+                type="number"
+                min={
+                  playingTable!.pokerMode === "tournament"
+                    ? (playingTable!.bigBlind ?? 10)
+                    : 1
+                }
+                value={bigBlindInput}
+                onChange={(e) => setBigBlindInput(e.target.value)}
+                className="w-16 px-1 py-0.5 border border-gray-400 rounded-sm bg-white"
+              />
+              <span className="ml-1 font-medium">{t("table.anteLabel")}</span>
+              <input
+                type="number"
+                min={
+                  playingTable!.pokerMode === "tournament"
+                    ? (playingTable!.ante ?? 0)
+                    : 0
+                }
+                value={anteInput}
+                onChange={(e) => setAnteInput(e.target.value)}
+                className="w-16 px-1 py-0.5 border border-gray-400 rounded-sm bg-white"
+              />
+              <button
+                type="button"
+                className="!px-2 !py-0.5 text-xs border border-amber-500 bg-amber-200 hover:bg-amber-300 rounded-sm font-medium"
+                onClick={updateBlinds}
+                disabled={isUpdatingTable}
+              >
+                {t("table.updateBlindsBtn")}
+              </button>
+            </div>
+
+            {playingTable!.pokerMode !== "tournament" && (
+              <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                <span className="font-medium">{t("table.addChipsTitle")}</span>
+                <select
+                  className="border border-gray-400 rounded-sm px-1 py-0.5 bg-white"
+                  value={addChipPlayerId}
+                  onChange={(e) => setAddChipPlayerId(e.target.value)}
+                >
+                  {playingTable!.game.players.map((gp) => (
+                    <option value={gp.id} key={gp.id}>
+                      {gp.name} ({gp.stack ?? (playingTable!.buyIn ?? 1000)})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder={t("table.addChipsAmountPlaceholder")}
+                  value={addChipAmount}
+                  onChange={(e) => setAddChipAmount(e.target.value)}
+                  className="w-20 px-1 py-0.5 border border-gray-400 rounded-sm bg-white"
+                />
+                <button
+                  type="button"
+                  className="!px-2 !py-0.5 text-xs border border-emerald-600 bg-emerald-200 hover:bg-emerald-300 rounded-sm font-medium"
+                  onClick={addChips}
+                  disabled={isUpdatingTable}
+                >
+                  {t("table.addChipsBtn")}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div>
           <p>{t("table.activePlayers")}</p>
           <div className="mt-2 flex gap-1 flex-wrap min-h-[2rem]">
@@ -190,6 +395,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
                 key={item.id}
                 onMove={movePlayer}
                 isReadOnly={isReadOnly}
+                isPoker={playingTable!.gameType === "poker"}
               />
             ))}
           </div>
@@ -203,6 +409,7 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
                     key={item.id}
                     onMove={movePlayer}
                     isReadOnly={isReadOnly || !!item.isRemoved}
+                    isPoker={playingTable!.gameType === "poker"}
                   />
                 ))}
               </div>
@@ -262,25 +469,33 @@ const TableInfo = ({ onClose }: { onClose: () => void }) => {
 const TablePlayerInfo = ({
   data,
   isReadOnly,
+  isPoker,
   onMove,
 }: {
   data: TablePlayer;
   isReadOnly: boolean;
+  isPoker?: boolean;
   onMove: (tbp: TablePlayer) => void;
 }) => {
   return (
     <div
       onClick={() => (!isReadOnly ? onMove(data) : void 0)}
-      className={`px-1.5 py-0.5 flex items-center justify-center gap-1 rounded-sm border min-w-[4rem] max-w-[6rem] ${!data.isRemoved ? "border-green-500 active:bg-green-500 hover:bg-green-500" : "bg-gray-300"} ${!isReadOnly ? "cursor-pointer" : ""}`}
+      className={`px-1.5 py-0.5 flex items-center justify-center gap-1 rounded-sm border min-w-[4rem] ${isPoker ? "max-w-[10rem]" : "max-w-[6rem]"} ${!data.isRemoved ? "border-green-500 active:bg-green-500 hover:bg-green-500" : "bg-gray-300"} ${!isReadOnly ? "cursor-pointer" : ""}`}
     >
-      <span className="max-w-[3rem] text-ellipsis overflow-hidden whitespace-nowrap">
+      <span className="max-w-[3.5rem] text-ellipsis overflow-hidden whitespace-nowrap">
         {data.name}
       </span>
-      <span
-        className={`text-sm px-0.5 border rounded-sm ${!data.isRemoved ? (data.chipCount >= 0 ? "border-green-500 text-green-500 bg-green-50" : "border-red-500 text-red-500 bg-red-50") : ""}`}
-      >
-        {data.chipCount}
-      </span>
+      {isPoker ? (
+        <span className="text-sm px-0.5 border border-amber-500 text-amber-800 bg-amber-50 rounded-sm">
+          {data.stack ?? 0}
+        </span>
+      ) : (
+        <span
+          className={`text-sm px-0.5 border rounded-sm ${!data.isRemoved ? (data.chipCount >= 0 ? "border-green-500 text-green-500 bg-green-50" : "border-red-500 text-red-500 bg-red-50") : ""}`}
+        >
+          {data.chipCount}
+        </span>
+      )}
     </div>
   );
 };

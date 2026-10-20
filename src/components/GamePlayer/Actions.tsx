@@ -1,4 +1,4 @@
-import { memo, useEffect, type ReactNode } from "react";
+import { memo, useEffect, useState, type ReactNode } from "react";
 import {
   ActionDef,
   findNextAutoPlayer,
@@ -8,6 +8,12 @@ import {
 } from "@logic/game";
 import { checkWhiteTiger, WhiteTigerRankKey } from "@logic/hand";
 import { handlePhomAutoAction } from "@logic/phom";
+import {
+  canCall,
+  getCallAmount,
+  getRaiseBounds,
+  handlePokerAutoAction,
+} from "@logic/poker";
 import useI18n from "@hooks/useI18n";
 import useCountDown from "@hooks/useCountDown";
 import { calDurationSec } from "@logic/util";
@@ -30,6 +36,44 @@ const Actions = memo(
     const { localPlayer } = useLocalPlayer();
     const ds = useCountDown(playingTable!.game.turnEndTs);
 
+    const isPoker = playingTable!.gameType === "poker";
+    const isFacingBet =
+      isPoker && canCall(playingTable!.game, gamePlayer);
+    const callTarget = isPoker
+      ? (gamePlayer.streetBet ?? 0) +
+        getCallAmount(playingTable!.game, gamePlayer)
+      : 0;
+    const pokerBounds = isPoker
+      ? getRaiseBounds(playingTable!, gamePlayer)
+      : { canRaise: false, minTotalBet: 0, maxTotalBet: 0 };
+
+    const defaultBetAmount = isFacingBet
+      ? callTarget
+      : pokerBounds.minTotalBet;
+
+    const [raiseAmount, setRaiseAmount] = useState<number>(defaultBetAmount);
+
+    useEffect(() => {
+      if (playingTable?.gameType !== "poker") return;
+      setRaiseAmount(defaultBetAmount);
+    }, [
+      playingTable?.gameType,
+      playingTable?.game.currentPlayerId,
+      playingTable?.game.round,
+      defaultBetAmount,
+    ]);
+
+    const clampedRaise =
+      isFacingBet && raiseAmount <= callTarget
+        ? callTarget
+        : Math.max(
+            pokerBounds.minTotalBet,
+            Math.min(
+              pokerBounds.maxTotalBet,
+              Math.floor(raiseAmount || pokerBounds.minTotalBet),
+            ),
+          );
+
     const handleAutoAction = () => {
       if (!isGameInProgress(playingTable!.game)) {
         return;
@@ -37,6 +81,10 @@ const Actions = memo(
       const curPlayer = playingTable!.game.players.find(
         (item) => item.id === playingTable!.game.currentPlayerId,
       );
+      if (playingTable!.gameType === "poker") {
+        onAction(handlePokerAutoAction(playingTable!, curPlayer!));
+        return;
+      }
       if (playingTable!.gameType === "phom") {
         onAction(handlePhomAutoAction(playingTable!, curPlayer!));
         return;
@@ -94,15 +142,19 @@ const Actions = memo(
           return (
             <TwoStepButton
               key={action}
-              className="flex w-1/2 lg:w-1/4 !min-w-[5.5rem] sm:!min-w-[8rem] !max-w-[12rem] py-1 border-2 rounded-sm font-semibold"
+              className={`flex ${playingTable!.gameType === "poker" ? "flex-1 !min-w-[4.5rem] sm:!min-w-[6.5rem] !max-w-[9.5rem] text-xs sm:text-sm" : "w-1/2 lg:w-1/4 !min-w-[5.5rem] sm:!min-w-[8rem] !max-w-[12rem]"} py-1 border-2 rounded-sm font-semibold`}
               activeClassName={def.activeClassName}
               inactiveClassName={def.inactiveClassName}
               onConfirm={() =>
                 onAction(
-                  def.handleAction(playingTable!, {
-                    ...gamePlayer,
-                    selectedCards,
-                  }),
+                  def.handleAction(
+                    playingTable!,
+                    {
+                      ...gamePlayer,
+                      selectedCards,
+                    },
+                    action === "raise" ? { amount: clampedRaise } : undefined,
+                  ),
                 )
               }
             >
@@ -154,6 +206,16 @@ const Actions = memo(
     const renderLabel = (action: PlayerAction): ReactNode => {
       const def = ActionDef[action as PlayerAction];
       let label = t(def.label);
+      if (action === "raise" && playingTable!.gameType === "poker") {
+        if (!isFacingBet) {
+          return clampedRaise >= pokerBounds.maxTotalBet
+            ? t("action.allIn")
+            : t("action.bet");
+        }
+        return pokerBounds.canRaise && raiseAmount > callTarget
+          ? t("action.raise")
+          : t("action.call");
+      }
       if (action !== "tiger") {
         return label;
       }
@@ -189,23 +251,137 @@ const Actions = memo(
       <>
         {isGameInProgress(playingTable!.game) && (
           <div className="w-full flex items-center gap-1">
-            <div className="flex-1 flex justify-start gap-1">
-              {renderTwoStepButtonActions([
-                "pass",
-                "ask",
-                "draw",
-                "meld",
-                "send",
-              ])}
-            </div>
-            <div className="flex-1 flex justify-end gap-1">
-              {renderTwoStepButtonActions(["eat", "u", "play", "tiger"])}
-            </div>
+            {playingTable!.gameType === "poker" ? (
+              <div className="w-full flex flex-col items-end justify-center gap-1">
+                {pokerBounds.canRaise && (
+                  <div className="flex flex-col gap-1 bg-white/90 border border-gray-300 rounded-sm p-1 shadow-sm max-w-full">
+                    <div className="flex items-center gap-1 flex-wrap justify-end">
+                      {isFacingBet && (
+                        <button
+                          type="button"
+                          className="!px-1.5 !py-0.5 text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded border border-emerald-300"
+                          onClick={() => setRaiseAmount(callTarget)}
+                        >
+                          {t("action.call")}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="!px-1.5 !py-0.5 text-xs bg-cyan-100 hover:bg-cyan-200 text-cyan-900 rounded border border-cyan-300"
+                        onClick={() => setRaiseAmount(pokerBounds.minTotalBet)}
+                      >
+                        {t("game.min")}
+                      </button>
+                      <button
+                        type="button"
+                        className="!px-1.5 !py-0.5 text-xs bg-cyan-100 hover:bg-cyan-200 text-cyan-900 rounded border border-cyan-300"
+                        onClick={() =>
+                          setRaiseAmount(
+                            Math.max(
+                              pokerBounds.minTotalBet,
+                              Math.min(
+                                pokerBounds.maxTotalBet,
+                                (playingTable!.game.currentBet ?? 0) +
+                                  Math.floor(
+                                    (playingTable!.game.pot ?? 0) / 2,
+                                  ),
+                              ),
+                            ),
+                          )
+                        }
+                      >
+                        {t("game.halfPot")}
+                      </button>
+                      <button
+                        type="button"
+                        className="!px-1.5 !py-0.5 text-xs bg-cyan-100 hover:bg-cyan-200 text-cyan-900 rounded border border-cyan-300"
+                        onClick={() =>
+                          setRaiseAmount(
+                            Math.max(
+                              pokerBounds.minTotalBet,
+                              Math.min(
+                                pokerBounds.maxTotalBet,
+                                (playingTable!.game.currentBet ?? 0) +
+                                  (playingTable!.game.pot ?? 0),
+                              ),
+                            ),
+                          )
+                        }
+                      >
+                        {t("game.fullPot")}
+                      </button>
+                      <button
+                        type="button"
+                        className="!px-1.5 !py-0.5 text-xs bg-cyan-100 hover:bg-cyan-200 text-cyan-900 rounded border border-cyan-300"
+                        onClick={() => setRaiseAmount(pokerBounds.maxTotalBet)}
+                      >
+                        {t("game.allIn")}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-end gap-1">
+                      <input
+                        type="range"
+                        className="w-20 sm:w-28 accent-cyan-700"
+                        min={defaultBetAmount}
+                        max={pokerBounds.maxTotalBet}
+                        value={clampedRaise}
+                        onChange={(e) => {
+                          const nextVal = Number(e.target.value);
+                          if (
+                            isFacingBet &&
+                            nextVal > callTarget &&
+                            nextVal < pokerBounds.minTotalBet
+                          ) {
+                            setRaiseAmount(
+                              raiseAmount <= callTarget
+                                ? pokerBounds.minTotalBet
+                                : callTarget,
+                            );
+                            return;
+                          }
+                          setRaiseAmount(nextVal);
+                        }}
+                      />
+                      <input
+                        type="number"
+                        className="w-16 !px-1 !py-0.5 text-xs border border-gray-300 rounded text-right"
+                        min={defaultBetAmount}
+                        max={pokerBounds.maxTotalBet}
+                        value={raiseAmount}
+                        onChange={(e) =>
+                          setRaiseAmount(Number(e.target.value))
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className="w-full flex flex-wrap justify-end gap-1">
+                  {renderTwoStepButtonActions(["fold", "check", "raise"])}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 flex justify-start gap-1">
+                  {renderTwoStepButtonActions([
+                    "pass",
+                    "ask",
+                    "draw",
+                    "meld",
+                    "send",
+                  ])}
+                </div>
+                <div className="flex-1 flex justify-end gap-1">
+                  {renderTwoStepButtonActions(["eat", "u", "play", "tiger"])}
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {!isGameInProgress(playingTable!.game) && (
-          <div className="w-full flex items-center justify-center gap-8 bg-cyan-50/60">
+          <div
+            className={`w-full flex items-center ${playingTable!.gameType === "poker" ? "justify-end" : "justify-center bg-cyan-50/60"} gap-8`}
+          >
             {playingTable!.game.state === "waiting" && (
               <div className="flex flex-col gap-2 min-w-[8rem]">
                 <div className="flex justify-between items-center gap-4">

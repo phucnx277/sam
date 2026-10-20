@@ -16,6 +16,7 @@ const ShareTable = (props: { table: Table; onClose: () => void }) => {
   } else {
     params.set("apiKey", getApiKey("encoded"));
   }
+  params.set("game", props.table.gameType || "sam");
   params.set("tblId", props.table.id);
   params.set("tblPw", props.table.password);
   const joinUrl = `${window.location.origin}?${params.toString()}`;

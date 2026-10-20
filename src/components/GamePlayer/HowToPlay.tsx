@@ -32,6 +32,25 @@ const phomRulesSections: Section[] = [
   },
 ];
 
+const pokerRulesSections: Section[] = [
+  {
+    titleKey: "howToPlay.poker.setup",
+    itemKeys: ["howToPlay.poker.setup1", "howToPlay.poker.setup2"],
+  },
+  {
+    titleKey: "howToPlay.poker.blinds",
+    itemKeys: ["howToPlay.poker.blinds1"],
+  },
+  {
+    titleKey: "howToPlay.poker.streets",
+    itemKeys: ["howToPlay.poker.streets1", "howToPlay.poker.streets2"],
+  },
+  {
+    titleKey: "howToPlay.poker.hands",
+    itemKeys: ["howToPlay.poker.hands1", "howToPlay.poker.hands2"],
+  },
+];
+
 const rulesSections: Section[] = [
   {
     titleKey: "howToPlay.rules.setup",
@@ -117,7 +136,9 @@ const HowToPlay = ({ onClose }: { onClose: () => void }) => {
     tab === "rules"
       ? playingTable?.gameType === "phom"
         ? phomRulesSections
-        : rulesSections
+        : playingTable?.gameType === "poker"
+          ? pokerRulesSections
+          : rulesSections
       : gestureSections;
 
   return (

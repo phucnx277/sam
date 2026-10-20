@@ -14,10 +14,17 @@ import useIsMobile from "@hooks/useIsMobile";
 import useOrientation from "@hooks/useOrientation";
 import useLongPress from "@hooks/useLongPress";
 import Cards from "../Cards/Cards";
+import Actions from "./Actions";
 import PlayerInfo from "./PlayerInfo";
 import PlayerMenu from "./PlayerMenu";
 
-const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
+const GamePlayer = ({
+  gamePlayer,
+  onAction,
+}: {
+  gamePlayer: GamePlayer;
+  onAction?: (table: Table) => Promise<void>;
+}) => {
   const { t } = useI18n();
   const { localPlayer } = useLocalPlayer();
   const { localGame, setLocalGame, localCards, setLocalCards } = useLocalGame();
@@ -42,17 +49,26 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
   });
 
   const isMe = localPlayer!.id === gamePlayer.id;
+  const isPoker = playingTable?.gameType === "poker";
   const lockLabel = sortingLocked
     ? t("game.cardsLocked")
     : t("game.cardsUnlocked");
 
   const selectCard = (card: Card) => {
     if (!isMe) return;
-    setLocalCards((prev) => handleCardSelect(prev || [], card));
+    setLocalCards((prev) =>
+      isPoker
+        ? (prev || []).map((item) =>
+            areCardsEqual(item, card)
+              ? { ...item, folded: !item.folded, selected: false }
+              : { ...item, selected: false },
+          )
+        : handleCardSelect(prev || [], card),
+    );
   };
 
   const sortLocalCards = (descending: boolean) => {
-    if (!isMe || !localGame || sortingLocked) return;
+    if (!isMe || !localGame || sortingLocked || isPoker) return;
     const sorted =
       playingTable?.gameType === "phom"
         ? getSortedPhomCards(localCards, descending)
@@ -122,7 +138,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
       if (playingTable!.game.state === "handChecking") {
         setSortingLocked(false);
       } else if (playingTable!.game.state === "playing") {
-        setSortingLocked(playingTable!.gameType !== "phom");
+        setSortingLocked((playingTable!.gameType || "sam") === "sam");
       }
       return;
     }
@@ -175,13 +191,17 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
       className={`relative flex gap-x-2 p-2 w-full rounded-sm ${gamePlayer.isReady || isMe ? "opacity-100" : "opacity-50"} ${playingTable!.game?.currentPlayerId === gamePlayer.id ? "bg-yellow-300/30" : ""}`}
     >
       {!isMe &&
-        playingTable!.game.state == "playing" &&
-        isPlayerPassedTurn(playingTable!.game, gamePlayer) && (
+        playingTable!.game.state === "playing" &&
+        (playingTable!.gameType === "poker"
+          ? !!gamePlayer.foldedHand
+          : isPlayerPassedTurn(playingTable!.game, gamePlayer)) && (
           <div className="absolute z-10 inset-0 flex items-center justify-center">
             <div className="flex items-center gap-x-1 rounded-sm border-2 border-red-500 bg-red-50/60 px-2 py-0.5 mt-6 font-semibold text-red-600">
               <span className="text-2xl lg:text-4xl">🚫</span>
               <span className="text-base lg:text-2xl">
-                {t("game.turnPassed")}
+                {playingTable!.gameType === "poker"
+                  ? t("game.folded")
+                  : t("game.turnPassed")}
               </span>
             </div>
           </div>
@@ -193,7 +213,10 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
         <PlayerInfo
           gamePlayer={gamePlayer}
           isMe={isMe}
-          isWinner={playingTable!.lastGame?.winnerId === gamePlayer.id}
+          isWinner={
+            playingTable!.lastGame?.winnerId === gamePlayer.id ||
+            (playingTable!.lastGame?.winnerIds ?? []).includes(gamePlayer.id)
+          }
         />
         {playingTable!.gameType === "phom" &&
           ((gamePlayer.discards?.length ?? 0) > 0 ||
@@ -251,7 +274,7 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
               <button className="!p-0 text-xl" onClick={backToLobby}>
                 🔙
               </button>
-              {gamePlayer.cards.length > 0 && (
+              {!isPoker && gamePlayer.cards.length > 0 && (
                 <button
                   className="!p-0 relative inline-flex size-7 items-center justify-center select-none text-sky-700"
                   title={lockLabel}
@@ -307,44 +330,100 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
           )}
           <div
             {...(isMe && localCards.length > 0
-              ? { ...swipeHandlers, ...holdHandlers }
+              ? {
+                  ...swipeHandlers,
+                  ...(isPoker ? {} : holdHandlers),
+                }
               : {})}
             onContextMenu={(e) => e.preventDefault()}
             onClickCapture={(e) => {
-              if (consumeLongPress()) {
+              if (!isPoker && consumeLongPress()) {
                 e.stopPropagation();
                 e.preventDefault();
               }
             }}
-            className={`flex flex-1 w-full swipeable select-none [-webkit-touch-callout:none] ${playingTable!.game.state === "ended" ? "opacity-40" : ""}`}
+            className="relative flex flex-1 w-full swipeable select-none [-webkit-touch-callout:none]"
           >
-            <Cards
-              isMe={isMe}
-              cards={
-                isMe
-                  ? localCards
-                  : gamePlayer.cards.map((c) => ({
-                      ...c,
-                      folded:
-                        playingTable!.gameType === "phom" &&
-                        (gamePlayer.eatenCards ?? []).some((ec) =>
-                          areCardsEqual(ec, c),
-                        )
-                          ? false
-                          : c.folded === undefined || c.folded === null
-                            ? true
-                            : c.folded,
-                      selected: false,
-                    }))
-              }
-              onCardSelect={selectCard}
-              onReorder={reorderCards}
-              reorderDisabled={!isMe || sortingLocked}
-              gamePlayer={
-                playingTable!.gameType === "phom" ? undefined : gamePlayer
-              }
-            />
+            <div
+              className={`flex flex-1 w-full ${playingTable!.game.state === "ended" ? "opacity-40" : ""}`}
+            >
+              <Cards
+                isMe={isMe}
+                cards={
+                  isMe
+                    ? localCards
+                    : gamePlayer.cards.map((c) => ({
+                        ...c,
+                        folded:
+                          playingTable!.gameType === "phom" &&
+                          (gamePlayer.eatenCards ?? []).some((ec) =>
+                            areCardsEqual(ec, c),
+                          )
+                            ? false
+                            : c.folded === undefined || c.folded === null
+                              ? true
+                              : c.folded,
+                        selected: false,
+                      }))
+                }
+                onCardSelect={selectCard}
+                onReorder={reorderCards}
+                reorderDisabled={!isMe || sortingLocked || isPoker}
+                gamePlayer={
+                  (playingTable!.gameType || "sam") === "sam"
+                    ? gamePlayer
+                    : undefined
+                }
+              />
+            </div>
+
+            {playingTable!.game.state === "ended" && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-x-1 text-3xl lg:text-6xl">
+                {(playingTable!.game?.winnerId === gamePlayer.id ||
+                  (playingTable!.game?.winnerIds ?? []).includes(
+                    gamePlayer.id,
+                  )) && <span>👑</span>}
+                {playingTable!.game?.winnerId === gamePlayer.id &&
+                  gamePlayer.id === tiger?.id && (
+                    <span>
+                      <img
+                        alt="tiger"
+                        className="size-10 pb-0.5 lg:size-22 lg:pb-1"
+                        src="/logo.svg"
+                      />
+                    </span>
+                  )}
+                {(gamePlayer.id === tigerKiller?.id ||
+                  (gamePlayer.id === tiger?.id &&
+                    gamePlayer.id !== playingTable!.game?.winnerId)) && (
+                  <span className="relative">
+                    <span>
+                      <img
+                        alt="tiger"
+                        className="size-10 pb-0.5 lg:size-22 lg:pb-1"
+                        src="/logo.svg"
+                      />
+                    </span>
+                    <span className="absolute top-0 right-0 bottom-0 left-0 flex items-center justify-center">
+                      🔪
+                    </span>
+                  </span>
+                )}
+                {gamePlayer.paidVillage && <span>🐷</span>}
+              </div>
+            )}
           </div>
+          {isMe && isPoker && onAction && (
+            <div className="flex flex-1 items-center justify-end">
+              <Actions
+                selectedCards={
+                  localCards.filter((item) => item.selected) || []
+                }
+                gamePlayer={gamePlayer}
+                onAction={onAction}
+              />
+            </div>
+          )}
           {!isMe && bubble && (
             <button
               type="button"
@@ -363,41 +442,6 @@ const GamePlayer = ({ gamePlayer }: { gamePlayer: GamePlayer }) => {
             </button>
           )}
           {isMe && <PlayerMenu />}
-
-          {playingTable!.game.state === "ended" && (
-            <div className="absolute top-0 right-10 bottom-0 left-10 flex flex-1 items-center justify-center gap-x-1 text-3xl lg:text-6xl">
-              {playingTable!.game?.winnerId === gamePlayer.id && (
-                <span>👑</span>
-              )}
-              {playingTable!.game?.winnerId === gamePlayer.id &&
-                gamePlayer.id === tiger?.id && (
-                  <span>
-                    <img
-                      alt="tiger"
-                      className="size-10 pb-0.5 lg:size-22 lg:pb-1"
-                      src="/logo.svg"
-                    />
-                  </span>
-                )}
-              {(gamePlayer.id === tigerKiller?.id ||
-                (gamePlayer.id === tiger?.id &&
-                  gamePlayer.id !== playingTable!.game?.winnerId)) && (
-                <span className="relative">
-                  <span>
-                    <img
-                      alt="tiger"
-                      className="size-10 pb-0.5 lg:size-22 lg:pb-1"
-                      src="/logo.svg"
-                    />
-                  </span>
-                  <span className="absolute top-0 right-0 bottom-0 left-0 flex items-center justify-center">
-                    🔪
-                  </span>
-                </span>
-              )}
-              {gamePlayer.paidVillage && <span>🐷</span>}
-            </div>
-          )}
         </div>
       </div>
     </div>

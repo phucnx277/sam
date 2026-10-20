@@ -24,6 +24,22 @@ import {
   handleDiscard,
   getPhomPossibleActions,
 } from "./phom";
+import {
+  startPokerGame,
+  canFold,
+  handleFold,
+  canCheck,
+  handleCheck,
+  canCall,
+  getCallAmount,
+  handleCall,
+  canRaise,
+  handleRaise,
+  getPokerPossibleActions,
+  handleUpdatePokerConfig,
+  handleAddPokerChips,
+  syncPokerTablePlayers,
+} from "./poker";
 import { resetSession } from "./table";
 import { generateId, randomInt } from "./util";
 import { t, type TranslationKey } from "./i18n";
@@ -59,7 +75,12 @@ export const newGame = (
     lastPlayedCards: [],
     players: players.map((player) => ({
       ...player,
-      isReady: player.id === currentPlayerId,
+      stack: player.stack,
+      buyIn: player.buyIn,
+      isReady:
+        player.stack !== undefined && player.stack <= 0
+          ? false
+          : player.id === currentPlayerId,
       cards: [],
       selectedCards: [],
       lastPlayedRound: -1,
@@ -73,6 +94,14 @@ export const newGame = (
       eatenCount: 0,
       isMom: false,
       score: undefined,
+      streetBet: 0,
+      totalBet: 0,
+      foldedHand: false,
+      allIn: false,
+      actedOnStreet: false,
+      pokerHandRank: undefined,
+      bestHandCards: undefined,
+      handWonChips: undefined,
     })),
     playHistory: [],
     chat: [],
@@ -87,6 +116,16 @@ export const newGame = (
     lastDiscardBy: null,
     lastDiscardIsChot: false,
     phomWinType: null,
+    pokerStreet: undefined,
+    communityCards: [],
+    pot: 0,
+    currentBet: 0,
+    minRaise: 0,
+    dealerId: lastGame?.dealerId ?? null,
+    smallBlindId: null,
+    bigBlindId: null,
+    pokerWinType: null,
+    winnerIds: [],
   };
 };
 
@@ -109,6 +148,14 @@ export const newGamePlayer = (player: Player): GamePlayer => {
     eatenCount: 0,
     isMom: false,
     score: undefined,
+    streetBet: 0,
+    totalBet: 0,
+    foldedHand: false,
+    allIn: false,
+    actedOnStreet: false,
+    pokerHandRank: undefined,
+    bestHandCards: undefined,
+    handWonChips: undefined,
   };
 };
 
@@ -181,7 +228,10 @@ export const ActionDef: Record<
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean; value?: unknown } {
       const visible = playingTable.game.state === "waiting";
-      return { visible, disabled: false, value: currentPlayer.isReady };
+      const disabled =
+        playingTable.gameType === "poker" &&
+        (currentPlayer.stack ?? (playingTable.buyIn ?? 1000)) <= 0;
+      return { visible, disabled, value: currentPlayer.isReady };
     },
     handleAction(playingTable: Table, currentPlayer?: GamePlayer): Table {
       return {
@@ -209,7 +259,7 @@ export const ActionDef: Record<
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean; value?: unknown } {
       const visible =
-        playingTable.gameType !== "phom" &&
+        (playingTable.gameType || "sam") === "sam" &&
         playingTable.bo < 0 &&
         playingTable.game.state === "waiting";
       return { visible, disabled: false, value: currentPlayer.starOfHope };
@@ -239,8 +289,14 @@ export const ActionDef: Record<
       playingTable: Table,
       currentPlayer: GamePlayer,
     ): { visible: boolean; disabled: boolean } {
-      const isBO = playingTable.gameType !== "phom" && playingTable.bo > 0;
+      const isBO =
+        (playingTable.gameType || "sam") === "sam" && playingTable.bo > 0;
       const wins = Math.ceil(playingTable.bo / 2);
+      const isTourneyEnded =
+        playingTable.gameType === "poker" &&
+        playingTable.pokerMode === "tournament" &&
+        playingTable.game.players.filter((gp) => (gp.stack ?? 0) > 0).length <
+          2;
       const winnerRemoved = !playingTable.game.players.some(
         (item) => item.id === playingTable.game.winnerId && item.isReady,
       );
@@ -248,7 +304,8 @@ export const ActionDef: Record<
         playingTable.game.state === "ended" &&
         (winnerRemoved ? playingTable.hostId : playingTable.game.winnerId) ===
           currentPlayer.id;
-      const disabled = isBO && currentPlayer.chipCount >= wins;
+      const disabled =
+        (isBO && currentPlayer.chipCount >= wins) || isTourneyEnded;
 
       return { visible, disabled };
     },
@@ -269,14 +326,26 @@ export const ActionDef: Record<
       playingTable: Table,
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean } {
+      const lastWinnerValid =
+        playingTable.lastGame?.winnerId &&
+        playingTable.game.players.some(
+          (gp) =>
+            gp.id === playingTable.lastGame?.winnerId &&
+            (playingTable.gameType !== "poker" || (gp.stack ?? 0) > 0),
+        );
+      const dealerTriggerId = lastWinnerValid
+        ? playingTable.lastGame!.winnerId
+        : playingTable.hostId;
       const visible =
         playingTable.game.state === "waiting" &&
-        (playingTable.lastGame
-          ? playingTable.lastGame.winnerId === currentPlayer.id
-          : playingTable.hostId === currentPlayer.id);
-      const disabled =
-        !currentPlayer.isReady ||
-        playingTable.game.players.filter((gp) => gp.isReady).length < 2;
+        dealerTriggerId === currentPlayer.id;
+      const readyCount = playingTable.game.players.filter(
+        (gp) =>
+          gp.isReady &&
+          (playingTable.gameType !== "poker" ||
+            (gp.stack ?? (playingTable.buyIn ?? 1000)) > 0),
+      ).length;
+      const disabled = !currentPlayer.isReady || readyCount < 2;
 
       return {
         visible,
@@ -298,6 +367,12 @@ export const ActionDef: Record<
           if (table.game.state === "ended") {
             table.players = syncChipCounts(table.game.players, table.players);
           }
+        } else if (playingTable.gameType === "poker") {
+          table.game = startPokerGame(table);
+          table.players = syncPokerTablePlayers(
+            table.game.players,
+            table.players,
+          );
         } else {
           table.game = startGame(table.game, table.playerLimit);
         }
@@ -415,6 +490,9 @@ export const ActionDef: Record<
       playingTable: Table,
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean } {
+      if (playingTable.gameType === "poker") {
+        return { visible: false, disabled: true };
+      }
       if (playingTable.gameType === "phom") {
         const visible =
           currentPlayer.isReady && playingTable.game.state === "playing";
@@ -518,7 +596,10 @@ export const ActionDef: Record<
       playingTable: Table,
       currentPlayer: GamePlayer,
     ): { disabled: boolean; visible: boolean } {
-      if (playingTable.gameType === "phom") {
+      if (
+        playingTable.gameType === "phom" ||
+        playingTable.gameType === "poker"
+      ) {
         return { visible: false, disabled: true };
       }
       const isTurn = isPlayerTurn(playingTable.game, currentPlayer);
@@ -720,6 +801,170 @@ export const ActionDef: Record<
     },
   },
 
+  fold: {
+    label: "action.fold",
+    type: "button",
+    inactiveClassName: "border-gray-600/90 bg-gray-400/40",
+    activeClassName: "border-gray-700/95 bg-gray-700/95 text-white",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "poker" &&
+        currentPlayer.isReady &&
+        playingTable.game.state === "playing";
+      const disabled =
+        isActionTimeouted(playingTable.game) ||
+        !canFold(playingTable.game, currentPlayer);
+      return { visible, disabled };
+    },
+    handleAction(playingTable: Table, currentPlayer: GamePlayer): Table {
+      return handleFold(playingTable, currentPlayer);
+    },
+  },
+
+  check: {
+    label: "action.check",
+    type: "button",
+    inactiveClassName: "border-sky-600/90 bg-sky-300/40",
+    activeClassName: "border-sky-600/95 bg-sky-600/95 text-white",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "poker" &&
+        currentPlayer.isReady &&
+        playingTable.game.state === "playing" &&
+        canCheck(playingTable.game, currentPlayer);
+      const disabled =
+        isActionTimeouted(playingTable.game) ||
+        !canCheck(playingTable.game, currentPlayer);
+      return { visible, disabled };
+    },
+    handleAction(playingTable: Table, currentPlayer: GamePlayer): Table {
+      return handleCheck(playingTable, currentPlayer);
+    },
+  },
+
+  call: {
+    label: "action.call",
+    type: "button",
+    inactiveClassName: "border-emerald-600/90 bg-emerald-300/40",
+    activeClassName: "border-emerald-600/95 bg-emerald-600/95 text-white",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "poker" &&
+        currentPlayer.isReady &&
+        playingTable.game.state === "playing" &&
+        canCall(playingTable.game, currentPlayer);
+      const disabled =
+        isActionTimeouted(playingTable.game) ||
+        !canCall(playingTable.game, currentPlayer);
+      return { visible, disabled };
+    },
+    handleAction(playingTable: Table, currentPlayer: GamePlayer): Table {
+      return handleCall(playingTable, currentPlayer);
+    },
+  },
+
+  raise: {
+    label: "action.raise",
+    type: "button",
+    inactiveClassName: "border-amber-600/90 bg-amber-300/40",
+    activeClassName: "border-amber-600/95 bg-amber-600/95 text-white",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const canAct =
+        canCall(playingTable.game, currentPlayer) ||
+        canRaise(playingTable, currentPlayer);
+      const visible =
+        playingTable.gameType === "poker" &&
+        currentPlayer.isReady &&
+        playingTable.game.state === "playing" &&
+        canAct;
+      const disabled = isActionTimeouted(playingTable.game) || !canAct;
+      return { visible, disabled };
+    },
+    handleAction(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+      data?: unknown,
+    ): Table {
+      const amount = (data as { amount?: number } | undefined)?.amount;
+      const callTarget =
+        (currentPlayer.streetBet ?? 0) +
+        getCallAmount(playingTable.game, currentPlayer);
+      if (
+        canCall(playingTable.game, currentPlayer) &&
+        (!canRaise(playingTable, currentPlayer) ||
+          (amount !== undefined && amount <= callTarget))
+      ) {
+        return handleCall(playingTable, currentPlayer);
+      }
+      return handleRaise(playingTable, currentPlayer, amount);
+    },
+  },
+
+  updatePokerConfig: {
+    label: "action.updatePokerConfig",
+    type: "button",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "poker" &&
+        !isGameInProgress(playingTable.game) &&
+        playingTable.hostId === currentPlayer.id;
+      return { visible, disabled: false };
+    },
+    handleAction(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+      data?: unknown,
+    ): Table {
+      return handleUpdatePokerConfig(
+        playingTable,
+        currentPlayer,
+        data as { smallBlind: number; bigBlind: number; ante: number },
+      );
+    },
+  },
+
+  addPokerChips: {
+    label: "action.addPokerChips",
+    type: "button",
+    checkState(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+    ): { disabled: boolean; visible: boolean } {
+      const visible =
+        playingTable.gameType === "poker" &&
+        playingTable.pokerMode !== "tournament" &&
+        !isGameInProgress(playingTable.game) &&
+        playingTable.hostId === currentPlayer.id;
+      return { visible, disabled: false };
+    },
+    handleAction(
+      playingTable: Table,
+      currentPlayer: GamePlayer,
+      data?: unknown,
+    ): Table {
+      return handleAddPokerChips(
+        playingTable,
+        currentPlayer,
+        data as { targetPlayerId: string; amount: number },
+      );
+    },
+  },
+
   resetSession: {
     label: "action.resetSession",
     type: "button",
@@ -786,7 +1031,7 @@ export const ActionDef: Record<
             ...item,
             isRemoved: deletingPlayerIds.includes(item.id),
           }))
-          .filter((item) => !item.isRemoved || item.chipCount > 0),
+          .filter((item) => !item.isRemoved || item.chipCount !== 0),
       };
     },
   },
@@ -1196,6 +1441,9 @@ export function getCurrentPossibleActions(
   table: Table,
   player: GamePlayer,
 ): PlayerAction[] {
+  if (table.gameType === "poker") {
+    return getPokerPossibleActions(table, player);
+  }
   if (table.gameType === "phom") {
     return getPhomPossibleActions(table, player);
   }

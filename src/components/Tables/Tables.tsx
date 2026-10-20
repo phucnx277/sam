@@ -15,6 +15,32 @@ import LoadingOverlay from "../common/LoadingOverlay";
 
 const ScanTable = lazy(() => import("./ScanTable"));
 
+const getUrlSelectedGame = (): GameType | null => {
+  const url = new URL(window.location.href);
+  const val = url.searchParams.get("game");
+  return val === "sam" || val === "phom" || val === "poker" ? val : null;
+};
+
+const updateUrlSelectedGame = (game: GameType | null) => {
+  const url = new URL(window.location.href);
+  if (!game) {
+    url.searchParams.delete("game");
+  } else {
+    url.searchParams.set("game", game);
+  }
+  window.history.replaceState({}, "", url.toString());
+};
+
+const GAME_OPTIONS: {
+  type: GameType;
+  labelKey: "table.gameSam" | "table.gamePhom" | "table.gamePoker";
+  emoji: string;
+}[] = [
+  { type: "sam", labelKey: "table.gameSam", emoji: "♠️" },
+  { type: "phom", labelKey: "table.gamePhom", emoji: "🃏" },
+  { type: "poker", labelKey: "table.gamePoker", emoji: "🪙" },
+];
+
 const Tables = () => {
   const { t } = useI18n();
   const {
@@ -30,7 +56,18 @@ const Tables = () => {
     getApiKey,
   } = useAppData();
   const { localPlayer } = useLocalPlayer();
-  const visible = mode === "peer" ? tables : visibleTables(tables, localPlayer);
+  const [selectedGame, setSelectedGameState] = useState<GameType | null>(
+    getUrlSelectedGame,
+  );
+  const setSelectedGame = (game: GameType | null) => {
+    updateUrlSelectedGame(game);
+    setSelectedGameState(game);
+  };
+  const allVisible =
+    mode === "peer" ? tables : visibleTables(tables, localPlayer);
+  const visible = selectedGame
+    ? allVisible.filter((item) => (item.gameType || "sam") === selectedGame)
+    : [];
   const [isCreatingTable, setIsCreatingTable] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [enteringTable, setEnteringTable] = useState<Table | null>(null);
@@ -76,6 +113,9 @@ const Tables = () => {
   const applyLink = async (link: string): Promise<boolean> => {
     const parsed = parseTableLink(link);
     if (!parsed) return false;
+    if (parsed.gameType) {
+      setSelectedGame(parsed.gameType);
+    }
 
     if (parsed.mode === "peer") {
       if (mode !== "peer") {
@@ -83,6 +123,7 @@ const Tables = () => {
       }
       const localTable = getTables().find((item) => item.id === parsed.tableId);
       if (localTable) {
+        setSelectedGame(localTable.gameType || "sam");
         setEnteringTable(localTable);
         return true;
       }
@@ -124,6 +165,7 @@ const Tables = () => {
 
     const table = getTables().find((item) => item.id === parsed.tableId);
     if (!table) return false;
+    setSelectedGame(table.gameType || "sam");
     setEnteringTable(table);
     return true;
   };
@@ -169,6 +211,7 @@ const Tables = () => {
       const localTable = getTables().find((item) => item.id === intent.tableId);
       if (localTable) {
         setRejoinHandled(true);
+        setSelectedGame(localTable.gameType || "sam");
         setEnteringTable(localTable);
         return;
       }
@@ -186,6 +229,7 @@ const Tables = () => {
     const table = tables.find((item) => item.id === intent.tableId);
     if (!table) return;
     setRejoinHandled(true);
+    setSelectedGame(table.gameType || "sam");
     setEnteringTable(table);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, tables, localPlayer, rejoinHandled]);
@@ -196,6 +240,12 @@ const Tables = () => {
     const timer = window.setTimeout(() => setRejoinHandled(true), 4000);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (playingTable) {
+      setSelectedGame(playingTable.gameType || "sam");
+    }
+  }, [playingTable]);
 
   // Clear the join overlay as soon as there is something else to show.
   useEffect(() => {
@@ -267,40 +317,83 @@ const Tables = () => {
         <>
           <div className="p-2 max-w-full min-w-[22rem]">
             <WelcomePlayer />
-            <div className="mt-6 flex items-baseline justify-between">
-              <span>
-                {t(visible.length > 0 ? "lobby.selectTable" : "lobby.noTable")}
-              </span>
-              {hostedTables(tables, localPlayer).length < TABLE_LIMIT && (
-                <button
-                  type="button"
-                  className="!py-1 !px-4 border border-green-600 hover:bg-green-600 active:bg-green-600 focus:bg-green-600"
-                  onClick={() => setIsCreatingTable(true)}
-                >
-                  {t("lobby.createTable")}
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2 items-center">
-              {visible.map((item) => (
-                <div
-                  className="!p-0 h-[6rem] w-[6rem] lg:h-[8rem] lg:w-[8rem] cursor-pointer relative"
-                  key={item.id}
-                  onClick={() => setEnteringTable(item)}
-                >
-                  {(localPlayer!.isAdmin ||
-                    item.hostId === localPlayer!.id) && (
-                    <span
-                      className="absolute text-2xl right-2 top-0 font-normal text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
-                      onClick={(e) => confirmRemoveTable(e, item)}
+            {!selectedGame ? (
+              <div className="mt-6 flex flex-col gap-3">
+                <span>{t("lobby.selectGame")}</span>
+                <div className="flex flex-col sm:flex-row gap-3 mt-1">
+                  {GAME_OPTIONS.map((option) => (
+                    <button
+                      key={option.type}
+                      type="button"
+                      className="flex-1 min-w-[7rem] py-4 px-4 flex flex-col items-center justify-center gap-2 border border-cyan-600 rounded-sm bg-cyan-50 hover:bg-cyan-200 active:bg-cyan-300 font-semibold text-lg"
+                      onClick={() => setSelectedGame(option.type)}
                     >
-                      {"×"}
-                    </span>
-                  )}
-                  <LobbyTable data={item} />
+                      <span className="text-3xl">{option.emoji}</span>
+                      <span>{t(option.labelKey)}</span>
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <>
+                <div className="mt-4 flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="!p-0 text-xl"
+                    onClick={() => setSelectedGame(null)}
+                  >
+                    🔙
+                  </button>
+                  <span className="font-semibold text-lg">
+                    {t(
+                      selectedGame === "phom"
+                        ? "table.gamePhom"
+                        : selectedGame === "poker"
+                          ? "table.gamePoker"
+                          : "table.gameSam",
+                    )}
+                  </span>
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span>
+                    {t(
+                      visible.length > 0
+                        ? "lobby.selectTable"
+                        : "lobby.noTable",
+                    )}
+                  </span>
+                  {hostedTables(tables, localPlayer).length < TABLE_LIMIT && (
+                    <button
+                      type="button"
+                      className="!py-1 !px-4 border border-green-600 hover:bg-green-600 active:bg-green-600 focus:bg-green-600"
+                      onClick={() => setIsCreatingTable(true)}
+                    >
+                      {t("lobby.createTable")}
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2 items-center">
+                  {visible.map((item) => (
+                    <div
+                      className="!p-0 h-[6rem] w-[6rem] lg:h-[8rem] lg:w-[8rem] cursor-pointer relative"
+                      key={item.id}
+                      onClick={() => setEnteringTable(item)}
+                    >
+                      {(localPlayer!.isAdmin ||
+                        item.hostId === localPlayer!.id) && (
+                        <span
+                          className="absolute text-2xl right-2 top-0 font-normal text-gray-500 hover:text-gray-800 active:text-gray-800 focus:text-gray-800"
+                          onClick={(e) => confirmRemoveTable(e, item)}
+                        >
+                          {"×"}
+                        </span>
+                      )}
+                      <LobbyTable data={item} />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
             <div className="mt-4 flex items-baseline justify-between">
               <span>{t("lobby.pasteLink")}</span>
               <button
@@ -345,8 +438,9 @@ const Tables = () => {
               </div>
             )}
           </div>
-          {isCreatingTable && (
+          {isCreatingTable && selectedGame && (
             <NewTable
+              gameType={selectedGame}
               close={() => setIsCreatingTable(false)}
               limit={TABLE_LIMIT}
               onCreated={setSharingTable}

@@ -78,8 +78,12 @@ const InitAppData = () => {
 
     const tblId = url.searchParams.get("tblId");
     const tblPw = url.searchParams.get("tblPw");
+    const game = url.searchParams.get("game");
     if (tblId) {
       const newUrl = new URL(window.location.origin);
+      if (game) {
+        newUrl.searchParams.set("game", game);
+      }
       newUrl.searchParams.set("tblId", tblId);
       if (tblPw) {
         newUrl.searchParams.set("tblPw", tblPw);

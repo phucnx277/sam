@@ -16,8 +16,26 @@ function isMultiplierValid(value: number): boolean {
   return !isNaN(value) && value >= 1 && Number.isInteger(value);
 }
 
+function isBuyInValid(value: number): boolean {
+  return !isNaN(value) && value >= 1 && Number.isInteger(value);
+}
+
+function isBlindsValid(sb: number, bb: number, ante: number): boolean {
+  return (
+    !isNaN(sb) &&
+    !isNaN(bb) &&
+    !isNaN(ante) &&
+    sb >= 1 &&
+    bb >= sb &&
+    ante >= 0 &&
+    Number.isInteger(sb) &&
+    Number.isInteger(bb) &&
+    Number.isInteger(ante)
+  );
+}
+
 function isPlayerLimitValid(value: number, gameType: GameType): boolean {
-  const max = gameType === "phom" ? 4 : 5;
+  const max = gameType === "phom" ? 4 : gameType === "poker" ? 9 : 5;
   return !isNaN(value) && value >= 2 && value <= max;
 }
 
@@ -28,12 +46,26 @@ function isTurnTimeoutValid(value: number): boolean {
 const normalizedFormValues = (
   formData: Partial<NewTableParams>,
 ): Partial<NewTableParams> => {
-  const gameType: GameType = formData.gameType === "phom" ? "phom" : "sam";
+  const gameType: GameType =
+    formData.gameType === "phom"
+      ? "phom"
+      : formData.gameType === "poker"
+        ? "poker"
+        : "sam";
   formData.gameType = gameType;
-  formData.bo = gameType === "phom" ? -1 : Number(formData.bo || -1);
+  formData.bo = gameType === "sam" ? Number(formData.bo || -1) : -1;
   formData.multiplier = Number(formData.multiplier || 10);
+  formData.pokerMode =
+    formData.pokerMode === "tournament" ? "tournament" : "cash";
+  formData.buyIn = Number(formData.buyIn || 1000);
+  formData.smallBlind = Number(formData.smallBlind || 5);
+  formData.bigBlind = Number(
+    formData.bigBlind || Math.max(10, formData.smallBlind * 2),
+  );
+  formData.ante = Number(formData.ante || 0);
   formData.playerLimit = Number(
-    formData.playerLimit || (gameType === "phom" ? 4 : 5),
+    formData.playerLimit ||
+      (gameType === "phom" ? 4 : gameType === "poker" ? 6 : 5),
   );
   formData.turnTimeout = Number(formData.turnTimeout || 0);
 
@@ -41,6 +73,7 @@ const normalizedFormValues = (
 };
 
 const NewTable = (props: {
+  gameType: GameType;
   close: () => void;
   limit: number;
   onCreated?: (table: Table) => void;
@@ -50,11 +83,16 @@ const NewTable = (props: {
   const { createTable, tables } = useAppData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<Partial<NewTableParams>>({
-    gameType: "sam",
+    gameType: props.gameType,
+    pokerMode: "cash",
     name: "",
     password: "",
     bo: "",
     multiplier: "",
+    buyIn: "",
+    smallBlind: "",
+    bigBlind: "",
+    ante: "",
     playerLimit: "",
     turnTimeout: "",
   } as never);
@@ -64,18 +102,28 @@ const NewTable = (props: {
   };
 
   const isFormValid = useCallback(() => {
-    const checkingForm = normalizedFormValues({ ...form });
+    const checkingForm = normalizedFormValues({
+      ...form,
+      gameType: props.gameType,
+    });
     const isSettingValid =
       checkingForm.gameType === "phom"
         ? isMultiplierValid(checkingForm.multiplier!)
-        : isBoValid(checkingForm.bo!);
+        : checkingForm.gameType === "poker"
+          ? isBuyInValid(checkingForm.buyIn!) &&
+            isBlindsValid(
+              checkingForm.smallBlind!,
+              checkingForm.bigBlind!,
+              checkingForm.ante!,
+            )
+          : isBoValid(checkingForm.bo!);
     return (
       isNameValid(checkingForm.name) &&
       isSettingValid &&
       isPlayerLimitValid(checkingForm.playerLimit!, checkingForm.gameType!) &&
       isTurnTimeoutValid(checkingForm.turnTimeout!)
     );
-  }, [form]);
+  }, [form, props.gameType]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -87,7 +135,7 @@ const NewTable = (props: {
     setIsSubmitting(true);
     const payload: NewTableParams = {
       ...form,
-      ...normalizedFormValues({ ...form }),
+      ...normalizedFormValues({ ...form, gameType: props.gameType }),
       player: localPlayer!,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any;
@@ -106,35 +154,11 @@ const NewTable = (props: {
   return (
     <div className="fixed top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center backdrop-blur-sm">
       <form
-        className="bg-white flex flex-col p-4 lg:p-8 rounded-lg shadow-2xl shadow-gray-400 w-[30rem] max-w-[92%] gap-y-2"
+        className="bg-white overflow-y-auto flex flex-col p-4 lg:p-8 rounded-lg shadow-2xl shadow-gray-400 w-[30rem] max-w-[92%] max-h-[92%] gap-y-2"
         onSubmit={submit}
         autoComplete="off"
       >
         <p className="text-center text-lg">{t("table.newTitle")}</p>
-        <div className="flex gap-x-2">
-          <button
-            type="button"
-            className={`flex-1 py-1 border rounded-sm font-semibold ${
-              (form.gameType || "sam") === "sam"
-                ? "border-cyan-600 bg-cyan-300"
-                : "border-gray-300 bg-white"
-            }`}
-            onClick={() => updateFormValue("gameType", "sam")}
-          >
-            {t("table.gameSam")}
-          </button>
-          <button
-            type="button"
-            className={`flex-1 py-1 border rounded-sm font-semibold ${
-              form.gameType === "phom"
-                ? "border-cyan-600 bg-cyan-300"
-                : "border-gray-300 bg-white"
-            }`}
-            onClick={() => updateFormValue("gameType", "phom")}
-          >
-            {t("table.gamePhom")}
-          </button>
-        </div>
         <input
           name="tblName"
           className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
@@ -152,7 +176,7 @@ const NewTable = (props: {
           value={form.password}
           onInput={(e) => updateFormValue("password", e.currentTarget.value)}
         />
-        {form.gameType === "phom" ? (
+        {props.gameType === "phom" ? (
           <input
             name="tblMultiplier"
             className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
@@ -162,6 +186,73 @@ const NewTable = (props: {
             value={form.multiplier}
             onInput={(e) => updateFormValue("multiplier", e.currentTarget.value)}
           />
+        ) : props.gameType === "poker" ? (
+          <>
+            <div className="flex gap-x-2">
+              <button
+                type="button"
+                className={`flex-1 py-1 text-sm border rounded-sm font-semibold ${
+                  (form.pokerMode || "cash") === "cash"
+                    ? "border-amber-600 bg-amber-200"
+                    : "border-gray-300 bg-white"
+                }`}
+                onClick={() => updateFormValue("pokerMode", "cash")}
+              >
+                {t("table.pokerCash")}
+              </button>
+              <button
+                type="button"
+                className={`flex-1 py-1 text-sm border rounded-sm font-semibold ${
+                  form.pokerMode === "tournament"
+                    ? "border-amber-600 bg-amber-200"
+                    : "border-gray-300 bg-white"
+                }`}
+                onClick={() => updateFormValue("pokerMode", "tournament")}
+              >
+                {t("table.pokerTournament")}
+              </button>
+            </div>
+            <input
+              name="tblBuyIn"
+              className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
+              placeholder={t("table.buyInPlaceholder")}
+              type="number"
+              min={1}
+              value={form.buyIn}
+              onInput={(e) => updateFormValue("buyIn", e.currentTarget.value)}
+            />
+            <input
+              name="tblSmallBlind"
+              className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
+              placeholder={t("table.smallBlindPlaceholder")}
+              type="number"
+              min={1}
+              value={form.smallBlind}
+              onInput={(e) =>
+                updateFormValue("smallBlind", e.currentTarget.value)
+              }
+            />
+            <input
+              name="tblBigBlind"
+              className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
+              placeholder={t("table.bigBlindPlaceholder")}
+              type="number"
+              min={1}
+              value={form.bigBlind}
+              onInput={(e) =>
+                updateFormValue("bigBlind", e.currentTarget.value)
+              }
+            />
+            <input
+              name="tblAnte"
+              className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
+              placeholder={t("table.antePlaceholder")}
+              type="number"
+              min={0}
+              value={form.ante}
+              onInput={(e) => updateFormValue("ante", e.currentTarget.value)}
+            />
+          </>
         ) : (
           <input
             name="tblBo"
@@ -177,13 +268,21 @@ const NewTable = (props: {
           name="tblLimitPlayer"
           className="w-full py-1 px-2 border border-gray-500 rounded-sm text-lg placeholder:text-sm"
           placeholder={
-            form.gameType === "phom"
+            props.gameType === "phom"
               ? t("table.phomPlayerLimitPlaceholder")
-              : t("table.playerLimitPlaceholder")
+              : props.gameType === "poker"
+                ? t("table.pokerPlayerLimitPlaceholder")
+                : t("table.playerLimitPlaceholder")
           }
           type="number"
           min={2}
-          max={form.gameType === "phom" ? 4 : 5}
+          max={
+            props.gameType === "phom"
+              ? 4
+              : props.gameType === "poker"
+                ? 9
+                : 5
+          }
           value={form.playerLimit}
           onInput={(e) => updateFormValue("playerLimit", e.currentTarget.value)}
         />

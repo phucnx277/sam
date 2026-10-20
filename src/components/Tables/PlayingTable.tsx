@@ -52,30 +52,57 @@ const PlayingTable = () => {
         <div className="w-full flex justify-between">
           <div className="w-full gap-x-1 flex justify-between px-1 py-1 lg:py-2 rounded-sm border-1 border-gray-400">
             <div className="flex flex-col w-[6rem] lg:w-[8rem] border-r border-r-gray-400">
-              <div
-                className={`flex flex-1 flex-col ${playingTable!.gameType === "phom" || playingTable!.bo > 0 ? "" : "justify-center"} items-center pt-1 gap-1`}
-              >
-                <div className="text-sm">{t("game.prevTurn")}</div>
-                <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
-                  {prevPlayer?.name || "--"}
-                </div>
-              </div>
-              {playingTable!.gameType === "phom" ? (
-                <div className="flex items-center justify-center gap-x-1 text-xs lg:text-sm">
-                  <span>{t("game.multiplier")}</span>
-                  <strong className="text-green-600">
-                    {playingTable!.multiplier ?? 10}
-                  </strong>
-                </div>
-              ) : (
-                playingTable!.bo > 0 && (
-                  <div className="flex items-center justify-center gap-x-1">
-                    <span>{t("game.bo")}</span>
+              {playingTable!.gameType === "poker" ? (
+                <div className="flex flex-1 flex-col items-center justify-center px-1 gap-1 text-center">
+                  <div className="text-xs lg:text-sm font-semibold text-amber-800">
+                    {playingTable!.pokerMode === "tournament"
+                      ? t("table.pokerTournament")
+                      : t("table.pokerCash")}
+                  </div>
+                  <div className="text-xs lg:text-sm">
+                    <span>{t("game.blinds")} </span>
                     <strong className="text-green-600">
-                      {playingTable!.bo}
+                      {playingTable!.smallBlind ?? 5}/
+                      {playingTable!.bigBlind ?? 10}
                     </strong>
                   </div>
-                )
+                  {(playingTable!.ante ?? 0) > 0 && (
+                    <div className="text-xs lg:text-sm">
+                      <span>{t("game.ante")} </span>
+                      <strong className="text-green-600">
+                        {playingTable!.ante}
+                      </strong>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div
+                    className={`flex flex-1 flex-col ${playingTable!.gameType === "phom" || playingTable!.bo > 0 ? "" : "justify-center"} items-center pt-1 gap-1`}
+                  >
+                    <div className="text-sm">{t("game.prevTurn")}</div>
+                    <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
+                      {prevPlayer?.name || "--"}
+                    </div>
+                  </div>
+                  {playingTable!.gameType === "phom" ? (
+                    <div className="flex items-center justify-center gap-x-1 text-xs lg:text-sm">
+                      <span>{t("game.multiplier")}</span>
+                      <strong className="text-green-600">
+                        {playingTable!.multiplier ?? 10}
+                      </strong>
+                    </div>
+                  ) : (
+                    playingTable!.bo > 0 && (
+                      <div className="flex items-center justify-center gap-x-1">
+                        <span>{t("game.bo")}</span>
+                        <strong className="text-green-600">
+                          {playingTable!.bo}
+                        </strong>
+                      </div>
+                    )
+                  )}
+                </>
               )}
             </div>
 
@@ -109,21 +136,36 @@ const PlayingTable = () => {
                       />
                     </div>
                   )
-                : playingTable!.game.playHistory.slice(-2).map((play, idx) => (
-                    <div
-                      className="absolute z-1 flex top-0 left-0 bottom-0 right-0 bg-cyan-50/90"
-                      key={idx}
-                    >
-                      <Cards
-                        cards={play.cards.map((item) => ({
-                          ...item,
-                          folded: false,
-                          selected: false,
-                        }))}
-                        isMe={false}
-                      />
-                    </div>
-                  ))}
+                : playingTable!.gameType === "poker"
+                  ? (playingTable!.game.communityCards?.length ?? 0) > 0 && (
+                      <div className="absolute z-1 flex top-0 left-0 bottom-0 right-0 bg-cyan-50/90">
+                        <Cards
+                          cards={playingTable!.game.communityCards!.map(
+                            (item) => ({
+                              ...item,
+                              folded: false,
+                              selected: false,
+                            }),
+                          )}
+                          isMe={false}
+                        />
+                      </div>
+                    )
+                  : playingTable!.game.playHistory.slice(-2).map((play, idx) => (
+                      <div
+                        className="absolute z-1 flex top-0 left-0 bottom-0 right-0 bg-cyan-50/90"
+                        key={idx}
+                      >
+                        <Cards
+                          cards={play.cards.map((item) => ({
+                            ...item,
+                            folded: false,
+                            selected: false,
+                          }))}
+                          isMe={false}
+                        />
+                      </div>
+                    ))}
               {playingTable!.game.currentPlayerId === localPlayer?.id &&
                 isGameInProgress(playingTable!.game) && (
                   <AutoFadeout ts={playingTable!.game.turnStartTs}>
@@ -133,32 +175,58 @@ const PlayingTable = () => {
                   </AutoFadeout>
                 )}
 
-              <div className="absolute z-3 flex top-0 left-0 bottom-0 right-0">
-                <Actions
-                  selectedCards={
-                    localCards.filter((item) => item.selected) || []
-                  }
-                  gamePlayer={localGamePlayer}
-                  onAction={handleAction}
-                />
-              </div>
+              {playingTable!.gameType !== "poker" && (
+                <div className="absolute z-3 flex top-0 left-0 bottom-0 right-0">
+                  <Actions
+                    selectedCards={
+                      localCards.filter((item) => item.selected) || []
+                    }
+                    gamePlayer={localGamePlayer}
+                    onAction={handleAction}
+                  />
+                </div>
+              )}
             </div>
 
             <div
               className={`flex flex-col ${playingTable!.turnTimeout <= 0 ? "justify-center" : ""} w-[6rem] lg:w-[8rem] border-l border-l-gray-400`}
             >
-              <div className="flex flex-col items-center justify-center pt-1 gap-1">
-                <div className="text-sm">{t("game.currentTurn")}</div>
-                <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
-                  {curPlayer?.name || "--"}
+              {playingTable!.gameType === "poker" ? (
+                <div className="flex flex-1 flex-col items-center justify-center px-1 gap-1 text-center">
+                  <div className="text-xs lg:text-sm">
+                    <span>{t("game.pot")} </span>
+                    <strong className="text-amber-700">
+                      {playingTable!.game.pot ?? 0}
+                    </strong>
+                  </div>
+                  <div className="text-xs lg:text-sm font-semibold text-cyan-900">
+                    {playingTable!.game.pokerStreet
+                      ? t(`game.street.${playingTable!.game.pokerStreet}`)
+                      : "--"}
+                  </div>
+                  {playingTable!.turnTimeout > 0 &&
+                    isGameInProgress(playingTable!.game) && (
+                      <div className="text-2xl lg:text-4xl text-red-600 leading-none">
+                        <TurnTimeRemaining ts={playingTable!.game?.turnEndTs} />
+                      </div>
+                    )}
                 </div>
-              </div>
-              {playingTable!.turnTimeout > 0 && (
-                <div className="flex flex-1 items-center justify-center text-4xl lg:text-7xl text-red-600">
-                  {isGameInProgress(playingTable!.game) && (
-                    <TurnTimeRemaining ts={playingTable!.game?.turnEndTs} />
+              ) : (
+                <>
+                  <div className="flex flex-col items-center justify-center pt-1 gap-1">
+                    <div className="text-sm">{t("game.currentTurn")}</div>
+                    <div className="w-full text-center px-1 font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
+                      {curPlayer?.name || "--"}
+                    </div>
+                  </div>
+                  {playingTable!.turnTimeout > 0 && (
+                    <div className="flex flex-1 items-center justify-center text-4xl lg:text-7xl text-red-600">
+                      {isGameInProgress(playingTable!.game) && (
+                        <TurnTimeRemaining ts={playingTable!.game?.turnEndTs} />
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </div>
           </div>
@@ -166,7 +234,11 @@ const PlayingTable = () => {
       </div>
 
       <div className="w-full flex flex-4 lg:flex-5 justify-center">
-        <GamePlayer key={localGamePlayer.id} gamePlayer={localGamePlayer} />
+        <GamePlayer
+          key={localGamePlayer.id}
+          gamePlayer={localGamePlayer}
+          onAction={handleAction}
+        />
       </div>
     </div>
   );

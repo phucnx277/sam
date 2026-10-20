@@ -1,9 +1,23 @@
 type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
 type Suit = "H" | "D" | "C" | "S"; // Hearts, Diamonds, Clubs, Spades
 type SuitColor = "black" | "red";
-type GameType = "sam" | "phom";
+type GameType = "sam" | "phom" | "poker";
 type PhomPhase = "take" | "meld" | "discard";
 type PhomWinType = "points" | "u" | "uTron" | "uKhan" | "uDen" | null;
+type PokerMode = "cash" | "tournament";
+type PokerStreet = "preflop" | "flop" | "turn" | "river" | "showdown";
+type PokerHandCategory =
+  | "highCard"
+  | "onePair"
+  | "twoPair"
+  | "threeOfAKind"
+  | "straight"
+  | "flush"
+  | "fullHouse"
+  | "fourOfAKind"
+  | "straightFlush"
+  | "royalFlush";
+type PokerWinType = "fold" | "showdown" | null;
 type Card = {
   rank: Rank;
   suit: Suit;
@@ -40,9 +54,24 @@ type GamePlayer = Player & {
   eatenCount?: number;
   isMom?: boolean;
   score?: number;
+  stack?: number;
+  buyIn?: number;
+  streetBet?: number;
+  totalBet?: number;
+  foldedHand?: boolean;
+  allIn?: boolean;
+  actedOnStreet?: boolean;
+  pokerHandRank?: PokerHandCategory;
+  bestHandCards?: Card[];
+  handWonChips?: number;
 };
 
-type TablePlayer = Player & { chipCount: number; isRemoved?: boolean };
+type TablePlayer = Player & {
+  chipCount: number;
+  isRemoved?: boolean;
+  stack?: number;
+  buyIn?: number;
+};
 
 type PlayerAction =
   | "startGame"
@@ -58,6 +87,12 @@ type PlayerAction =
   | "meld"
   | "send"
   | "u"
+  | "fold"
+  | "check"
+  | "call"
+  | "raise"
+  | "updatePokerConfig"
+  | "addPokerChips"
   | "removePlayers"
   | "transferHost"
   | "resetSession";
@@ -98,6 +133,16 @@ type Game = {
   lastDiscardBy?: string | null;
   lastDiscardIsChot?: boolean;
   phomWinType?: PhomWinType;
+  pokerStreet?: PokerStreet;
+  communityCards?: Card[];
+  pot?: number;
+  currentBet?: number;
+  minRaise?: number;
+  dealerId?: string | null;
+  smallBlindId?: string | null;
+  bigBlindId?: string | null;
+  pokerWinType?: PokerWinType;
+  winnerIds?: string[];
 };
 
 type Table = {
@@ -115,4 +160,9 @@ type Table = {
   players: TablePlayer[];
   gameType?: GameType;
   multiplier?: number;
+  pokerMode?: PokerMode;
+  buyIn?: number;
+  smallBlind?: number;
+  bigBlind?: number;
+  ante?: number;
 };
